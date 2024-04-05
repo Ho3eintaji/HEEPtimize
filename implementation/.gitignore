@@ -1,0 +1,4 @@
+# PnR outputs
+pnr/last_output
+lvs/*.gds.gz
+netlist_lvs*.v

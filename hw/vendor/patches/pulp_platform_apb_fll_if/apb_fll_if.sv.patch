@@ -1,0 +1,15 @@
+diff --git a/src/apb_fll_if.sv b/src/apb_fll_if.sv
+index 8d36e0a..9418230 100644
+--- a/src/apb_fll_if.sv
++++ b/src/apb_fll_if.sv
+@@ -110,8 +110,8 @@ module apb_fll_if
+             r_fll2_lock_sync  <= 1'b0;
+             r_fll3_lock_sync0 <= 1'b0;
+             r_fll3_lock_sync  <= 1'b0;
+-            r_bbgen_lock_sync0 <= 1'b0;
+-            r_bbgen_lock_sync  <= 1'b0;
++            r_bbgen_lock_sync0 <= 4'h0;
++            r_bbgen_lock_sync  <= 4'h0;
+             r_bbgen_ack_sync0 <= 1'b0;
+             r_bbgen_ack_sync <= 1'b0;
+             state           <= IDLE;

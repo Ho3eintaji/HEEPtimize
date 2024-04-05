@@ -1,0 +1,156 @@
+// Copyright EPFL contributors.
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+{ name: "fll",
+  clock_primary: "clk_i",
+  bus_interfaces: [
+    { protocol: "reg_iface", direction: "device" }
+  ],
+  regwidth: "32",
+  registers: [
+    { name:     "STATUS",
+      desc:     "FLL 1 frequency.",
+      swaccess: "ro",
+      hwaccess: "hro",
+      fields: [
+        { bits: "15:0", name: "MULT_FACTOR", desc: "Current multiplication factor (i.e., current frequency)." }
+      ]
+    },
+    { name:     "CONFIG_1",
+      desc:     "FLL 1 Configuration register 1.",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits: "31", name: "OP_MODE", desc: "Operation mode select (0=stand-alone, 1=normal)." }
+        { bits: "30", name: "LOCK_ENABLE", desc: "FLL output gated by LOCK signal (active high)." }
+        { bits: "29:26", name: "CLK_DIV", desc: "FLL output clock divider setting (default: divide-by-4)." }
+        { bits: "25:16", name: "DCO_CODE_STA", desc: "DCO input code for stand-alone mode." }
+        { bits: "15:0", name: "CLK_MULT", desc: "Target clock multiplication factor for normal mode." }
+      ]
+    },
+    { name:     "CONFIG_2",
+      desc:     "FLL 1 Configuration register 2.",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits: "31", name: "DITHERING_ENABLE", desc: "Dithering enable (active high)." }
+        { bits: "30", name: "OPEN_LOOP_ENABLE", desc: "Open-loop-when-locked (active high)." }
+        { bits: "29", name: "CLK_STA_MODE", desc: "Config clock select in STA mode (0=DCOCLK, 1=REFCLK)." }
+        { bits: "27:16", name: "LOCK_TOLERANCE", desc: "Lock tolerance: margin around the target multiplication factor within which the output clock is considered stable." }
+        { bits: "15:10", name: "ASSERT_CYCLES", desc: "In normal mode: no. of stable REFCLK cycles until LOCK assert. In stand-alone mode: upper 6-bit of LOCK assert counter target." }
+        { bits: "9:4", name: "DEASSERT_CYCLES", desc: "In normal mode: no. of unstable REFCLK cycles until LOCK deassert. In stand-alone mode: lower 6-bit of LOCK assert counter target." }
+        { bits: "3:0", name: "LOOP_GAIN", desc: "FLL loop gain setting (default: 2^(−8) = 1/256)." }
+      ]
+    },
+    { name:     "INTEGRATOR",
+      desc:     "FLL 1 Integrator register.",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits: "25:16", name: "INT", desc: "Integrator state: integer part (DCO input bits)." }
+        // !!! FLL documentation says 15:9, but RTL is 15:6 !!!
+        { bits: "15:6", name: "FRAC", desc: "Integrator state: fractional part (dither unit input)." }
+      ]
+    },
+    { name:     "UNUSED0",
+      desc:     "FLL 2 frequency.",
+      swaccess: "ro",
+      hwaccess: "hro",
+      fields: [
+        { bits: "31:0", name: "UNUSED", desc: "Unused." }
+      ]
+    },
+    { name:     "UNUSED1",
+      desc:     "FLL 2 Configuration register 1.",
+      swaccess: "ro",
+      hwaccess: "hro",
+      fields: [
+        { bits: "31:0", name: "UNUSED", desc: "Unused." }
+      ]
+    },
+    { name:     "UNUSED2",
+      desc:     "FLL 2 Configuration register 2.",
+      swaccess: "ro",
+      hwaccess: "hro",
+      fields: [
+        { bits: "31:0", name: "UNUSED", desc: "Unused." }
+      ]
+    },
+    { name:     "UNUSED3",
+      desc:     "FLL 2 Integrator register",
+      swaccess: "ro",
+      hwaccess: "hro",
+      fields: [
+        { bits: "31:0", name: "UNUSED", desc: "Unused." }
+      ]
+    },
+    { name:     "UNUSED4",
+      desc:     "FLL 3 frequency.",
+      swaccess: "ro",
+      hwaccess: "hro",
+      fields: [
+        { bits: "31:0", name: "UNUSED", desc: "Unused." }
+      ]
+    },
+    { name:     "UNUSED5",
+      desc:     "FLL 3 Configuration register 1.",
+      swaccess: "ro",
+      hwaccess: "hro",
+      fields: [
+        { bits: "31:0", name: "UNUSED", desc: "Unused." }
+      ]
+    },
+    { name:     "UNUSED6",
+      desc:     "FLL 3 Configuration register 2.",
+      swaccess: "ro",
+      hwaccess: "hro",
+      fields: [
+        { bits: "31:0", name: "UNUSED", desc: "Unused." }
+      ]
+    },
+    { name:     "UNUSED7",
+      desc:     "FLL 3 Integrator register",
+      swaccess: "ro",
+      hwaccess: "hro",
+      fields: [
+        { bits: "31:0", name: "UNUSED", desc: "Unused." }
+      ]
+    },
+    { name:     "UNUSED8",
+      desc:     "Unused",
+      swaccess: "ro",
+      hwaccess: "hro",
+      fields: [
+        { bits: "31:0", name: "UNUSED", desc: "Unused." }
+      ]
+    },
+    { name:     "UNUSED9",
+      desc:     "Unused",
+      swaccess: "ro",
+      hwaccess: "hro",
+      fields: [
+        { bits: "31:0", name: "UNUSED", desc: "Unused." }
+      ]
+    },
+    { name:     "UNUSED10",
+      desc:     "Unused",
+      swaccess: "ro",
+      hwaccess: "hro",
+      fields: [
+        { bits: "31:0", name: "UNUSED", desc: "Unused." }
+      ]
+    },
+    { name:     "LOCK_SIGNALS",
+      desc:     "FLLs lock signals.",
+      swaccess: "ro",
+      hwaccess: "hro",
+      fields: [
+        { bits: "0", name: "FLL_1", desc: "FLL 1 lock signal." }
+        { bits: "1", name: "FLL_2", desc: "Unused." }
+        { bits: "2", name: "FLL_3", desc: "Unused." }
+      ]
+    },
+   ]
+}
+

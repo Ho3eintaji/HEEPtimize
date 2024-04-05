@@ -1,0 +1,31 @@
+CAPI=2:
+
+# Copyright 2022 EPFL and Politecnico di Torino.
+# Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+#
+# File: mem-pw-tsmc65.core
+# Author: Michele Caon
+# Date: 30/05/2023
+# Description: Full-custom memory power switches for TSMC 65nm
+
+# Based on mem_power_switches.core from HEEPpocrates.
+
+name: "epfl:heeperator:mem-pw-tsmc65:0.1.0"
+description: "Full-custom memory power switches for TSMC65"
+
+filesets:
+  # Simulation model
+  rtl:
+    files:
+    - mem-power-switches/verilog/switch_cell_mem.sv
+    file_type: systemVerilogSource
+
+targets:
+  default:
+    filesets:
+      - target_sim ? (rtl)
+      - target_sim_rtl-sim_tsmc65 ? (rtl)
+      - target_sim_postsynthesis ? (rtl)
+      - target_sim_postlayout ? (rtl)
+      - target_sim_postlayout_timing ? (rtl)

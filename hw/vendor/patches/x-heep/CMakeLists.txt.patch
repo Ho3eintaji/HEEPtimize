@@ -1,0 +1,14 @@
+diff --git a/sw/CMakeLists.txt b/sw/CMakeLists.txt
+index a90f9fb..6918492 100644
+--- a/sw/CMakeLists.txt
++++ b/sw/CMakeLists.txt
+@@ -305,7 +305,7 @@ endif()
+ # specify the C standard
+ set(COMPILER_LINKER_FLAGS "\
+   -march=${CMAKE_SYSTEM_PROCESSOR} \
+-  -w -Os -g  -nostdlib  \
++  -w -O2 -g  -nostdlib  \
+   -ffunction-sections \
+   -DHOST_BUILD \
+   -D${CRT_TYPE} \
+~

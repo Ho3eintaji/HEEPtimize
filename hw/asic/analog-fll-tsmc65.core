@@ -1,0 +1,37 @@
+CAPI=2:
+
+# Copyright 2022 EPFL and Politecnico di Torino.
+# Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+#
+# File: analog-fll-tsmc65
+# Author: Michele Caon
+# Date: 30/05/2023
+# Description: TSMC 65nm analog FLL model
+
+# Based on tsmc65_analog_fll.core from HEEPpocrates.
+
+name: "epfl:heeperator:analog-fll-tsmc65:0.1.0"
+description: "TSMC 65nm FLL model"
+
+filesets:
+  rtl:
+    files:
+    - fll/rtl/behavioral/tsmc65_FLL_DCO_model.tc.vhd
+    - fll/rtl/behavioral/tsmc65_FLL_model.vhd
+    file_type: vhdlSource
+
+  rtl-pg:
+    files:
+    - fll/rtl/behavioral/tsmc65_FLL_DCO_model.tc.vhd
+    - fll/tsmc65_FLL_model.pg.patched.vhd
+    file_type: vhdlSource
+
+targets:
+  default:
+    filesets:
+    - target_sim? (rtl)
+    - target_sim_rtl_tsmc65? (rtl)
+    - target_sim_postsynthesis? (rtl)
+    - target_sim_postlayout? (rtl-pg)
+    - target_sim_postlayout_timing? (rtl-pg)

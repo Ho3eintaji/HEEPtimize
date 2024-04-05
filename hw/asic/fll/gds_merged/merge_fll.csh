@@ -1,0 +1,3 @@
+#!/bin/tcsh
+setenv MGLS_LICENSE_FILE 1717@ielsrv01.epfl.ch
+/softs/mentor/calibre/2022.2/bin/calibredrv -a layout filemerge -out tsmc65_FLL.gds -in ../gds/tsmc65_FLL.NOstd.gds  -in /dkits/arm/tsmc/cln65lp/sc8_base_hvt/r0p0/gds2/sc8_cln65lp_base_hvt.gds2 -in /dkits/arm/tsmc/cln65lp/sc8_eco_rvt/r0p0/gds2/sc8_cln65lp_eco_rvt.gds2  -in /dkits/arm/tsmc/cln65lp/sc8_pmk_rvt_hvt/r0p0/gds2/sc8_cln65lp_pmk_rvt_hvt.gds2 -in /dkits/arm/tsmc/cln65lp/sc8_base_lvt/r0p0/gds2/sc8_cln65lp_base_lvt.gds2 -in /dkits/arm/tsmc/cln65lp/sc8_pmk_hvt/r0p0/gds2/sc8_cln65lp_pmk_hvt.gds2  -in /dkits/arm/tsmc/cln65lp/sc8_base_rvt/r0p0/gds2/sc8_cln65lp_base_rvt.gds2  -in /dkits/arm/tsmc/cln65lp/sc8_pmk_lvt_hvt/r0p0/gds2/sc8_cln65lp_pmk_lvt_hvt.gds2 

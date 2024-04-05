@@ -1,0 +1,58 @@
+CAPI=2:
+
+# Copyright 2022 EPFL and Politecnico di Torino.
+# Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+#
+# File: fll-tsmc65
+# Author: Michele Caon
+# Date: 30/05/2023
+# Description: TSMC 65nm digital FLL model
+
+# Based on tsmc65_fll.core from HEEPpocrates.
+
+name: "epfl:heeperator:digital-fll-tsmc65:0.1.0"
+description: "TSMC65 digital FLL model"
+
+filesets:
+  rtl:
+    files:
+    - fll/rtl/FLL_digital/FLLPkg.vhd
+    - fll/rtl/FLL_digital/FLL_clk_divider.vhd
+    - fll/rtl/FLL_digital/FLL_clk_period_quantizer.vhd
+    - fll/rtl/FLL_digital/FLL_digital.vhd
+    - fll/rtl/FLL_digital/FLL_dither_pattern_gen.vhd
+    - fll/rtl/FLL_digital/FLL_glitchfree_clkdiv.vhd
+    - fll/rtl/FLL_digital/FLL_glitchfree_clkmux.vhd
+    - fll/rtl/FLL_digital/FLL_loop_filter.vhd
+    - fll/rtl/FLL_digital/FLL_reg.vhd
+    - fll/rtl/FLL_digital/FLL_settling_monitor.vhd
+    - fll/rtl/FLL_digital/FLL_synchroedge.vhd
+    - fll/rtl/FLL_digital/FLL_zerodelta.vhd
+    file_type: vhdlSource
+
+  rtl-postsyn:
+    files:
+    - fll/rtl/FLL_digital/FLL_clock_gated.rtl.vhd
+    - fll/rtl/FLL_digital/FLL_mux.rtl.vhd
+    file_type: vhdlSource
+
+  rtl-postpnr:
+    files:
+    - fll/rtl/postlayout/FLL_digital.v
+    file_type: verilogSource
+
+
+targets:
+  default:
+    filesets:
+    - target_sim? (rtl)
+    - target_sim? (rtl-postsyn)
+    - target_sim_rtl_tsmc65? (rtl)
+    - target_sim_rtl_tsmc65? (rtl-postsyn)
+    - target_sim_postsynthesis? (rtl)
+    - target_sim_postsynthesis? (rtl-postsyn)
+    - target_sim_postlayout? (rtl-postpnr)
+    - target_sim_postlayout? (rtl-postsyn)
+    - target_sim_postlayout_timing? (rtl-postpnr)
+    - target_sim_postlayout_timing? (rtl-postsyn)

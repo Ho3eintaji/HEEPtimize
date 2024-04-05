@@ -1,0 +1,16 @@
+diff --git a/hw/vendor/x-heep/hw/fpga/constraints/pynq-z2/pin_assign.xdc b/hw/vendor/x-heep/hw/fpga/constraints/pynq-z2/pin_assign.xdc
+index c01e2fb..377ecc6 100644
+--- a/hw/fpga/constraints/pynq-z2/pin_assign.xdc
++++ b/hw/fpga/constraints/pynq-z2/pin_assign.xdc
+@@ -5,9 +5,9 @@
+ set_property -dict {PACKAGE_PIN H16 IOSTANDARD LVCMOS33} [get_ports clk_i]
+ set_property -dict {PACKAGE_PIN L19 IOSTANDARD LVCMOS33} [get_ports rst_i]
+ set_property -dict {PACKAGE_PIN M14 IOSTANDARD LVCMOS33} [get_ports rst_led]
+-set_property -dict {PACKAGE_PIN N16 IOSTANDARD LVCMOS33} [get_ports clk_led]
++set_property -dict {PACKAGE_PIN R14 IOSTANDARD LVCMOS33} [get_ports clk_led]
+ set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports clk_out]
+-set_property -dict {PACKAGE_PIN R14 IOSTANDARD LVCMOS33} [get_ports exit_valid_o]
++set_property -dict {PACKAGE_PIN N16 IOSTANDARD LVCMOS33} [get_ports exit_valid_o]
+ set_property -dict {PACKAGE_PIN P14 IOSTANDARD LVCMOS33} [get_ports exit_value_o]
+ set_property -dict {PACKAGE_PIN M19 IOSTANDARD LVCMOS33} [get_ports execute_from_flash_i]
+ set_property -dict {PACKAGE_PIN M20 IOSTANDARD LVCMOS33} [get_ports boot_select_i]

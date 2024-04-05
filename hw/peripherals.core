@@ -1,0 +1,103 @@
+CAPI=2:
+
+# Copyright 2022 EPFL and Politecnico di Torino.
+# Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+#
+# File: peripherals.core
+# Author: Michele Caon
+# Date: 07/06/2023
+# Description: HEEPerator external peripherals
+
+name: epfl:heeperator:peripherals:0.1.0
+description: HEEPerator external peripherals
+
+filesets:
+  # RTL source files
+  rtl:
+    depend:
+    - epfl:heeperator:packages
+    - epfl:heeperator:control-reg
+    files:
+    - ip/heeperator-peripherals/fll_subsystem.sv
+    - ip/heeperator-peripherals/heeperator_peripherals.sv
+    - ip/heeperator-peripherals/nm_caesar_wrapper.sv
+    - ip/heeperator-peripherals/nm_carus_wrapper.sv
+    file_type: systemVerilogSource
+
+  rtl-vendor:
+    depend:
+    - epfl:caesar:packages
+    - epfl:carus:packages
+    - x-heep::packages
+    files:
+    - vendor/pulp_platform_apb_fll_if/src/apb_fll_if.sv
+    file_type: systemVerilogSource
+
+  # RTL simulation models
+  rtl-sim:
+    depend:
+    - pulp-platform.org::tech_cells_generic
+    files:
+    - simulation/fll_wrapper.sv
+    file_type: systemVerilogSource
+
+  # Post-synthesis simulation model
+  rtl-asic:
+    files:
+    - asic/fll/fll_wrapper.sv
+    file_type: systemVerilogSource
+
+  # Verilator waiver file
+  verilator-waivers:
+    files:
+    - misc/peripherals-waivers.vlt
+    file_type: vlt
+
+targets:
+  default: &default
+    filesets:
+    - rtl
+    - "!target_format ? (rtl-vendor)"
+    - tool_verilator ? (rtl-sim)
+    - tool_verilator ? (verilator-waivers)
+    - tool_modelsim ? (rtl-asic)
+    - target_asic_synthesis ? (rtl-asic)
+    toplevel: heeperator_peripherals
+
+  # Format using Verible
+  format:
+    <<: *default
+    description: Format source files using verible-verilog-format
+    default_tool: veribleformat
+    filesets_append:
+    - rtl-sim
+    - rtl-asic
+    tools:
+      veribleformat:
+        verible_format_args:
+        - '--assignment_statement_alignment=align'
+        - '--case_items_alignment=align'
+        - '--formal_parameters_indentation=indent'
+        - '--named_parameter_alignment=align'
+        - '--named_parameter_indentation=indent'
+        - '--named_port_alignment=align'
+        - '--named_port_indentation=indent'
+        - '--port_declarations_alignment=align'
+        - '--port_declarations_indentation=indent'
+        - '--assignment_statement_alignment=align'
+        - '--module_net_variable_alignment=align'
+        - '--inplace'
+
+  # Static analysis
+  lint:
+    <<: *default
+    description: Perform static analysis using Verible
+    default_tool: veriblelint
+    tools:
+      veriblelint:
+        ruleset: default
+        verible_lint_args:
+        - '--waiver_files=../../../hw/misc/verible-lint.waiver'
+        rules:
+        - 'line-length=length:120'

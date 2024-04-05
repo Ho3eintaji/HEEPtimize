@@ -1,0 +1,45 @@
+// Copyright 2022 EPFL and Politecnico di Torino.
+// Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+//
+// File: heeperator_cgf.hjson
+// Author: Michele Caon
+// Date: 13/05/2023
+// Description: Configuration file for HEEPerator
+
+{
+    // CORE-V-MINI-MCU CPU features
+    cpu_features: {
+        corev_pulp: true,
+        corev_xif: false,
+        fpu: false,
+        riscv_zfinx: false,
+    },
+
+    // Slaves memory map
+    ext_xbar_masters: 0,
+    ext_xbar_slaves: {
+        caesar: {
+            offset: "0x00000000",
+            length: "0x00008000",
+            num:    1,
+        },
+        carus: {
+            offset: "0x00100000",
+            length: "0x00008000",
+            num:    1,
+        },
+    },
+
+    // External peripherals
+    ext_periph: {
+        fll: {
+            offset: "0x0000000",
+            length: "0x0001000",
+        },
+        heeperator_ctrl: {
+            offset: "0x00001000",
+            length: "0x00001000",
+        },
+    }
+}

@@ -1,0 +1,22 @@
+//  Runset file generated on Tue Nov 22 12:00:57 2022
+//  by Calibre Interactive v2022.2_38.20    Thu Jun 2 16:14:38 PDT 2022
+//
+//      *** PLEASE DO NOT MODIFY THIS FILE ***
+//
+//
+
+drc.rulesFile.value = "/scrap/users/schiavon/gitdir/dev/HEEPpocrates/implementation/drc/rules_to_use"
+drc.layout.layoutFile.value = "heepocrates.calibre.db"
+cmn.layout.defFiles.value = [ "heepocrates.def" ]
+drc.layout.topCell.value = "heepocrates_top"
+drc.drcdb.resultsFile.value = "heepocrates.drc.results"
+drc.reports.drcSummaryReport.value = "heepocrates.drc.summary"
+drc.rhdb.fileName.value = "heepocrates.rhdb"
+drc.dfmDefaults.resultsFile.value = "heepocrates.dfmDefaults.db"
+
+cmn.turboCommand.runHow.value = "multi"
+cmn.turboCommand.numProcessors.value = 64
+cmn.turboCommand.numLithoProcessors.value = 64
+cmn.remoteEnv.remoteMGCHOME_aoi.value = "/softs/mentor/calibre/2022.2"
+cmn.remoteEnv.remoteMGCHOME_aoj.value = "/softs/mentor/calibre/2022.2"
+cmn.remoteEnv.remoteMGCHOME_aok.value = "/softs/mentor/calibre/2022.2"

@@ -1,0 +1,593 @@
+CAPI=2:
+
+# Copyright 2022 EPFL and Politecnico di Torino.
+# Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+#
+# File: heeperator.core
+# Author: Michele Caon
+# Date: 07/06/2023
+# Description: Top-level module for HEEPerator
+
+name: epfl:heeperator:heeperator:0.3.0
+description: Top-level module for HEEPerator
+
+filesets:
+  # Generic RTL source files
+  rtl:
+    depend:
+    - epfl:heeperator:packages
+    - epfl:heeperator:control-reg
+    - epfl:heeperator:bus
+    - epfl:heeperator:peripherals
+    - epfl:heeperator:pad-ring
+    files:
+    - hw/ip/heeperator_top.sv
+    file_type: systemVerilogSource
+
+  # XIlinx FPGA implementation files
+  rtl-fpga:
+    files:
+    - hw/fpga/xilinx/carus_sram_wrapper.sv
+    - hw/fpga/xilinx/carus_clk_gate_wrapper.sv
+    - hw/fpga/xilinx/caesar_sram_wrapper.sv
+    - hw/fpga/xilinx/caesar_clk_gate_wrapper.sv
+    file_type: systemVerilogSource
+  
+  fpga-top:
+    files:
+    - hw/fpga/xilinx/xilinx_heeperator_top_wrapper.sv
+    file_type: systemVerilogSource
+
+  # NM Caesar
+  nm_caesar_sim:
+    depend:
+    - epfl:caesar:nm-caesar
+
+  nm_caesar_postsynthesis-netlist:
+    depend:
+    - epfl:heeperator:prim-tsmc65:0.1.0
+    files:
+    - hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/verilog/NMCaesar_top_pared.v
+    file_type: verilogSource
+
+  nm_caesar_postlayout-netlist:
+    depend:
+    - epfl:heeperator:prim-tsmc65:0.1.0
+    files:
+    - hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/verilog/NMCaesar_top_pnr.v
+    file_type: verilogSource
+
+  # NM Carus
+  nm_carus_sim:
+    depend:
+    - epfl:carus:nm-carus
+
+  nm_carus_postsynthesis-netlist:
+    depend:
+    - epfl:heeperator:prim-tsmc65:0.1.0
+    files:
+    - hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/verilog/NMCarus_top_pared.v
+    file_type: verilogSource
+
+  nm_carus_postlayout-netlist:
+    depend:
+    - epfl:heeperator:prim-tsmc65:0.1.0
+    files:
+    - hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/verilog/NMCarus_top_pnr.v
+    file_type: verilogSource
+
+  # FLL
+  fll_simulation:
+    depend:
+    - epfl:heeperator:digital-fll-tsmc65:0.1.0
+    - epfl:heeperator:analog-fll-tsmc65
+
+  # RTL simulation models
+  rtl-sim:
+    files:
+    - hw/simulation/switch_cell_mem.sv
+    file_type: systemVerilogSource
+
+  # X-HEEP RTL (separated to avoid Verible errors)
+  rtl-x-heep:
+    depend:
+    - openhwgroup.org:systems:core-v-mini-mcu
+    - x-heep::packages
+    - x-heep:ip:pad_control
+
+  # RTL that depends on TSMC65
+  rtl-tsmc65:
+    depend:
+    - epfl:heeperator:prim-tsmc65:0.1.0
+
+  # Post-synthesis simulation models
+  rtl-postsyn:
+    depend:
+    - epfl:heeperator:mem-pw-tsmc65
+
+  # postsynthesis netlist
+  postsynthesis-netlist:
+    depend:
+    - epfl:heeperator:packages
+    - epfl:heeperator:prim-tsmc65:0.1.0
+    files:
+    - implementation/synthesis/last_output/netlist.v
+    file_type: verilogSource
+
+  # postlayout netlist
+  postlayout-netlist:
+    depend:
+    - epfl:heeperator:packages
+    - epfl:heeperator:prim-tsmc65:0.1.0
+    files:
+    - build/innovus_latest/artefacts/export/heeperator_pg.v
+    file_type: verilogSource
+
+  # RTL testbench system
+  tb-system:
+    files:
+    - tb/tb_system.sv
+    - tb/tb_util.svh: {is_include_file: true}
+    - tb/nmc_tb_util.svh: {is_include_file: true}
+    file_type: systemVerilogSource
+
+  # RTL testbench system vendored modules
+  # NOTE: defined separately to avoid formatting
+  tb-system-vendor:
+    depend:
+    - lowrisc:dv_dpi:uartdpi
+    - example:ip:gpio_cnt
+
+  # Verilator C++ testbench
+  tb-verilator:
+    files:
+    - tb/verilator/tb_macros.cpp
+    - tb/verilator/tb_components.cpp
+    - tb/verilator/heeperator_tb.cpp
+    - tb/verilator/tb_components.hh: {is_include_file: true}
+    - tb/verilator/tb_macros.hh: {is_include_file: true}
+    file_type: cppSource
+
+  # Modelsim/VCS testbench
+  # NOTE: defined separately to avoid formatting
+  tb-others:
+    files:
+    - tb/tb_top.sv
+    file_type: systemVerilogSource
+
+  # Modelsim/VCS testbench vendored modules
+  tb-others-vendor:
+    depend:
+    - ::spiflash:0
+
+  # Verilator waviver files
+  verilator-waivers:
+    files:
+    - hw/misc/heeperator-waivers.vlt
+    - hw/misc/heep-waivers.vlt
+    - tb/misc/tb-waivers.vlt
+    file_type: vlt
+
+  # Scripts for hooks
+  pre_build_uartdpi:
+    files:
+    - scripts/sim/compile_uart_dpi.sh
+    file_type: user
+
+  # FPGA IPs
+  ip-fpga:
+    files:
+    - hw/fpga/xilinx/scripts/xilinx_generate_clk_wizard.tcl: {file_type: tclSource}
+    - hw/fpga/xilinx/scripts/generate_sram_8.tcl: {file_type: tclSource}
+    - hw/fpga/xilinx/scripts/generate_sram_16.tcl: {file_type: tclSource}
+    - hw/vendor/x-heep/hw/fpga/scripts/generate_sram.tcl:  { file_type: tclSource }
+    - hw/vendor/x-heep/hw/fpga/sram_wrapper.sv:  { file_type: systemVerilogSource }
+    - hw/vendor/x-heep/hw/fpga/prim_xilinx_clk.sv:  { file_type: systemVerilogSource }
+    - hw/vendor/x-heep/hw/fpga/cv32e40p_xilinx_clock_gate.sv:  { file_type: systemVerilogSource }
+    - hw/vendor/x-heep/hw/fpga/cv32e40x_xilinx_clock_gate.sv:  { file_type: systemVerilogSource }
+    - hw/vendor/x-heep/hw/fpga/cve2_xilinx_clock_gate.sv:  { file_type: systemVerilogSource }
+    - hw/vendor/x-heep/hw/fpga/cv32e40px_xilinx_clock_gate.sv:  { file_type: systemVerilogSource }
+    - hw/vendor/x-heep/hw/fpga/pad_cell_input_xilinx.sv:  { file_type: systemVerilogSource }
+    - hw/vendor/x-heep/hw/fpga/pad_cell_output_xilinx.sv:  { file_type: systemVerilogSource }
+    - hw/vendor/x-heep/hw/fpga/pad_cell_inout_xilinx.sv:  { file_type: systemVerilogSource }
+    - hw/vendor/x-heep/hw/fpga/pad_cell_bypass_input_xilinx.sv:  { file_type: systemVerilogSource }
+    - hw/vendor/x-heep/hw/fpga/pad_cell_bypass_output_xilinx.sv:  { file_type: systemVerilogSource }
+
+  # FPGA constraints
+  xdc-fpga-pynq-z2:
+    files:
+    - hw/vendor/x-heep/hw/fpga/constraints/pynq-z2/pin_assign.xdc
+    - hw/vendor/x-heep/hw/fpga/constraints/pynq-z2/constraints.xdc
+    file_type: xdc
+
+scripts:
+  # Create log directory
+  prepare_dirs:
+    cmd:
+    - mkdir
+    - -p
+    - logs
+
+  # Copy waveforms
+  copy_waves:
+    cmd:
+    - bash
+    - ../../../scripts/sim/copy-waves.sh
+    - logs/waves.fst
+    - logs/waves-0.vcd
+
+  # Copy UART log
+  copy_uart:
+    cmd:
+    - cp
+    - uart.log
+    - ../../sim-common/
+
+  # QuestaSim build uartdip
+  pre_build_uartdpi:
+    cmd:
+    - bash
+    - ../../../scripts/sim/compile_uart_dpi.sh
+
+  pre_patch_modelsim_Makefile:
+    cmd:
+    - python
+    - ../../../hw/vendor/x-heep/scripts/sim/modelsim/patch_modelsim_Makefile.py
+
+targets:
+  default: &default
+    filesets:
+    - rtl
+    - rtl-x-heep
+    toplevel: heeperator_top
+
+  # Synthesis
+  asic_synthesis:
+    <<: *default
+    default_tool: design_compiler
+    description: Design Compiler Script
+    parameters:
+    - SYNTHESIS=true
+    - PRIM_DEFAULT_IMPL=prim_pkg::tsmc65 //not really needed as today
+    filesets_append:
+    - rtl-tsmc65
+    toplevel: [heeperator_top]
+    tools:
+      design_compiler:
+        script_dir:
+        - ../../../implementation/synthesis/dc_shell
+        report_dir:
+        - report
+        dc_script:
+        - dc_script.tcl
+
+  # FPGA synthesis
+  pynq-z2:
+    <<: *default
+    default_tool: vivado
+    description: TUL Pynq-Z2 Board
+    filesets_append:
+    - rtl-fpga
+    - nm_caesar_sim
+    - nm_carus_sim
+    - fpga-top
+    - ip-fpga
+    - xdc-fpga-pynq-z2
+    parameters:
+    - SYNTHESIS=true
+    - FPGA=true
+    tools:
+      vivado:
+        part: xc7z020clg400-1
+    toplevel: [xilinx_heeperator_top_wrapper]
+
+  # RTL simulation
+  sim: &sim
+    <<: *default
+    description: Simulate the design using Verilator
+    default_tool: verilator
+    filesets_append:
+    - rtl-sim
+    - tb-system
+    - tb-system-vendor
+    - nm_caesar_sim
+    - nm_carus_sim
+    - "!tool_verilator ? (tb-others)"
+    - "!tool_verilator ? (tb-others-vendor)"
+    - tool_verilator ? (tb-verilator)
+    - tool_verilator ? (verilator-waivers)
+    - tool_modelsim? (pre_build_uartdpi)
+    - tool_modelsim ? (fll_simulation)
+    toplevel:
+    - tool_verilator ? (tb_system)
+    - "!tool_verilator ? (tb_top)"
+    hooks:
+      pre_build:
+      - tool_modelsim? (pre_build_uartdpi)
+      - tool_modelsim? (pre_patch_modelsim_Makefile)
+      pre_run:
+      - prepare_dirs
+      post_run:
+      - copy_waves
+      - copy_uart
+    parameters:
+    - boot_mode
+    - firmware
+    - max_cycles
+    - "!tool_verilator ? (verbose)"
+    - "!tool_verilator ? (vcd_mode)"
+    - "!tool_verilator ? (bypass_fll_opt)"
+    - tool_verilator ? (log_level)
+    - tool_verilator ? (trace)
+    - tool_verilator ? (no_err)
+    - RTL_SIMULATION=true
+    tools:
+      modelsim:
+        vlog_options:
+        - -override_timescale 1ns/1ps
+        - -suppress vlog-2577
+        - -suppress vlog-2583
+        - -pedanticerrors
+        - -define MODELSIM
+        vsim_options:
+        - -suppress 3111 # suppress error on passing string variables to $fdumpvars, that is apparently supported instead
+        - -sv_lib ../../sw/sim/uartdpi
+        - -voptargs=+acc=npr
+        - "-64"
+      verilator:
+        mode: cc
+        verilator_options:
+        - '--cc'
+        - '--assert'
+        - '--trace'
+        - '--trace-fst'
+        - '--trace-structs'
+        - '--trace-max-array 128'
+        - '--x-assign unique'
+        - '--x-initial unique'
+        #- '--threads 2' # only use with Verilator v5.XXX
+        - '--exe'
+        - 'heeperator_tb.cpp'
+        - '-Wall'
+        - '-Wpedantic'
+        - '-LDFLAGS "-pthread -lutil -lelf"'
+        # - '-CFLAGS "-Wall -g"'
+
+  # post synthesis simulation
+  sim_postsynthesis:
+    default_tool: modelsim
+    filesets_append:
+    - postsynthesis-netlist
+    - nm_caesar_postsynthesis-netlist
+    - nm_carus_postsynthesis-netlist
+    - tb-others
+    - tb-others-vendor
+    - tb-system
+    - tb-system-vendor
+    - rtl-sim
+    - rtl-tsmc65
+    - fll_simulation
+    parameters:
+    - boot_mode
+    - firmware
+    - max_cycles
+    - verbose
+    - vcd_mode
+    - bypass_fll_opt
+    - PRIM_DEFAULT_IMPL=prim_pkg::tsmc65
+    - UNIT_DELAY=0
+    - no_warning=true
+    - SYNTHESIS=true
+    toplevel:
+    - tb_top
+    hooks:
+      pre_build:
+      - pre_build_uartdpi
+      - pre_patch_modelsim_Makefile
+      pre_run:
+      - prepare_dirs
+      post_run:
+      - copy_waves
+      - copy_uart
+    tools:
+      modelsim:
+        vlog_options:
+        - -override_timescale 1ns/1ps
+        - -suppress vlog-2583
+        - -suppress vlog-2577
+        - -pedanticerrors
+        - -define MODELSIM
+        - +notimingcheck
+        - +nospecify
+        vsim_options:
+        - -suppress 3111 # suppress error on passing string variables to $fdumpvars, that is apparently supported instead
+        - -sv_lib ../../sw/sim/uartdpi
+        - -voptargs=+acc=npr
+        - +bus_conflict_off
+
+  # post layout simulation with no timing
+  sim_postlayout:
+    default_tool: modelsim
+    filesets_append:
+    - postlayout-netlist
+    - nm_caesar_postlayout-netlist
+    - nm_carus_postlayout-netlist
+    - tb-others
+    - tb-others-vendor
+    - tb-system
+    - tb-system-vendor
+    - rtl-sim
+    - rtl-tsmc65
+    - fll_simulation
+    parameters:
+    - boot_mode
+    - firmware
+    - max_cycles
+    - verbose
+    - vcd_mode
+    - bypass_fll_opt
+    - PRIM_DEFAULT_IMPL=prim_pkg::tsmc65
+    - UNIT_DELAY=0
+    - no_warning=true
+    - USE_PG_PIN=true
+    - SYNTHESIS=true
+    - POSTLAYOUT=true
+    toplevel:
+    - tb_top
+    hooks:
+      pre_build:
+      - pre_build_uartdpi
+      - pre_patch_modelsim_Makefile
+      pre_run:
+      - prepare_dirs
+      post_run:
+      - copy_waves
+      - copy_uart
+    tools:
+      modelsim:
+        vlog_options:
+        - -override_timescale 1ns/1ps
+        - -suppress vlog-2583
+        - -suppress vlog-2577
+        - -pedanticerrors
+        - -define MODELSIM
+        - -define POWER_PINS
+        - +notimingcheck
+        - +nospecify
+        vsim_options:
+        - -suppress 3111 # suppress error on passing string variables to $fdumpvars, that is apparently supported instead
+        - -sv_lib ../../sw/sim/uartdpi
+        - -voptargs=+acc=npr
+        - +bus_conflict_off
+
+  # Format with Verible
+  format:
+    filesets:
+    - rtl
+    - rtl-sim
+    - tb-system
+    - tb-others
+    - fpga-top
+    toplevel: heeperator_top
+    description: Format source files using verible-verilog-format
+    default_tool: veribleformat
+    tools:
+      veribleformat:
+        verible_format_args:
+        - '--assignment_statement_alignment=align'
+        - '--case_items_alignment=align'
+        - '--formal_parameters_indentation=indent'
+        - '--named_parameter_alignment=align'
+        - '--named_parameter_indentation=indent'
+        - '--named_port_alignment=align'
+        - '--named_port_indentation=indent'
+        - '--port_declarations_alignment=align'
+        - '--port_declarations_indentation=indent'
+        - '--assignment_statement_alignment=align'
+        - '--module_net_variable_alignment=align'
+        - '--inplace'
+
+  # Static analysis
+  lint:
+    filesets:
+    - rtl
+    - rtl-sim
+    - tb-system
+    - tb-others
+    - fpga-top
+    toplevel: heeperator_top
+    description: Perform static analysis using Verible
+    default_tool: veriblelint
+    tools:
+      veriblelint:
+        ruleset: default
+        verible_lint_args:
+        - '--waiver_files=../../../hw/misc/verible-lint.waiver,../../../tb/misc/verible-lint.waiver'
+        rules:
+        - 'line-length=length:120'
+
+
+# Parameters
+parameters:
+  log_level:
+    datatype: str
+    description: |
+      Set the log level. Admitted values: LOG_NONE|LOG_LOW|LOG_MEDIUM|LOG_HIGH|LOG_FULL|LOG_DEBUG.
+      Errors and configuration messages are always printed.
+    paramtype: cmdlinearg
+  trace:
+    datatype: str
+    description: If 'true', generate simulation waves dump.
+    default: "true"
+    paramtype: cmdlinearg
+  no_err:
+    datatype: bool
+    description: Always exit with 0. Useful to run post-simulation hooks.
+    default: "true"
+    paramtype: cmdlinearg
+  firmware:
+    datatype: str
+    description: Firmware (in HEX format) to load into the system SRAM.
+    paramtype: plusarg
+  verbose:
+    datatype: bool
+    description: Verbosity mode for QuestaSim testbench.
+    paramtype: plusarg
+  boot_mode:
+    datatype: str
+    description: |
+      Boot mode for QuestaSim testbench. Admitted values: jtag|flash|force.
+    default: 2
+    paramtype: plusarg
+  vcd_mode:
+    datatype: int
+    description: "VCD dump mode: 0 (no dump) | 1 (always active) | 2 (triggered by GPIO 0)"
+    default: 0
+    paramtype: plusarg
+  bypass_fll_opt:
+    datatype: int
+    description: "Bypass FLL: 0 (use FLL) | 1 (bypass FLL)"
+    default: 0
+    paramtype: plusarg
+  max_cycles:
+    datatype: int
+    description: Maximum number of simulation cycles (halt the simulation when reached).
+    paramtype: plusarg
+  RTL_SIMULATION:
+    datatype: bool
+    paramtype: vlogdefine
+    description: |
+      Select code for RTL simulation (e.g., faster SRAM initialization)
+  SYNTHESIS:
+    datatype: bool
+    paramtype: vlogdefine
+    description: |
+      Can isolate code that is (or is not) meant for Synthesis/Simulation only
+  POSTLAYOUT:
+    datatype: bool
+    paramtype: vlogdefine
+    description: |
+      Can isolate code that is (or is not) meant for post-layout simulation only
+  USE_PG_PIN:
+    datatype: bool
+    paramtype: vlogdefine
+    description: |
+      Provide supply to a netlist with PG pins meant for postlayout simulation only
+  PRIM_DEFAULT_IMPL:
+    datatype: str
+    paramtype: vlogdefine
+    description: Primitives implementation to use, e.g. "prim_pkg::ImplGeneric".
+    default: prim_pkg::ImplGeneri
+  UNIT_DELAY:
+    datatype: int
+    paramtype: vlogdefine
+    default: 0
+  no_warning:
+    datatype: bool
+    paramtype: vlogdefine
+    default: true
+  FPGA:
+    datatype: bool
+    paramtype: vlogdefine
+    default: false

@@ -1,0 +1,581 @@
+# Copyright 2022 EPFL and Politecnico di Torino.
+# Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+#
+# File: makefile
+# Author: Michele Caon
+# Date: 14/05/2023
+# Description: Top-level makefile for HEEPerator
+
+#############################
+# ----- CONFIGURATION ----- #
+#############################
+
+# Global configuration
+ROOT_DIR			:= $(realpath .)
+BUILD_DIR 			:= build
+
+# NMC slaves number
+CAESAR_NUM			?= 1
+CARUS_NUM			?= 1
+
+# X-HEEP configuration
+XHEEP_DIR			:= $(ROOT_DIR)/hw/vendor/x-heep
+MCU_CFG				?= $(ROOT_DIR)/config/mcu-gen.hjson
+MCU_CFG_FPGA    	?= $(ROOT_DIR)/config/mcu-gen-fpga.hjson
+PAD_CFG				?= $(ROOT_DIR)/config/heep-pads.hjson
+PAD_CFG_FPGA	    ?= $(ROOT_DIR)/config/heep-pads-fpga.hjson
+EXT_PAD_CFG			?= $(ROOT_DIR)/config/heeperator-pads.hjson
+EXTERNAL_DOMAINS	:= 2 # NM-Caesar, NM-Carus
+MCU_GEN_OPTS		:= \
+	--cfg $(MCU_CFG) \
+	--pads_cfg $(PAD_CFG) \
+	--external_domains $(EXTERNAL_DOMAINS)
+MCU_GEN_OPTS_FPGA	:= \
+	--cfg $(MCU_CFG_FPGA) \
+	--pads_cfg $(PAD_CFG_FPGA) \
+	--external_domains $(EXTERNAL_DOMAINS)
+HEEPERATOR_TOP_TPL		:= $(ROOT_DIR)/hw/ip/heeperator_top.sv.tpl
+PAD_RING_TPL			:= $(ROOT_DIR)/hw/ip/pad-ring/pad_ring.sv.tpl
+MCU_GEN_LOCK			:= $(BUILD_DIR)/.mcu-gen.lock
+
+# HEEPerator configuration
+HEEPERATOR_GEN_CFG	:= config/heeperator-cfg.hjson
+HEEPERATOR_GEN_OPTS	:= \
+	--cfg $(HEEPERATOR_GEN_CFG) \
+	--caesar_num $(CAESAR_NUM) \
+	--carus_num $(CARUS_NUM)
+HEEPERATOR_GEN_TPL  := \
+	hw/ip/heeperator-ctrl/data/heeperator_ctrl.hjson.tpl \
+	hw/ip/packages/heeperator_pkg.sv.tpl \
+	hw/ip/heeperator-ctrl/rtl/heeperator_ctrl_reg.sv.tpl \
+	sw/external/lib/runtime/heeperator.h.tpl
+HEEPERATOR_GEN_LOCK := build/.heeperator-gen.lock
+
+# Implementation specific variables
+# TARGET options are 'asic' (default) and 'pynq-z2'
+TARGET ?= asic
+
+# Simulation DPI libraries
+DPI_LIBS			:= $(BUILD_DIR)/sw/sim/uartdpi.so
+DPI_CINC			:= -I$(dir $(shell which verilator))../share/verilator/include/vltstd
+
+# Simulation configuration
+LOG_LEVEL			?= LOG_NORMAL
+BOOT_MODE			?= force # jtag: wait for JTAG (DPI module), flash: boot from flash, force: load firmware into SRAM
+FIRMWARE			?= $(ROOT_DIR)/build/sw/app/main.hex
+FIRMWARE_FLASH 		?= $(ROOT_DIR)/build/sw/app-flash/main.hex
+VCD_MODE			?= 0 # QuestaSim-only - 0: no dumo, 1: dump always active, 2: dump triggered by GPIO 0
+BYPASS_FLL          ?= 1 # 0: FLL enabled, 1: FLL bypassed (TODO: make FLL work and set this to 0 by default)
+MAX_CYCLES			?= 1200000
+FUSESOC_FLAGS		?=
+FUSESOC_ARGS		?=
+
+# QuestaSim
+FUSESOC_BUILD_DIR			= $(shell find $(BUILD_DIR) -type d -name 'epfl_heeperator_heeperator_*' 2>/dev/null | sort | head -n 1)
+QUESTA_SIM_DIR				= $(FUSESOC_BUILD_DIR)/sim-modelsim
+QUESTA_SIM_POSTSYNTH_DIR 	= $(FUSESOC_BUILD_DIR)/sim_postsynthesis-modelsim
+QUESTA_SIM_POSTLAYOUT_DIR 	= $(FUSESOC_BUILD_DIR)/sim_postlayout-modelsim
+
+# Waves
+SIM_VCD 			?= $(BUILD_DIR)/sim-common/questa-waves.fst
+
+# Application data generation
+# NOTE: the application makefile may accept additional parameters, e.g.:
+# 	KERNEL_PARAMS="--row_a 8 --col_a 8 --col_b 256"
+# for carus-matmul.
+APP_MAKE 			:= $(wildcard sw/applications/$(PROJECT)/*akefile)
+
+# Custom preprocessor definitions
+CDEFS				?=
+
+# Software build configuration
+SW_DIR		:= sw
+
+# Dummy target to force software rebuild
+PARAMS = $(PROJECT)
+
+# Benchmarking configuration
+PWR_VCD ?= $(QUESTA_SIM_POSTLAYOUT_DIR)/logs/waves-0.vcd
+THR_TESTS ?= scripts/performance-analysis/throughput-tests.txt
+PWR_TESTS ?= scripts/performance-analysis/power-tests.txt
+
+#CAESAR and CARUS PL Netlist and SDF
+CAESAR_PL_NET := $(ROOT_DIR)/hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/verilog/NMCaesar_top_pnr.v
+CARUS_PL_NET := $(ROOT_DIR)/hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/verilog/NMCarus_top_pnr.v
+CAESAR_PL_SDF := $(ROOT_DIR)/hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/sdf/NMCaesar_top_pared.sdf
+CARUS_PL_SDF := $(ROOT_DIR)/hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/sdf/NMCarus_top_pared.sdf
+
+#HEEPERATOR PL Netlist and SDF
+HEEPERATOR_PL_NET := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heeperator_pg.v
+HEEPERATOR_PL_SDF := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heeperator.sdf
+#for power analysis
+HEEPERATOR_PL_NET_PA := $(ROOT_DIR)/implementation/power_analysis/heeperator_pg_power_analysis.v
+HEEPERATOR_PL_SDF_PA := $(ROOT_DIR)/implementation/power_analysis/heeperator.sdf
+HEEPERATOR_PL_SDF_PATCHED_PA := $(ROOT_DIR)/implementation/power_analysis/heeperator.patched.sdf
+
+# Dependent variables
+# -------------------
+ifeq ($(BOOT_MODE),flash)
+	FIRMWARE		:= $(FIRMWARE_FLASH)
+endif
+
+###########################
+# ----- BUILD RULES ----- #
+###########################
+
+# Default alias
+# -------------
+.PHONY: all
+all: heeperator-gen
+
+# X-HEEP MCU system
+# -----------------
+# Build X-HEEP's core-v-mini-mcu
+.PHONY: mcu-gen
+mcu-gen: $(MCU_GEN_LOCK)
+ifeq ($(TARGET), asic)
+$(MCU_GEN_LOCK): $(MCU_CFG) $(PAD_CFG) $(EXT_PAD_CFG) | $(BUILD_DIR)/
+	@echo "### Building X-HEEP MCU..."
+	$(MAKE) -f $(XHEEP_MAKE) mcu-gen
+	touch $@
+	$(RM) -f $(HEEPERATOR_GEN_LOCK)
+	@echo "### DONE! X-HEEP MCU generated successfully"
+else ifeq ($(TARGET), pynq-z2)
+$(MCU_GEN_LOCK): $(MCU_CFG_FPGA) $(PAD_CFG) $(EXT_PAD_CFG) | $(BUILD_DIR)/
+	@echo "### Building X-HEEP MCU for PYNQ-Z2..."
+	$(MAKE) -f $(XHEEP_MAKE) mcu-gen MCU_CFG=$(MCU_CFG_FPGA)
+	touch $@
+	$(RM) -f $(HEEPERATOR_GEN_LOCK)
+	@echo "### DONE! X-HEEP MCU generated successfully"
+else
+	$(error ### ERROR: Unsupported target implementation: $(TARGET_IMPL))
+endif
+
+# HEEPerator files
+# ----------------
+# Build HEEPerator-related files
+.PHONY: check_nmc_vendor
+check_nmc_vendor: hw/vendor/nm-carus.vendor.hjson hw/vendor/nm-caesar.vendor.hjson hw/vendor/nm-caesar-backend-opt/hw/vendor/nm-caesar.vendor.hjson util/check_vendor.py
+	./util/check_vendor.py --file_1 hw/vendor/nm-caesar-backend-opt/hw/vendor/nm-caesar.vendor.hjson --file_2 hw/vendor/nm-caesar.vendor.hjson
+	./util/check_vendor.py --file_1 hw/vendor/nm-carus-backend-opt/hw/vendor/nm-carus.vendor.hjson --file_2 hw/vendor/nm-carus.vendor.hjson
+
+.PHONY: heeperator-gen-force-asic
+heeperator-gen-force:
+	rm -rf build/.mcu-gen.lock build/.heeperator-gen.lock;
+	$(MAKE) heeperator-gen
+
+# Generate HEEPerator files
+# @param TARGET=asic(default),pynq-z2
+.PHONY: heeperator-gen
+heeperator-gen: $(HEEPERATOR_GEN_LOCK) check_nmc_vendor
+$(HEEPERATOR_GEN_LOCK): $(HEEPERATOR_GEN_CFG) $(HEEPERATOR_GEN_TPL) $(HEEPERATOR_TOP_TPL) $(PAD_RING_TPL) $(MCU_GEN_LOCK) $(ROOT_DIR)/tb/tb_util.svh.tpl
+ifeq ($(TARGET), asic)
+	@echo "### Generating HEEPerator top and pad rings for ASIC..."
+	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
+		--outdir $(ROOT_DIR)/hw/ip/ \
+		--external_pads $(EXT_PAD_CFG) \
+		--tpl-sv $(HEEPERATOR_TOP_TPL)
+	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
+		--outdir $(ROOT_DIR)/hw/ip/pad-ring/ \
+		--external_pads $(EXT_PAD_CFG) \
+		--tpl-sv $(PAD_RING_TPL)
+	@echo "### Generating HEEPerator files..."
+else ifeq ($(TARGET), pynq-z2)
+	@echo "### Generating HEEPerator top and padrings for PYNQ-Z2..."
+	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS_FPGA) \
+		--outdir $(ROOT_DIR)/hw/ip/ \
+		--external_pads $(EXT_PAD_CFG) \
+		--tpl-sv $(HEEPERATOR_TOP_TPL)
+	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS_FPGA) \
+		--outdir $(ROOT_DIR)/hw/ip/pad-ring/ \
+		--external_pads $(EXT_PAD_CFG) \
+		--tpl-sv $(PAD_RING_TPL)
+else
+	$(error ### ERROR: Unsupported target implementation: $(TARGET_IMPL))
+endif
+	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
+		--outdir $(ROOT_DIR)/tb/ \
+		--external_pads $(EXT_PAD_CFG) \
+		--tpl-sv $(ROOT_DIR)/tb/tb_util.svh.tpl
+	python3 util/heeperator-gen.py $(HEEPERATOR_GEN_OPTS) \
+		--outdir hw/ip/heeperator-ctrl/data \
+		--tpl-sv hw/ip/heeperator-ctrl/data/heeperator_ctrl.hjson.tpl
+	sh hw/ip/heeperator-ctrl/gen-heeperator-ctrl.sh
+	sh sw/external/lib/drivers/fll/fll_regs_gen.sh
+	python3 util/heeperator-gen.py $(HEEPERATOR_GEN_OPTS) \
+		--outdir hw/ip/heeperator-ctrl/rtl \
+		--tpl-sv hw/ip/heeperator-ctrl/rtl/heeperator_ctrl_reg.sv.tpl
+	python3 util/heeperator-gen.py $(HEEPERATOR_GEN_OPTS) \
+		--outdir hw/ip/packages \
+		--tpl-sv hw/ip/packages/heeperator_pkg.sv.tpl \
+		--corev_pulp $(COREV_PULP)
+	python3 util/heeperator-gen.py $(HEEPERATOR_GEN_OPTS) \
+		--outdir sw/external/lib/runtime \
+		--tpl-c sw/external/lib/runtime/heeperator.h.tpl
+	fusesoc run --no-export --target format epfl:heeperator:heeperator
+	fusesoc run --no-export --target lint epfl:heeperator:heeperator
+	@echo "### DONE! HEEPerator files generated successfully"
+	touch $@
+
+# Verible format
+.PHONY: format
+format: $(HEEPERATOR_GEN_LOCK)
+	@echo "### Formatting HEEPerator RTL files..."
+	fusesoc run --no-export --target format epfl:heeperator:heeperator
+
+# Static analysis
+.PHONY: lint
+lint: $(HEEPERATOR_GEN_LOCK)
+	@echo "### Checking HEEPerator syntax and code style..."
+	fusesoc run --no-export --target lint epfl:heeperator:heeperator
+
+# Verilator RTL simulation
+# ------------------------
+# Build simulation model (do not launch simulation)
+.PHONY: verilator-build
+verilator-build: $(HEEPERATOR_GEN_LOCK)
+	fusesoc run --no-export --target sim --tool verilator --build $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+		$(FUSESOC_ARGS)
+
+# Build simulation model and launch simulation
+.PHONY: verilator-sim
+verilator-sim: | verilator-build .verilator-check-params
+	fusesoc run --no-export --target sim --tool verilator --run $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+		--log_level=$(LOG_LEVEL) \
+		--firmware=$(FIRMWARE) \
+		--boot_mode=$(BOOT_MODE) \
+		--max_cycles=$(MAX_CYCLES) \
+		$(FUSESOC_ARGS)
+	cat $(BUILD_DIR)/sim-common/uart.log
+
+# Launch simulation
+.PHONY: verilator-run
+verilator-run: | .verilator-check-params
+	fusesoc run --no-export --target sim --tool verilator --run $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+		--log_level=$(LOG_LEVEL) \
+		--firmware=$(FIRMWARE) \
+		--boot_mode=$(BOOT_MODE) \
+		--max_cycles=$(MAX_CYCLES) \
+		$(FUSESOC_ARGS)
+	cat $(BUILD_DIR)/sim-common/uart.log
+
+# Launch simulation without waveform dumping
+.PHONY: verilator-opt
+verilator-opt: | .verilator-check-params
+	fusesoc run --no-export --target sim --tool verilator --run $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+		--log_level=$(LOG_LEVEL) \
+		--firmware=$(FIRMWARE) \
+		--boot_mode=$(BOOT_MODE) \
+		--max_cycles=$(MAX_CYCLES) \
+		--trace=false \
+		$(FUSESOC_ARGS)
+	cat $(BUILD_DIR)/sim-common/uart.log
+
+# Open dumped waveform with GTKWave
+.PHONY: verilator-waves
+verilator-waves: $(BUILD_DIR)/sim-common/waves.fst | .check-gtkwave
+	gtkwave -a tb/misc/verilator-waves.gtkw $<
+
+# QuestaSim RTL simulation
+# ------------------------
+# Build simulation model and launch simulation
+.PHONY: questasim-build
+questasim-build: $(HEEPERATOR_GEN_LOCK) $(DPI_LIBS)
+	fusesoc run --no-export --target sim --tool modelsim --build $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+		$(FUSESOC_ARGS)
+	cd $(QUESTA_SIM_DIR) ; make opt
+
+# Build simulation model and launch simulation
+.PHONY: questasim-sim
+questasim-sim: | questasim-build $(QUESTA_SIM_DIR)/logs/
+	fusesoc run --no-export --target sim --tool modelsim --run $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+		--firmware=$(FIRMWARE) \
+		--bypass_fll_opt=$(BYPASS_FLL) \
+		--boot_mode=$(BOOT_MODE) \
+		--vcd_mode=$(VCD_MODE) \
+		--max_cycles=$(MAX_CYCLES) \
+		$(FUSESOC_ARGS)
+	cat $(BUILD_DIR)/sim-common/uart.log
+
+# Launch simulation
+.PHONY: questasim-run
+questasim-run: | $(QUESTA_SIM_DIR)/logs/
+	fusesoc run --no-export --target sim --tool modelsim --run $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+		--firmware=$(FIRMWARE) \
+		--bypass_fll_opt=$(BYPASS_FLL) \
+		--boot_mode=$(BOOT_MODE) \
+		--vcd_mode=$(VCD_MODE) \
+		--max_cycles=$(MAX_CYCLES) \
+		$(FUSESOC_ARGS)
+	cat $(BUILD_DIR)/sim-common/uart.log
+
+# Launch simulation in GUI mode
+.PHONY: questasim-gui
+questasim-gui: | questasim-build $(QUESTA_SIM_DIR)/logs/
+	$(MAKE) -C $(QUESTA_SIM_DIR) run-gui RUN_OPT=1 PLUSARGS="firmware=$(FIRMWARE) bypass_fll_opt=$(BYPASS_FLL) boot_mode=$(BOOT_MODE) vcd_mode=$(VCD_MODE) max_cycles=$(MAX_CYCLES)"
+
+# Open dumped waveforms in GTKWave
+.PHONY: questasim-waves
+questasim-waves: $(SIM_VCD) | .check-gtkwave
+	gtkwave -a tb/misc/questasim-waves.gtkw $<
+
+$(BUILD_DIR)/sim-common/questa-waves.fst: $(BUILD_DIR)/sim-common/waves.vcd | .check-gtkwave
+	@echo "### Converting $< to FST..."
+	vcd2fst $< $@
+
+# DPI libraries for QuestaSim
+.PHONY: tb-dpi
+tb-dpi: $(DPI_LIBS)
+$(BUILD_DIR)/sw/sim/uartdpi.so: hw/vendor/x-heep/hw/vendor/lowrisc_opentitan/hw/dv/dpi/uartdpi/uartdpi.c | $(BUILD_DIR)/sw/sim/
+	$(CC) -shared -Bsymbolic -fPIC -o $@ $< -lutil
+
+# Post-sysnthesis and post-layout simulations
+# -------------------------------------------
+# Questasim PostSynth Simulation (with no timing)
+.PHONY: questasim-postsynth-build
+questasim-postsynth-build: $(HEEPERATOR_GEN_LOCK) $(DPI_LIBS)
+	fusesoc run --no-export --target sim_postsynthesis --tool modelsim --build $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+		$(FUSESOC_ARGS);
+	cd $(QUESTA_SIM_POSTSYNTH_DIR) ; make opt | tee fusesoc_questasim_postsynthesis.log
+
+.PHONY: questasim-postsynth-run
+questasim-postsynth-run:
+	fusesoc run --no-export --target sim_postsynthesis --tool modelsim --run $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+		--firmware=$(FIRMWARE) \
+		--bypass_fll_opt=$(BYPASS_FLL) \
+		--boot_mode=$(BOOT_MODE) \
+		--vcd_mode=$(VCD_MODE) \
+		--max_cycles=$(MAX_CYCLES) \
+		$(FUSESOC_ARGS)
+	cat $(BUILD_DIR)/sim-common/uart.log
+
+# Launch simulation in GUI mode
+.PHONY: questasim-postsynth-gui
+questasim-postsynth-gui:
+	$(MAKE) -C $(QUESTA_SIM_POSTSYNTH_DIR) run-gui RUN_OPT=1 PLUSARGS="firmware=$(FIRMWARE) bypass_fll_opt=$(BYPASS_FLL) boot_mode=$(BOOT_MODE) vcd_mode=$(VCD_MODE) max_cycles=$(MAX_CYCLES)"
+
+# Questasim PostLayout Simulation (with no timing)
+.PHONY: questasim-postlayout-build
+questasim-postlayout-build: $(HEEPERATOR_GEN_LOCK) $(DPI_LIBS)
+	fusesoc run --no-export --target sim_postlayout --tool modelsim --build $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+		$(FUSESOC_ARGS);
+	cd $(QUESTA_SIM_POSTLAYOUT_DIR) ; make opt | tee fusesoc_questasim_postslayout.log
+
+.PHONY: questasim-postlayout-run
+questasim-postlayout-run:
+	fusesoc run --no-export --target sim_postlayout --tool modelsim --run $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+		--firmware=$(FIRMWARE) \
+		--bypass_fll_opt=$(BYPASS_FLL) \
+		--boot_mode=$(BOOT_MODE) \
+		--vcd_mode=$(VCD_MODE) \
+		--max_cycles=$(MAX_CYCLES) \
+		$(FUSESOC_ARGS)
+	cat $(BUILD_DIR)/sim-common/uart.log
+
+# Launch simulation in GUI mode
+.PHONY: questasim-postlayout-gui
+questasim-postlayout-gui:
+	$(MAKE) -C $(QUESTA_SIM_POSTLAYOUT_DIR) run-gui RUN_OPT=1 PLUSARGS="firmware=$(FIRMWARE) bypass_fll_opt=$(BYPASS_FLL) boot_mode=$(BOOT_MODE) vcd_mode=$(VCD_MODE) max_cycles=$(MAX_CYCLES)"
+
+
+# Synthesis
+# ---------
+# HEEperator synthesis with Synopsys DC Shell
+.PHONY: synthesis
+#	I know it is boring to generated all the time the DB files, but I do not want you update the vendor (i.e. the LIB) and forget to rebuild the DB
+synthesis: $(HEEPERATOR_GEN_LOCK) check_nmc_vendor caesar_db carus_db
+	fusesoc run --no-export --target asic_synthesis --build $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+		$(FUSESOC_ARGS) 2>&1 | tee fusesoc_synthesis.log
+
+implementation/pnr/inputs/heepocrates.io:
+	pushd implementation/pnr/inputs/ ; ./create_io_file_from_spreadsheet.py; popd;
+
+.PHONY: caesar_db
+caesar_db:
+	rm -rf implementation/synthesis/lc_shell/nm-caesar
+	cd implementation/synthesis/lc_shell/ && lc_shell -f caesar_lib2db.tcl -batch;
+
+.PHONY: carus_db
+carus_db:
+	rm -rf implementation/synthesis/lc_shell/nm-carus
+	cd implementation/synthesis/lc_shell/ && lc_shell -f carus_lib2db.tcl -batch;
+
+# Place & Route
+# -------------
+.PHONY: pnr_debug
+pnr_debug: implementation/pnr/inputs/heepocrates.io
+	pushd implementation/pnr/ ; ./run_pnr_flow.csh debug; popd;
+
+.PHONY: pnr
+pnr: implementation/pnr/inputs/heepocrates.io
+	pushd implementation/pnr/ ; ./run_pnr_flow.csh; popd;
+
+
+# FPGA-implementation
+# -------------------
+.PHONY: fpga
+fpga:
+	@echo "### Running FPGA implementation..."
+	fusesoc run --no-export --target pynq-z2 --build $(FUSESOC_FLAGS) epfl:heeperator:heeperator $(FUSESOC_ARGS)
+
+.PHONY: prog-fpga
+prog-fpga:
+	@echo "### Programming the FPGA..."
+	$(MAKE) -C $(FUSESOC_BUILD_DIR)/pynq-z2-vivado pgm
+
+# Flash ESL programmer
+.PHONY:flash-prog
+flash-prog:
+	@echo "### Programming the flash..."
+	cd $(XHEEP_DIR)/sw/vendor/yosyshq_icestorm/iceprog && make; \
+	./iceprog -d i:0x0403:0x6011 -I B $(ROOT_DIR)/$(BUILD_DIR)/sw/app-flash/main.hex;
+
+# Benchmarks
+# ----------
+# Launch benchmark simulations on Verilator and generate CSV throughput report
+.PHONY: benchmark-throughput
+benchmark-throughput: build/performance-analysis/throughput.csv
+build/performance-analysis/throughput.csv: $(THR_TESTS) | build/performance-analysis/
+	@echo "### Running benchmark simulations for throughput extraction..."
+	python3 scripts/performance-analysis/throughput-analysis.py \
+		$(THR_TESTS) $@
+
+# Launch benchmark simulations on post-layout netlist and generate CSV power report
+.PHONY: benchmark-power
+benchmark-power: build/performance-analysis/power.csv
+build/performance-analysis/power.csv: $(PWR_TESTS) | build/performance-analysis/
+	@echo "### Running benchmark simulations for power extraction..."
+	python3 scripts/performance-analysis/power-analysis.py \
+		$(PWR_TESTS) \
+		build/sim-common $@
+
+# Generate throughput benchmark chart
+.PHONY: charts
+charts: build/performance-analysis/power.csv build/performance-analysis/throughput.csv
+	@echo "### Generating charts..."
+	python3 scripts/performance-analysis/benchmark-charts.py $^ build/performance-analysis
+
+# Power analysis
+# --------------
+.PHONY: patch-files-power-analysis
+patch-files-power-analysis: $(BUILD_DIR)/.patch-files-power-analysis.lock
+$(BUILD_DIR)/.patch-files-power-analysis.lock: $(HEEPERATOR_PL_NET) $(CAESAR_PL_NET) $(CARUS_PL_NET) $(HEEPERATOR_PL_SDF).gz $(CAESAR_PL_SDF) $(CARUS_PL_SDF)
+#   the LIB and LEF of the FLL are wrong as the VDDA power pin is missing, thus deleting it so that power analysis can be done
+	cp $(HEEPERATOR_PL_NET) $(HEEPERATOR_PL_NET_PA)
+	sed -i '/.VDDA(VDD)/d' $(HEEPERATOR_PL_NET_PA)
+#   append the caesar and carus netlist
+	cat $(CAESAR_PL_NET) >> $(HEEPERATOR_PL_NET_PA)
+	cat $(CARUS_PL_NET) >> $(HEEPERATOR_PL_NET_PA)
+	touch $(BUILD_DIR)/.patch-files-power-analysis.lock
+#   copy the SDF file and modify it
+#	cp $(HEEPERATOR_PL_SDF).gz $(HEEPERATOR_PL_SDF_PA).gz
+#	gunzip -f $(HEEPERATOR_PL_SDF_PA).gz
+#	cat $(CAESAR_PL_SDF) >> $(HEEPERATOR_PL_SDF_PA)
+#	cat $(CARUS_PL_SDF) >> $(HEEPERATOR_PL_SDF_PA)
+#   patch SDF, i.e. delete the instances referring to the LIBs, and mofify the caesar and carus ones to add absolute paths wrt heeperator
+#	python util/patch_sdf.py --sdf $(HEEPERATOR_PL_SDF_PA) --output $(HEEPERATOR_PL_SDF_PATCHED_PA) --verbose
+
+.PHONY: power-analysis
+power-analysis: $(BUILD_DIR)/.patch-files-power-analysis.lock $(PWR_VCD)
+	@echo "### Running power analysis..."
+	rm -rf implementation/power_analysis/reports/*
+	pushd implementation/power_analysis/; ./run_pwr_flow.sh $(PWR_VCD) $(HEEPERATOR_PL_NET_PA) $(HEEPERATOR_PL_SDF).gz heeperator_top; popd;
+
+# Software
+# --------
+# HEEPerator applications
+.PHONY: app
+app: $(HEEPERATOR_GEN_LOCK) | carus-sw $(BUILD_DIR)/sw/app/ $(BUILD_DIR)/sw/app-flash/
+ifneq ($(APP_MAKE),)
+	$(MAKE) -C $(dir $(APP_MAKE))
+endif
+	@echo "### Building application for SRAM execution..."
+	CDEFS=$(CDEFS) $(MAKE) -f $(XHEEP_MAKE) $(MAKECMDGOALS)
+	find sw/build/ -maxdepth 1 -type f -name "main.*" -exec cp '{}' $(BUILD_DIR)/sw/app/ \;
+	@echo "### Building application for flash load..."
+	CDEFS=$(CDEFS) $(MAKE) -f $(XHEEP_MAKE) LINKER=flash_load $(MAKECMDGOALS)
+	find sw/build/ -maxdepth 1 -type f -name "main.*" -exec cp '{}' $(BUILD_DIR)/sw/app-flash/ \;
+
+# NM-Carus kernels and startup code
+.PHONY: carus-sw
+carus-sw:
+	$(MAKE) -C $(SW_DIR) carus
+
+# Dummy target to force software rebuild
+$(PARAMS):
+	@echo "### Rebuilding software..."
+
+# Utilities
+# ---------
+# Update vendored IPs
+.PHONY: vendor-update
+vendor-update:
+	@echo "### Updating vendored IPs..."
+	find hw/vendor -maxdepth 1 -type f -name "*.vendor.hjson" -exec python3 util/vendor.py -vU '{}' \;
+	$(MAKE) clean-lock
+	$(MAKE) heeperator-gen
+
+# Check if fusesoc is available
+.PHONY: .check-fusesoc
+.check-fusesoc:
+	@if [ ! `which fusesoc` ]; then \
+	printf -- "### ERROR: 'fusesoc' is not in PATH. Is the correct conda environment active?\n" >&2; \
+	exit 1; fi
+
+# Check if GTKWave is available
+.PHONY: .check-gtkwave
+.check-gtkwave:
+	@if [ ! `which gtkwave` ]; then \
+	printf -- "### ERROR: 'gtkwave' is not in PATH. Is the correct conda environment active?\n" >&2; \
+	exit 1; fi
+
+# Check simulation parameters
+.PHONY: .verilator-check-params
+.verilator-check-params:
+	@if [ "$(BOOT_MODE)" = "flash" ]; then \
+		echo "### ERROR: Verilator simulation with flash boot is not supported" >&2; \
+		exit 1; \
+	fi
+
+# Create directories
+%/:
+	mkdir -p $@
+
+# Clean build directory
+.PHONY: clean clean-lock
+clean:
+	$(RM) $(HEEPERATOR_GEN_LOCK)
+	$(RM) hw/ip/heeperator_top.sv
+	$(RM) hw/ip/pad-ring/pad-ring.sv
+	$(RM) hw/ip/heeperator-ctrl/data/*.hjson
+	$(RM) hw/ip/heeperator-ctrl/rtl/heeperator_ctrl_reg_top.sv
+	$(RM) hw/ip/heeperator-ctrl/rtl/heeperator_ctrl_reg_pkg.sv
+	$(RM) hw/ip/heeperator-ctrl/rtl/heeperator_ctrl_reg.sv
+	$(RM) sw/device/include/heeperator.h
+	$(RM) sw/device/include/heeperator_ctrl_reg.h
+	$(RM) -r $(BUILD_DIR)
+	$(MAKE) -C $(HEEP_DIR) clean-all
+	$(MAKE) -C $(SW_DIR) clean
+	$(RM) -r implementation/synthesis/lc_shell/nm-caesar
+clean-lock:
+	$(RM) $(BUILD_DIR)/.*.lock
+
+# Print variables
+.PHONY: .print
+.print:
+	@echo "APP_MAKE: $(APP_MAKE)"
+	@echo "KERNEL_PARAMS: $(KERNEL_PARAMS)"
+	@echo "FUSESOC_ARGS: $(FUSESOC_ARGS)"
+
+####################################
+# ----- INCLUDE X-HEEP RULES ----- #
+####################################
+
+export MCU_CFG
+export PAD_CFG
+export EXT_PAD_CFG
+export EXTERNAL_DOMAINS
+export HEEP_DIR = $(ROOT_DIR)/hw/vendor/x-heep
+XHEEP_MAKE 		= $(HEEP_DIR)/external.mk
+include $(XHEEP_MAKE)

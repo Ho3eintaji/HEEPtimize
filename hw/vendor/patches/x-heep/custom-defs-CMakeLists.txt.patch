@@ -1,0 +1,16 @@
+diff --git a/sw/CMakeLists.txt b/sw/CMakeLists.txt
+index fe3d1bf..c40559f 100644
+--- a/sw/CMakeLists.txt
++++ b/sw/CMakeLists.txt
+@@ -183,6 +183,11 @@ else()
+   message( "${Magenta}External application${ColourReset}")
+ endif()
+ 
++#######################################################################
++#      ADD CUSTOM DEFINITIONS
++#######################################################################
++add_compile_definitions($ENV{CDEFS})
++
+ #######################################################################
+ #      FIND CRT FILES TO BE INCLUDED
+ #######################################################################

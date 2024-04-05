@@ -1,0 +1,60 @@
+# Format:
+# [benchmark] [datatype] [kernel_options]
+
+# NM-Carus + CPU
+carus-xor int32 --vl 2560
+carus-xor int16 --vl 5120
+carus-xor int8 --vl 10240
+carus-add int32 --vl 2560
+carus-add int16 --vl 5120
+carus-add int8 --vl 10240
+carus-mul int32 --vl 2560
+carus-mul int16 --vl 5120
+carus-mul int8 --vl 10240
+carus-matmul int32 --row_a 4 --col_a 4 --col_b 256
+carus-matmul int16 --row_a 4 --col_a 4 --col_b 256
+carus-matmul int8 --row_a 4 --col_a 4 --col_b 256
+carus-gemm int32 --row_a 4 --col_a 4 --col_b 256 --alpha 2 --beta 2
+carus-gemm int16 --row_a 4 --col_a 4 --col_b 256 --alpha 2 --beta 2
+carus-gemm int8 --row_a 4 --col_a 4 --col_b 256 --alpha 2 --beta 2
+carus-conv2d int32 --row_a 4 --col_a 256 --row_f 3
+carus-conv2d int16 --row_a 4 --col_a 256 --row_f 3
+carus-conv2d int8 --row_a 4 --col_a 256 --row_f 3
+carus-relu int32 --row_a 4 --col_a 256
+carus-relu int16 --row_a 4 --col_a 256
+carus-relu int8 --row_a 4 --col_a 256
+carus-leaky-relu int32 --row_a 4 --col_a 256 --shamt 5
+carus-leaky-relu int16 --row_a 4 --col_a 256 --shamt 5
+carus-leaky-relu int8 --row_a 4 --col_a 256 --shamt 5
+carus-maxpool int32 --row_a 4 --col_a 256 --size 2 --stride 2
+carus-maxpool int16 --row_a 4 --col_a 256 --size 2 --stride 2
+carus-maxpool int8 --row_a 4 --col_a 256 --size 2 --stride 2
+
+# NM-Caesar
+caesar-xor int32 --row_a 4 --col_a 256
+caesar-xor int16 --row_a 4 --col_a 512
+caesar-xor int8 --row_a 4 --col_a 1024
+caesar-add int32 --row_a 4 --col_a 256
+caesar-add int16 --row_a 4 --col_a 512
+caesar-add int8 --row_a 4 --col_a 1024
+caesar-mul int32 --row_a 4 --col_a 256
+caesar-mul int16 --row_a 4 --col_a 512
+caesar-mul int8 --row_a 4 --col_a 1024
+caesar-matmul int32 --row_a 16 --col_a 16 --col_b 32
+caesar-matmul int16 --row_a 16 --col_a 16 --col_b 32
+caesar-matmul int8 --row_a 16 --col_a 16 --col_b 32
+caesar-gemm int32 --row_a 16 --col_a 16 --col_b 32 --alpha 2 --beta 2
+caesar-gemm int16 --row_a 16 --col_a 16 --col_b 32 --alpha 2 --beta 2
+caesar-gemm int8 --row_a 16 --col_a 16 --col_b 32 --alpha 2 --beta 2
+caesar-conv2d int32 --row_a 8 --col_a 32 --col_b 3
+caesar-conv2d int16 --row_a 8 --col_a 32 --col_b 4
+caesar-conv2d int8 --row_a 8 --col_a 32 --col_b 4
+caesar-relu int32 --row_a 8 --col_a 128
+caesar-relu int16 --row_a 8 --col_a 128
+caesar-relu int8 --row_a 8 --col_a 128
+caesar-leaky-relu int32 --row_a 8 --col_a 128 --shamt 5
+caesar-leaky-relu int16 --row_a 8 --col_a 128 --shamt 5
+caesar-leaky-relu int8 --row_a 8 --col_a 128 --shamt 5
+caesar-maxpool int32 --row_a 8 --col_a 64 --size 2 --stride 2
+caesar-maxpool int16 --row_a 8 --col_a 64 --size 2 --stride 2
+caesar-maxpool int8 --row_a 8 --col_a 64 --size 2 --stride 2

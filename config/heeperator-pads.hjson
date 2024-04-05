@@ -1,0 +1,33 @@
+# Copyright 2022 EPFL and Politecnico di Torino.
+# Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+#
+# File: heeperator-pads.hjson
+# Author: Michele Caon
+# Date: 14/05/2023
+# Description: Pad description for HEEPerator
+
+# Based on the HEEPocrates (https://eslgit.epfl.ch/heep/HEEPpocrates)
+
+{
+    pads: {
+        ref_clk: {
+            num: 1,
+            type: input
+        },
+        bypass_fll: {
+            num: 1,
+            type: input
+        },
+        exit_value: {
+            num: 1,
+            type: output
+            driven_manually: True
+        },
+        fll_clk_div: {
+            num: 1,
+            type: output
+            driven_manually: True
+        },
+    }
+}

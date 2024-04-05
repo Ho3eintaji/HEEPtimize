@@ -1,0 +1,29 @@
+// Copyright 2023 EPFL and Politecnico di Torino
+// Solderpad Hardware License, Version 2.1, see LICENSE.md for details
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+
+{
+    name: "nm-carus-backend-opt",
+    target_dir: "nm-carus-backend-opt",
+
+    upstream: {
+        url: "git@eslgit.epfl.ch:blade/nm-carus-backend-opt.git",
+        rev: "e1c40fc59c120d32c3b38c14cd4956473f9b82eb"
+    },
+
+    exclude_from_upstream: [
+        ".git*",
+        "hw/asic",
+        "hw/vendor/nm-carus",
+        "implementation/synthesis",
+        "implementation/pnr/innovus",
+        "implementation/pnr/copy_data",
+        "makefile",
+        "nm-carus-backend-opt.core",
+        "nm-carus-controller.core",
+        "nm-carus-vector.core",
+        "README.md",
+        "scripts",
+        "util",
+    ],
+}

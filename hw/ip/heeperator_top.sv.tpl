@@ -1,0 +1,467 @@
+// Copyright 2022 EPFL and Politecnico di Torino.
+// Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+//
+// File: heeperator-top.sv
+// Author: Michele Caon
+// Date: 13/05/2023
+// Description: HEEPerator top-level module
+
+module heeperator_top (
+    // X-HEEP interface
+% for pad in total_pad_list:
+${pad.x_heep_system_interface}
+% endfor
+);
+  import obi_pkg::*;
+  import reg_pkg::*;
+  import heeperator_pkg::*;
+  import core_v_mini_mcu_pkg::*;
+
+  // PARAMETERS
+  localparam int unsigned ExtXbarNmasterRnd = (heeperator_pkg::ExtXbarNMaster > 0) ?
+    heeperator_pkg::ExtXbarNMaster : 32'd1;
+  localparam int unsigned ExtDomainsRnd = core_v_mini_mcu_pkg::EXTERNAL_DOMAINS == 0 ?
+    32'd1 : core_v_mini_mcu_pkg::EXTERNAL_DOMAINS;
+
+  // INTERNAL SIGNALS
+  // ----------------
+  // Synchronized reset
+  logic rst_nin_sync;
+
+  // System clock
+  logic system_clk;
+
+  // Exit value
+  logic [31:0] exit_value;
+
+  // X-HEEP external master ports
+  obi_req_t  heep_core_instr_req;
+  obi_resp_t heep_core_instr_rsp;
+  obi_req_t  heep_core_data_req;
+  obi_resp_t heep_core_data_rsp;
+  obi_req_t  heep_debug_master_req;
+  obi_resp_t heep_debug_master_rsp;
+  obi_req_t  heep_dma_read_ch0_req;
+  obi_resp_t heep_dma_read_ch0_rsp;
+  obi_req_t  heep_dma_write_ch0_req;
+  obi_resp_t heep_dma_write_ch0_rsp;
+
+  // X-HEEP slave ports
+  obi_req_t  [ExtXbarNmasterRnd-1:0] heep_slave_req;
+  obi_resp_t [ExtXbarNmasterRnd-1:0] heep_slave_rsp;
+
+  // X-HEEP external peripheral master ports
+  reg_req_t heep_peripheral_req;
+  reg_rsp_t heep_peripheral_rsp;
+
+  // Interrupt vector
+  logic [core_v_mini_mcu_pkg::NEXT_INT-1:0] ext_int_vector;
+
+  // OBI external slaves
+  obi_req_t  caesar_req; // request to NM-Caesar
+  obi_resp_t caesar_rsp; // response from NM-Caesar
+  obi_req_t  carus_req; // request to NM-Carus
+  obi_resp_t carus_rsp; // response from NM-Carus
+
+  // External peripherals
+  reg_req_t fll_req; // request to FLL subsystem
+  reg_rsp_t fll_rsp; // response from FLL subsystem
+  reg_req_t heeperator_ctrl_req; // request to HEEPerator controller
+  reg_rsp_t heeperator_ctrl_rsp; // response from HEEPerator controller
+
+  // Pad controller
+  reg_req_t pad_req;
+  reg_rsp_t pad_rsp;
+% if pads_attributes != None:
+  logic [core_v_mini_mcu_pkg::NUM_PAD-1:0][${pads_attributes['bits']}] pad_attributes;
+% endif
+% if total_pad_muxed > 0:
+  logic [core_v_mini_mcu_pkg::NUM_PAD-1:0][${max_total_pad_mux_bitlengh-1}:0] pad_muxes;
+% endif
+
+  // External power domains
+  logic [ExtDomainsRnd-1:0] external_subsystem_powergate_switch_n;
+  logic [ExtDomainsRnd-1:0] external_subsystem_powergate_switch_ack_n;
+  logic [ExtDomainsRnd-1:0] external_subsystem_powergate_iso_n;
+
+  // External RAM banks retentive mode control
+  logic [ExtDomainsRnd-1:0] external_ram_banks_set_retentive_n;
+
+  // External domains reset
+  logic [ExtDomainsRnd-1:0] external_subsystem_rst_n;
+  logic caesar_rst_n;
+  logic caesar_set_retentive_n;
+  logic carus_rst_n;
+  logic carus_set_retentive_n;
+
+  // CORE-V eXtension Interface
+  if_xif #() ext_xif (); // unused in HEEPerator
+
+  // CORE-V-MINI-MCU input/output pins
+% for pad in total_pad_list:
+${pad.internal_signals}
+% endfor
+
+  // Drive to zero bypassed pins
+% for pad in total_pad_list:
+% if pad.pad_type == 'bypass_inout' or pad.pad_type == 'bypass_input':
+% for i in range(len(pad.pad_type_drive)):
+% if pad.driven_manually[i] == False:
+  assign ${pad.in_internal_signals[i]} = 1'b0;
+% endif
+% endfor
+% endif
+% endfor
+
+  // --------------
+  // SYSTEM MODULES
+  // --------------
+
+  // Reset generator
+  // ---------------
+  rstgen u_rstgen (
+    .clk_i      (ref_clk_in_x),
+    .rst_ni     (rst_nin_x),
+    .test_mode_i(1'b0 ), // not implemented
+    .rst_no     (rst_nin_sync),
+    .init_no    () // unused
+  );
+
+  // CORE-V-MINI-MCU (microcontroller)
+  // ---------------------------------
+  core_v_mini_mcu #(
+    .COREV_PULP      (CpuCorevPulp),
+    .FPU             (CpuFpu),
+    .ZFINX           (CpuRiscvZfinx),
+    .EXT_XBAR_NMASTER(ExtXbarNMaster),
+    .X_EXT           (CpuCorevXif)
+  ) u_core_v_mini_mcu (
+    .rst_ni (rst_nin_sync),
+    .clk_i  (system_clk),
+
+    // MCU pads
+% for pad in pad_list:
+${pad.core_v_mini_mcu_bonding}
+% endfor
+
+    // CORE-V eXtension Interface
+    .xif_compressed_if (ext_xif.cpu_compressed),
+    .xif_issue_if      (ext_xif.cpu_issue),
+    .xif_commit_if     (ext_xif.cpu_commit),
+    .xif_mem_if        (ext_xif.cpu_mem),
+    .xif_mem_result_if (ext_xif.cpu_mem_result),
+    .xif_result_if     (ext_xif.cpu_result),
+
+    // Pad controller interface
+    .pad_req_o  (pad_req),
+    .pad_resp_i (pad_rsp),
+
+    // External slave ports
+    .ext_xbar_master_req_i (heep_slave_req),
+    .ext_xbar_master_resp_o (heep_slave_rsp),
+
+    // External master ports
+    .ext_core_instr_req_o (heep_core_instr_req),
+    .ext_core_instr_resp_i (heep_core_instr_rsp),
+    .ext_core_data_req_o (heep_core_data_req),
+    .ext_core_data_resp_i (heep_core_data_rsp),
+    .ext_debug_master_req_o (heep_debug_master_req),
+    .ext_debug_master_resp_i (heep_debug_master_rsp),
+    .ext_dma_read_ch0_req_o (heep_dma_read_ch0_req),
+    .ext_dma_read_ch0_resp_i (heep_dma_read_ch0_rsp),
+    .ext_dma_write_ch0_req_o (heep_dma_write_ch0_req),
+    .ext_dma_write_ch0_resp_i (heep_dma_write_ch0_rsp),
+    .ext_dma_addr_ch0_req_o (),
+    .ext_dma_addr_ch0_resp_i ('0),
+
+    // External peripherals slave ports
+    .ext_peripheral_slave_req_o  (heep_peripheral_req),
+    .ext_peripheral_slave_resp_i (heep_peripheral_rsp),
+
+    // Power switches connected by the backend
+    .cpu_subsystem_powergate_switch_no            (), // unused
+    .cpu_subsystem_powergate_switch_ack_ni        (1'b1),
+    .peripheral_subsystem_powergate_switch_no     (), // unused
+    .peripheral_subsystem_powergate_switch_ack_ni (1'b1),
+
+    // Other power switches controlled here
+    .memory_subsystem_banks_powergate_switch_no(),
+    .memory_subsystem_banks_powergate_switch_ack_ni('1),
+
+    .external_subsystem_powergate_switch_no(external_subsystem_powergate_switch_n),
+    .external_subsystem_powergate_switch_ack_ni(external_subsystem_powergate_switch_ack_n),
+    .external_subsystem_powergate_iso_no(external_subsystem_powergate_iso_n),
+
+    // Control signals for external peripherals
+    .external_subsystem_rst_no (external_subsystem_rst_n),
+    .external_ram_banks_set_retentive_no (external_ram_banks_set_retentive_n),
+    .external_subsystem_clkgate_en_no (), // TODO: add clock gating for external subsystems
+
+    // External interrupts
+    .intr_vector_ext_i (ext_int_vector),
+
+    .ext_dma_slot_tx_i('0),
+    .ext_dma_slot_rx_i('0),
+
+    .exit_value_o (exit_value)
+  );
+
+  // External peripherals
+  // --------------------
+  assign caesar_rst_n = external_subsystem_rst_n[0];
+  assign carus_rst_n  = external_subsystem_rst_n[1];
+  assign caesar_set_retentive_n = external_ram_banks_set_retentive_n[0];
+  assign carus_set_retentive_n  = external_ram_banks_set_retentive_n[1];
+  heeperator_peripherals u_heeperator_peripherals(
+    .ref_clk_i             (ref_clk_in_x),
+    .rst_ni                (rst_nin_sync),
+    .system_clk_o          (system_clk),
+    .bypass_fll_i          (bypass_fll_in_x),
+    .caesar_rst_ni         (caesar_rst_n),
+    .caesar_set_retentive_ni(caesar_set_retentive_n),
+    .caesar_req_i          (caesar_req),
+    .caesar_rsp_o          (caesar_rsp),
+    .carus_rst_ni          (carus_rst_n),
+    .carus_set_retentive_ni(carus_set_retentive_n),
+    .carus_req_i           (carus_req),
+    .carus_rsp_o           (carus_rsp),
+    .fll_req_i             (fll_req),
+    .fll_rsp_o             (fll_rsp),
+    .heeperator_ctrl_req_i (heeperator_ctrl_req),
+    .heeperator_ctrl_rsp_o (heeperator_ctrl_rsp),
+    .ext_int_vector_o      (ext_int_vector)
+  );
+
+  // External peripherals bus
+  // ------------------------
+  // External subsystem bus
+  heeperator_bus u_heeperator_bus (
+    .clk_i                    (system_clk),
+    .rst_ni                   (rst_nin_sync),
+    .heep_core_instr_req_i    (heep_core_instr_req),
+    .heep_core_instr_resp_o   (heep_core_instr_rsp),
+    .heep_core_data_req_i     (heep_core_data_req),
+    .heep_core_data_resp_o    (heep_core_data_rsp),
+    .heep_debug_master_req_i  (heep_debug_master_req),
+    .heep_debug_master_resp_o (heep_debug_master_rsp),
+    .heep_dma_read_ch0_req_i  (heep_dma_read_ch0_req),
+    .heep_dma_read_ch0_resp_o (heep_dma_read_ch0_rsp),
+    .heep_dma_write_ch0_req_i (heep_dma_write_ch0_req),
+    .heep_dma_write_ch0_resp_o(heep_dma_write_ch0_rsp),
+    .heep_slave_req_o         (heep_slave_req),
+    .heep_slave_resp_i        (heep_slave_rsp),
+    .caesar_req_o             (caesar_req),
+    .caesar_resp_i            (caesar_rsp),
+    .carus_req_o              (carus_req),
+    .carus_resp_i             (carus_rsp),
+    .heep_periph_req_i        (heep_peripheral_req),
+    .heep_periph_resp_o       (heep_peripheral_rsp),
+    .fll_req_o                (fll_req),
+    .fll_resp_i               (fll_rsp),
+    .heeperator_ctrl_req_o    (heeperator_ctrl_req),
+    .heeperator_ctrl_resp_i   (heeperator_ctrl_rsp)
+  );
+
+  // Pad ring
+  // --------
+  assign exit_value_out_x = exit_value[0];
+  pad_ring u_pad_ring (
+% for pad in total_pad_list:
+${pad.pad_ring_bonding_bonding}
+% endfor
+
+    // Pad attributes
+% if pads_attributes != None:
+    .pad_attributes_i(pad_attributes)
+% else:
+    .pad_attributes_i('0)
+% endif
+  );
+
+  // Constant pad signals
+${pad_constant_driver_assign}
+
+  // Shared pads multiplexing
+${pad_mux_process}
+
+  // Pad control
+  // -----------
+  pad_control #(
+    .reg_req_t (reg_req_t),
+    .reg_rsp_t (reg_rsp_t),
+    .NUM_PAD   (NUM_PAD)
+  ) u_pad_control (
+    .clk_i            (system_clk),
+    .rst_ni           (rst_nin_sync),
+    .reg_req_i        (pad_req),
+    .reg_rsp_o        (pad_rsp)
+% if total_pad_muxed > 0 or pads_attributes != None:
+      ,
+% endif
+% if pads_attributes != None:
+      .pad_attributes_o(pad_attributes)
+% if total_pad_muxed > 0:
+      ,
+% endif
+% endif
+% if total_pad_muxed > 0:
+      .pad_muxes_o(pad_muxes)
+% endif
+  );
+
+  // FLL clock divided output through a pad for debugging
+  clk_int_div #(
+      .DIV_VALUE_WIDTH  ($clog2(1023 + 1)),
+      .DEFAULT_DIV_VALUE(1023)
+  ) i_clk_int_div (
+      .clk_i(system_clk),
+      .rst_ni(rst_nin_sync),
+      .test_mode_en_i(1'b0),
+      .en_i(1'b1),
+      .div_i('1),  // Ignored, used default value
+      .div_valid_i(1'b0),
+      .div_ready_o(),
+      .clk_o(fll_clk_div_out_x),
+      .cycl_count_o()
+  );
+
+  // CAESAR
+  // -----------
+  // TODO: add clock gating cell
+  // Connect to CORE-V-MINI-MCU power manager
+
+  logic caesar_sw0_ctrl;
+  logic caesar_sw0_ack, caesar_sw1_ack, caesar_sw2_ack, caesar_sw3_ack;
+
+`ifndef FPGA
+
+    assign caesar_sw0_ctrl = ~external_subsystem_powergate_switch_n[0];
+    assign external_subsystem_powergate_switch_ack_n[0] = ~caesar_sw3_ack;
+
+    // Power switch and synchronizer
+    switch_cell_mem mem_caesar_sw0_i (
+  `ifdef USE_PG_PIN
+      .VIN,
+      .VOUT,
+      .VSS,
+  `endif
+      .VCTRL    (caesar_sw0_ctrl),  // Switch Signal Input
+      .VCTRLFBn (),               // Negated Schmitt Trigger Output
+      .VCTRLFB  (),    // Schmitt Trigger Output
+      .VCTRL_BUF(caesar_sw0_ack)    //ACK signal Output
+    );
+
+    switch_cell_mem mem_caesar_sw1_i (
+  `ifdef USE_PG_PIN
+      .VIN,
+      .VOUT,
+      .VSS,
+  `endif
+      .VCTRL    (caesar_sw0_ack),  // Switch Signal Input
+      .VCTRLFBn (),              // Negated Schmitt Trigger Output
+      .VCTRLFB  (),   // Schmitt Trigger Output
+      .VCTRL_BUF(caesar_sw1_ack)   //ACK signal Output
+    );
+
+    switch_cell_mem mem_caesar_sw2_i (
+  `ifdef USE_PG_PIN
+      .VIN,
+      .VOUT,
+      .VSS,
+  `endif
+      .VCTRL    (caesar_sw1_ack),  // Switch Signal Input
+      .VCTRLFBn (),              // Negated Schmitt Trigger Output
+      .VCTRLFB  (),   // Schmitt Trigger Output
+      .VCTRL_BUF(caesar_sw2_ack)   //ACK signal Output
+    );
+
+    switch_cell_mem mem_caesar_sw3_i (
+  `ifdef USE_PG_PIN
+      .VIN,
+      .VOUT,
+      .VSS,
+  `endif
+      .VCTRL    (caesar_sw2_ack),  // Switch Signal Input
+      .VCTRLFBn (),              // Negated Schmitt Trigger Output
+      .VCTRLFB  (),   // Schmitt Trigger Output
+      .VCTRL_BUF(caesar_sw3_ack)   //ACK signal Output
+    );
+
+`else
+
+    assign caesar_sw0_ctrl = '0;
+    assign external_subsystem_powergate_switch_ack_n[0] = '0;
+
+`endif
+
+  // CARUS
+  // -----------
+  // TODO: add clock gating cell
+  // Connect to CORE-V-MINI-MCU power manager
+
+  logic carus_sw0_ctrl;
+  logic carus_sw0_ack, carus_sw1_ack, carus_sw2_ack, carus_sw3_ack;
+
+`ifndef FPGA
+
+    assign carus_sw0_ctrl = ~external_subsystem_powergate_switch_n[1];
+    assign external_subsystem_powergate_switch_ack_n[1] = ~carus_sw3_ack;
+
+    // Power switch and synchronizer
+    switch_cell_mem mem_carus_sw0_i (
+  `ifdef USE_PG_PIN
+      .VIN,
+      .VOUT,
+      .VSS,
+  `endif
+      .VCTRL    (carus_sw0_ctrl),  // Switch Signal Input
+      .VCTRLFBn (),               // Negated Schmitt Trigger Output
+      .VCTRLFB  (),    // Schmitt Trigger Output
+      .VCTRL_BUF(carus_sw0_ack)    //ACK signal Output
+    );
+
+    switch_cell_mem mem_carus_sw1_i (
+  `ifdef USE_PG_PIN
+      .VIN,
+      .VOUT,
+      .VSS,
+  `endif
+      .VCTRL    (carus_sw0_ack),  // Switch Signal Input
+      .VCTRLFBn (),              // Negated Schmitt Trigger Output
+      .VCTRLFB  (),   // Schmitt Trigger Output
+      .VCTRL_BUF(carus_sw1_ack)   //ACK signal Output
+    );
+
+    switch_cell_mem mem_carus_sw2_i (
+  `ifdef USE_PG_PIN
+      .VIN,
+      .VOUT,
+      .VSS,
+  `endif
+      .VCTRL    (carus_sw1_ack),  // Switch Signal Input
+      .VCTRLFBn (),              // Negated Schmitt Trigger Output
+      .VCTRLFB  (),   // Schmitt Trigger Output
+      .VCTRL_BUF(carus_sw2_ack)   //ACK signal Output
+    );
+
+    switch_cell_mem mem_carus_sw3_i (
+  `ifdef USE_PG_PIN
+      .VIN,
+      .VOUT,
+      .VSS,
+  `endif
+      .VCTRL    (carus_sw2_ack),  // Switch Signal Input
+      .VCTRLFBn (),              // Negated Schmitt Trigger Output
+      .VCTRLFB  (),   // Schmitt Trigger Output
+      .VCTRL_BUF(carus_sw3_ack)   //ACK signal Output
+    );
+
+`else
+
+  assign carus_sw0_ctrl = '0;
+  assign external_subsystem_powergate_switch_ack_n[1] = '0;
+
+`endif
+
+endmodule // heeperator_top

@@ -1,0 +1,191 @@
+#
+# HEEPpocrates SoC - EPFL / ESL 2022
+# Christoph Müller (christoph.mueller@epfl.ch)
+#
+
+set LIB_PATH $design(FLOW_ROOT)/hw/asic/symlinks/STDCELLs/Back_End/lef/tcbn65lplvt_200a/
+
+set cap_tbl(cbest)   $LIB_PATH/techfiles/captable/cln65lp_1p09m+alrdl_top2_cbest.captable
+set cap_tbl(cworst)  $LIB_PATH/techfiles/captable/cln65lp_1p09m+alrdl_top2_cworst.captable
+set cap_tbl(rcbest)  $LIB_PATH/techfiles/captable/cln65lp_1p09m+alrdl_top2_rcbest.captable
+set cap_tbl(rcworst) $LIB_PATH/techfiles/captable/cln65lp_1p09m+alrdl_top2_rcworst.captable
+set cap_tbl(typical) $LIB_PATH/techfiles/captable/cln65lp_1p09m+alrdl_top2_typical.captable
+
+set cap_tables {cbest cworst rcbest rcworst typical}
+
+set lib_std(wc) $design(FLOW_ROOT)/hw/asic/symlinks/STDCELLs/Front_End/timing_power_noise/CCS/tcbn65lplvt_200a/tcbn65lplvtwc0d9_ccs.lib
+set lib_std(bc) $design(FLOW_ROOT)/hw/asic/symlinks/STDCELLs/Front_End/timing_power_noise/CCS/tcbn65lplvt_200a/tcbn65lplvtbc_ccs.lib
+set lib_std(tc) $design(FLOW_ROOT)/hw/asic/symlinks/STDCELLs/Front_End/timing_power_noise/CCS/tcbn65lplvt_200a/tcbn65lplvttc_ccs.lib
+set lib_std(wc_m40) $design(FLOW_ROOT)/hw/asic/symlinks/STDCELLs/Front_End/timing_power_noise/CCS/tcbn65lplvt_200a/tcbn65lplvtwcl0d9_ccs.lib
+set lib_std(bc_125) $design(FLOW_ROOT)/hw/asic/symlinks/STDCELLs/Front_End/timing_power_noise/CCS/tcbn65lplvt_200a/tcbn65lplvtml_ccs.lib
+set lib_std(bc_m40) $design(FLOW_ROOT)/hw/asic/symlinks/STDCELLs/Front_End/timing_power_noise/CCS/tcbn65lplvt_200a/tcbn65lplvtlt1d1_ccs.lib
+
+#dual-rail std cells
+
+set lib_std_dualrail(wc) $design(FLOW_ROOT)/hw/asic/symlinks/STDCELLs/Front_End/timing_power_noise/CCS/tcbn65lplvt_200a/tcbn65lplvtwc0d90d9_ccs.lib
+set lib_std_dualrail(bc) $design(FLOW_ROOT)/hw/asic/symlinks/STDCELLs/Front_End/timing_power_noise/CCS/tcbn65lplvt_200a/tcbn65lplvtbc1d321d32_ccs.lib
+set lib_std_dualrail(tc) $design(FLOW_ROOT)/hw/asic/symlinks/STDCELLs/Front_End/timing_power_noise/CCS/tcbn65lplvt_200a/tcbn65lplvttc1d21d2_ccs.lib
+# don't have these, but Davide has to check
+set lib_std_dualrail(bc_m40) $lib_std_dualrail(bc)
+set lib_std_dualrail(wc_m40) $lib_std_dualrail(wc)
+set lib_std_dualrail(bc_125) $lib_std_dualrail(bc)
+
+
+#coarse-grain cells (power switches)
+set lib_cgcells(wc) $design(FLOW_ROOT)/hw/asic/symlinks/STDCELLs/Front_End/timing_power_noise/CCS/tcbn65lpcghvt_200a/tcbn65lpcghvtwc0d9_ccs.lib
+set lib_cgcells(bc) $design(FLOW_ROOT)/hw/asic/symlinks/STDCELLs/Front_End/timing_power_noise/CCS/tcbn65lpcghvt_200a/tcbn65lpcghvtbc_ccs.lib
+set lib_cgcells(tc) $design(FLOW_ROOT)/hw/asic/symlinks/STDCELLs/Front_End/timing_power_noise/CCS/tcbn65lpcghvt_200a/tcbn65lpcghvttc_ccs.lib
+# don't have these, but Davide has to check
+set lib_cgcells(bc_m40) $lib_cgcells(bc)
+set lib_cgcells(wc_m40) $lib_cgcells(wc)
+set lib_cgcells(bc_125) $lib_cgcells(bc)
+
+# custom power switches
+set lib_pswitch(wc) $design(FLOW_ROOT)/hw/asic/mem-power-switches/lib/mem_power_switches.lib
+set lib_pswitch(bc) $design(FLOW_ROOT)/hw/asic/mem-power-switches/lib/mem_power_switches.lib
+set lib_pswitch(tc) $design(FLOW_ROOT)/hw/asic/mem-power-switches/lib/mem_power_switches.lib
+set lib_pswitch(bc_m40) $design(FLOW_ROOT)/hw/asic/mem-power-switches/lib/mem_power_switches.lib
+set lib_pswitch(wc_m40) $design(FLOW_ROOT)/hw/asic/mem-power-switches/lib/mem_power_switches.lib
+set lib_pswitch(bc_125) $design(FLOW_ROOT)/hw/asic/mem-power-switches/lib/mem_power_switches.lib
+
+set lib_fll(wc) $design(FLOW_ROOT)/hw/asic/fll/lib/tsmc65_FLL_ss_typical_max_1p08v_125c.lib
+set lib_fll(bc) $design(FLOW_ROOT)/hw/asic/fll/lib/tsmc65_FLL_ff_typical_min_1p32v_m40c.lib
+set lib_fll(tc) $design(FLOW_ROOT)/hw/asic/fll/lib/tsmc65_FLL_tt_typical_max_1p20v_25c.lib
+# don't have these, lets use the bc/wc we have...
+set lib_fll(bc_m40) $lib_fll(bc)
+set lib_fll(wc_m40) $lib_fll(wc)
+set lib_fll(bc_125) $lib_fll(bc)
+
+
+set lib_io(wc) $design(FLOW_ROOT)/hw/asic/symlinks/PADs/Front_End/timing_power_noise/NLDM/tpdn65lpnv2od3_200a/tpdn65lpnv2od3wc.lib
+set lib_io(bc) $design(FLOW_ROOT)/hw/asic/symlinks/PADs/Front_End/timing_power_noise/NLDM/tpdn65lpnv2od3_200a/tpdn65lpnv2od3bc.lib
+set lib_io(tc) $design(FLOW_ROOT)/hw/asic/symlinks/PADs/Front_End/timing_power_noise/NLDM/tpdn65lpnv2od3_200a/tpdn65lpnv2od3tc.lib
+# don't have these, lets use the bc/wc we have...
+set lib_io(bc_m40) $lib_io(bc)
+set lib_io(wc_m40) $lib_io(wc)
+set lib_io(bc_125) $lib_io(bc)
+
+set MEM ARM
+if {$MEM == "TSMC"} {
+    set lib_mem(wc) $design(FLOW_ROOT)/MEMORIEs/ts1n65lphsa8192x32m8s_210a/NLDM/ts1n65lphsa8192x32m8s_210a_ss1p08v125c.lib
+    set lib_mem(bc) $design(FLOW_ROOT)/MEMORIEs/ts1n65lphsa8192x32m8s_210a/NLDM/ts1n65lphsa8192x32m8s_210a_ff1p32v0c.lib
+    set lib_mem(tc) $design(FLOW_ROOT)/MEMORIEs/ts1n65lphsa8192x32m8s_210a/NLDM/ts1n65lphsa8192x32m8s_210a_tt1p2v25c.lib
+    set lib_mem(bc_m40) $design(FLOW_ROOT)/MEMORIEs/ts1n65lphsa8192x32m8s_210a/NLDM/ts1n65lphsa8192x32m8s_210a_ff1p32vm40c.lib
+    set lib_mem(wc_m40) $design(FLOW_ROOT)/MEMORIEs/ts1n65lphsa8192x32m8s_210a/NLDM/ts1n65lphsa8192x32m8s_210a_ss1p08vm40c.lib
+    set lib_mem(bc_125) $design(FLOW_ROOT)/MEMORIEs/ts1n65lphsa8192x32m8s_210a/NLDM/ts1n65lphsa8192x32m8s_210a_ff1p32v125c.lib
+
+    set lib_mem2(wc) $design(FLOW_ROOT)/MEMORIEs/ts1n65lpll128x32m8_220a/SYNOPSYS/ts1n65lpll128x32m8_220a_ss1p08v125c.lib
+    set lib_mem2(bc) $design(FLOW_ROOT)/MEMORIEs/ts1n65lpll128x32m8_220a/SYNOPSYS/ts1n65lpll128x32m8_220a_ff1p32v0c.lib
+    set lib_mem2(tc) $design(FLOW_ROOT)/MEMORIEs/ts1n65lpll128x32m8_220a/SYNOPSYS/ts1n65lpll128x32m8_220a_tt1p2v25c.lib
+    set lib_mem2(bc_m40) $design(FLOW_ROOT)/MEMORIEs/ts1n65lpll128x32m8_220a/SYNOPSYS/ts1n65lpll128x32m8_220a_ff1p32vm40c.lib
+    set lib_mem2(wc_m40) $design(FLOW_ROOT)/MEMORIEs/ts1n65lpll128x32m8_220a/SYNOPSYS/ts1n65lpll128x32m8_220a_ss1p08vm40c.lib
+    set lib_mem2(bc_125) $design(FLOW_ROOT)/MEMORIEs/ts1n65lpll128x32m8_220a/SYNOPSYS/ts1n65lpll128x32m8_220a_ff1p32v105c.lib
+} elseif {$MEM == "ARM"} {
+    set lib_mem(wc) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram8192x32m8/lib/sram8192x32m8_ss_1p08v_1p08v_125c.lib_ccs_tn
+    set lib_mem(bc) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram8192x32m8/lib/sram8192x32m8_ff_1p32v_1p32v_m40c.lib_ccs_tn
+    set lib_mem(tc) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram8192x32m8/lib/sram8192x32m8_tt_1p20v_1p20v_25c.lib_ccs_tn
+    set lib_mem(bc_m40) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram8192x32m8/lib/sram8192x32m8_ff_1p32v_1p32v_m40c.lib_ccs_tn
+    set lib_mem(wc_m40) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram8192x32m8/lib/sram8192x32m8_ss_1p08v_1p08v_m40c.lib_ccs_tn
+    set lib_mem(bc_125) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram8192x32m8/lib/sram8192x32m8_ff_1p32v_1p32v_125c.lib_ccs_tn
+
+    set lib_mem2(wc) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/rf128x32m2/lib/rf128x32m2_ss_1p08v_1p08v_125c.lib
+    set lib_mem2(bc) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/rf128x32m2/lib/rf128x32m2_ff_1p32v_1p32v_m40c.lib
+    set lib_mem2(tc) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/rf128x32m2/lib/rf128x32m2_tt_1p20v_1p20v_25c.lib
+    set lib_mem2(bc_m40) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/rf128x32m2/lib/rf128x32m2_ff_1p32v_1p32v_m40c.lib
+    set lib_mem2(wc_m40) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/rf128x32m2/lib/rf128x32m2_ss_1p08v_1p08v_m40c.lib
+    set lib_mem2(bc_125) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/rf128x32m2/lib/rf128x32m2_ff_1p32v_1p32v_125c.lib
+}
+
+# lib for the caesar macro
+set lib_caesar(wc) $design(FLOW_ROOT)/hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/lib/NMCaesar8192x32m8_ss_1p08v_1p08v_125c.lib
+set lib_caesar(bc) $design(FLOW_ROOT)/hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/lib/NMCaesar8192x32m8_ff_1p32v_1p32v.lib
+set lib_caesar(tc) $design(FLOW_ROOT)/hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/lib/NMCaesar8192x32m8_tt_1p20v_1p20v_25c.lib
+#fix this
+set lib_caesar(bc_m40) $design(FLOW_ROOT)/hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/lib/NMCaesar8192x32m8_ff_1p32v_1p32v.lib
+set lib_caesar(wc_m40) $design(FLOW_ROOT)/hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/lib/NMCaesar8192x32m8_ss_1p08v_1p08v_125c.lib
+set lib_caesar(bc_125) $design(FLOW_ROOT)/hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/lib/NMCaesar8192x32m8_ff_1p32v_1p32v.lib
+
+# fake lib for the carus macro
+set lib_carus(wc) $design(FLOW_ROOT)/hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/lib/NMCarus8192x32m8_ss_1p08v_1p08v_125c.lib
+set lib_carus(bc) $design(FLOW_ROOT)/hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/lib/NMCarus8192x32m8_ff_1p32v_1p32v.lib
+set lib_carus(tc) $design(FLOW_ROOT)/hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/lib/NMCarus8192x32m8_tt_1p20v_1p20v_25c.lib
+#fix this
+set lib_carus(bc_m40) $design(FLOW_ROOT)/hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/lib/NMCarus8192x32m8_ff_1p32v_1p32v.lib
+set lib_carus(wc_m40) $design(FLOW_ROOT)/hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/lib/NMCarus8192x32m8_ss_1p08v_1p08v_125c.lib
+set lib_carus(bc_125) $design(FLOW_ROOT)/hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/lib/NMCarus8192x32m8_ff_1p32v_1p32v.lib
+
+set libsets {wc bc tc bc_m40 wc_m40 bc_125}
+set temperatures  {125 0 25 -40 -40 125}
+set voltages {0.9 1.32 1.2 1.32 0.9 1.32}
+set cap_map {rcworst rcbest typical rcbest rcworst rcbest}
+
+
+foreach libset $libsets {
+    create_library_set -name libset_${libset} -timing [list \
+    $lib_std($libset) \
+    $lib_std_dualrail($libset) \
+    $lib_cgcells($libset) \
+    $lib_fll($libset) \
+    $lib_mem($libset) \
+    $lib_mem2($libset) \
+    $lib_carus($libset) \
+    $lib_caesar($libset) \
+    $lib_pswitch($libset) \
+    $lib_io($libset) \
+    ]
+}
+
+foreach libset $libsets temperature $temperatures voltage $voltages {
+    create_opcond -name op_cond_${libset} -process 1.0 -voltage $voltage -temperature $temperature
+}
+
+foreach libset $libsets {
+    create_timing_condition -name timing_condition_${libset} -library_sets [list libset_${libset}]
+}
+
+create_constraint_mode -name heep_on_constraint -sdc_files [list $design(default_sdc)]
+
+foreach rc $cap_tables {
+    create_rc_corner -name corner_${rc} \
+        -cap_table $cap_tbl($rc) \
+        -pre_route_res 1.0 \
+        -pre_route_cap 1.0 \
+        -pre_route_clock_res 0.0 \
+        -pre_route_clock_cap 0.0 \
+        -post_route_res {1.0 1.0 1.0} \
+        -post_route_cap {1.0 1.0 1.0} \
+        -post_route_cross_cap {1.0 1.0 1.0} \
+        -post_route_clock_res {1.0 1.0 1.0} \
+        -post_route_clock_cap {1.0 1.0 1.0}
+}
+
+foreach libset $libsets rc $cap_map {
+    create_delay_corner -name delay_corner_${libset} \
+        -early_timing_condition [list timing_condition_${libset}] \
+        -late_timing_condition [list timing_condition_${libset}] \
+        -early_rc_corner corner_${rc} \
+        -late_rc_corner corner_${rc}
+}
+
+set hold_lib_corners {tc bc bc_m40 bc_125}
+set hold_views {}
+set setup_lib_corners {tc wc_m40 wc}
+set setup_views {}
+
+foreach heep_mode {heep_mode_default} cm {heep_on_constraint} {
+    foreach corner $hold_lib_corners {
+        set name hold_view_default_${corner}_${heep_mode}
+        lappend hold_views $name
+        create_analysis_view -name $name \
+            -constraint_mode  ${cm}\
+            -delay_corner delay_corner_${corner}
+    }
+    foreach corner $setup_lib_corners {
+        set name setup_view_default_${corner}_${heep_mode}
+        lappend setup_views $name
+        create_analysis_view -name $name \
+            -constraint_mode  ${cm}\
+            -delay_corner delay_corner_${corner}
+    }
+}
+set_analysis_view -setup $setup_views -hold $hold_views

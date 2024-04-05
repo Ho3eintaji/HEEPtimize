@@ -1,0 +1,13 @@
+// Copyright 2022 EPFL and Politecnico di Torino.
+// Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+//
+// File: bus-waivers.sv
+// Author: Michele Caon
+// Date: 14/06/2023
+// Description: Waivers for HEEPerator bus
+
+`verilator_config
+lint_off -rule UNUSED -file "*/heeperator-bus/ext_xbar.sv" -match "Signal is not*used: 'neck_req'"
+lint_off -rule UNUSED -file "*/heeperator-bus/ext_xbar.sv" -match "Signal is not*used: 'neck_resp'"
+lint_off -rule UNUSED -file "*/heeperator-bus/ext_bus.sv" -match "Signal is not used: 'fwd_xbar_*'"
