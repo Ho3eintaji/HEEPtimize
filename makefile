@@ -101,8 +101,6 @@ THR_TESTS ?= scripts/performance-analysis/throughput-tests.txt
 PWR_TESTS ?= scripts/performance-analysis/power-tests.txt
 
 #CAESAR and CARUS PL Netlist and SDF
-CAESAR_PL_NET := $(ROOT_DIR)/hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/verilog/NMCaesar_top_pnr.v
-CARUS_PL_NET := $(ROOT_DIR)/hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/verilog/NMCarus_top_pnr.v
 CAESAR_PL_SDF := $(ROOT_DIR)/hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/sdf/NMCaesar_top_pared.sdf
 CARUS_PL_SDF := $(ROOT_DIR)/hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/sdf/NMCarus_top_pared.sdf
 
@@ -152,14 +150,6 @@ else
 	$(error ### ERROR: Unsupported target implementation: $(TARGET_IMPL))
 endif
 
-# HEEPerator files
-# ----------------
-# Build HEEPerator-related files
-.PHONY: check_nmc_vendor
-check_nmc_vendor: hw/vendor/nm-carus.vendor.hjson hw/vendor/nm-caesar.vendor.hjson hw/vendor/nm-caesar-backend-opt/hw/vendor/nm-caesar.vendor.hjson util/check_vendor.py
-	./util/check_vendor.py --file_1 hw/vendor/nm-caesar-backend-opt/hw/vendor/nm-caesar.vendor.hjson --file_2 hw/vendor/nm-caesar.vendor.hjson
-	./util/check_vendor.py --file_1 hw/vendor/nm-carus-backend-opt/hw/vendor/nm-carus.vendor.hjson --file_2 hw/vendor/nm-carus.vendor.hjson
-
 .PHONY: heeperator-gen-force-asic
 heeperator-gen-force:
 	rm -rf build/.mcu-gen.lock build/.heeperator-gen.lock;
@@ -168,7 +158,7 @@ heeperator-gen-force:
 # Generate HEEPerator files
 # @param TARGET=asic(default),pynq-z2
 .PHONY: heeperator-gen
-heeperator-gen: $(HEEPERATOR_GEN_LOCK) check_nmc_vendor
+heeperator-gen: $(HEEPERATOR_GEN_LOCK)
 $(HEEPERATOR_GEN_LOCK): $(HEEPERATOR_GEN_CFG) $(HEEPERATOR_GEN_TPL) $(HEEPERATOR_TOP_TPL) $(PAD_RING_TPL) $(MCU_GEN_LOCK) $(ROOT_DIR)/tb/tb_util.svh.tpl
 ifeq ($(TARGET), asic)
 	@echo "### Generating HEEPerator top and pad rings for ASIC..."
@@ -383,23 +373,12 @@ questasim-postlayout-gui:
 # ---------
 # HEEperator synthesis with Synopsys DC Shell
 .PHONY: synthesis
-#	I know it is boring to generated all the time the DB files, but I do not want you update the vendor (i.e. the LIB) and forget to rebuild the DB
-synthesis: $(HEEPERATOR_GEN_LOCK) check_nmc_vendor caesar_db carus_db
+synthesis: $(HEEPERATOR_GEN_LOCK)
 	fusesoc run --no-export --target asic_synthesis --build $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
 		$(FUSESOC_ARGS) 2>&1 | tee fusesoc_synthesis.log
 
 implementation/pnr/inputs/heepocrates.io:
 	pushd implementation/pnr/inputs/ ; ./create_io_file_from_spreadsheet.py; popd;
-
-.PHONY: caesar_db
-caesar_db:
-	rm -rf implementation/synthesis/lc_shell/nm-caesar
-	cd implementation/synthesis/lc_shell/ && lc_shell -f caesar_lib2db.tcl -batch;
-
-.PHONY: carus_db
-carus_db:
-	rm -rf implementation/synthesis/lc_shell/nm-carus
-	cd implementation/synthesis/lc_shell/ && lc_shell -f carus_lib2db.tcl -batch;
 
 # Place & Route
 # -------------
@@ -460,21 +439,11 @@ charts: build/performance-analysis/power.csv build/performance-analysis/throughp
 # --------------
 .PHONY: patch-files-power-analysis
 patch-files-power-analysis: $(BUILD_DIR)/.patch-files-power-analysis.lock
-$(BUILD_DIR)/.patch-files-power-analysis.lock: $(HEEPERATOR_PL_NET) $(CAESAR_PL_NET) $(CARUS_PL_NET) $(HEEPERATOR_PL_SDF).gz $(CAESAR_PL_SDF) $(CARUS_PL_SDF)
+$(BUILD_DIR)/.patch-files-power-analysis.lock: $(HEEPERATOR_PL_NET) $(HEEPERATOR_PL_SDF).gz
 #   the LIB and LEF of the FLL are wrong as the VDDA power pin is missing, thus deleting it so that power analysis can be done
 	cp $(HEEPERATOR_PL_NET) $(HEEPERATOR_PL_NET_PA)
 	sed -i '/.VDDA(VDD)/d' $(HEEPERATOR_PL_NET_PA)
-#   append the caesar and carus netlist
-	cat $(CAESAR_PL_NET) >> $(HEEPERATOR_PL_NET_PA)
-	cat $(CARUS_PL_NET) >> $(HEEPERATOR_PL_NET_PA)
 	touch $(BUILD_DIR)/.patch-files-power-analysis.lock
-#   copy the SDF file and modify it
-#	cp $(HEEPERATOR_PL_SDF).gz $(HEEPERATOR_PL_SDF_PA).gz
-#	gunzip -f $(HEEPERATOR_PL_SDF_PA).gz
-#	cat $(CAESAR_PL_SDF) >> $(HEEPERATOR_PL_SDF_PA)
-#	cat $(CARUS_PL_SDF) >> $(HEEPERATOR_PL_SDF_PA)
-#   patch SDF, i.e. delete the instances referring to the LIBs, and mofify the caesar and carus ones to add absolute paths wrt heeperator
-#	python util/patch_sdf.py --sdf $(HEEPERATOR_PL_SDF_PA) --output $(HEEPERATOR_PL_SDF_PATCHED_PA) --verbose
 
 .PHONY: power-analysis
 power-analysis: $(BUILD_DIR)/.patch-files-power-analysis.lock $(PWR_VCD)
