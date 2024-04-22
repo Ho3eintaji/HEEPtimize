@@ -16,9 +16,8 @@ module xilinx_heeperator_top_wrapper #(
   inout logic rst_i,
 
   //visibility signals
-  output logic rst_led,
-  output logic clk_led,
-  output logic clk_out,
+  output logic rst_led_o,
+  output logic clk_led_o,
 
   inout logic boot_select_i,
   inout logic execute_from_flash_i,
@@ -66,13 +65,13 @@ module xilinx_heeperator_top_wrapper #(
   wire                               rst_n;
   logic [CLK_LED_COUNT_LENGTH - 1:0] clk_count;
 
-  assign rst_n   = !rst_i;
+  assign rst_n     = !rst_i;
 
   // reset LED for debugging
-  assign rst_led = rst_n;
+  assign rst_led_o = rst_n;
 
   // counter to blink an LED
-  assign clk_led = clk_count[CLK_LED_COUNT_LENGTH-1];
+  assign clk_led_o = clk_count[CLK_LED_COUNT_LENGTH-1];
 
   always_ff @(posedge clk_gen or negedge rst_n) begin : clk_count_process
     if (!rst_n) begin
@@ -84,9 +83,6 @@ module xilinx_heeperator_top_wrapper #(
 
   // eXtension Interface
   if_xif #() ext_if ();
-
-  // clock output for debugging
-  assign clk_out = clk_gen;
 
   xilinx_clk_wizard_wrapper xilinx_clk_wizard_wrapper_i (
     .clk_125MHz(clk_i),

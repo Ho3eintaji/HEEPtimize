@@ -8,7 +8,7 @@
 # Description: CORE-V-MINI-MCU configuration for HEEPerator
 
 {
-    cpu_type: cv32e40p
+    cpu_type: cv32e40x
 
     bus_type: NtoM
 
