@@ -95,6 +95,11 @@ filesets:
     - openhwgroup.org:systems:core-v-mini-mcu
     - x-heep::packages
     - x-heep:ip:pad_control
+  
+  # Coprosit RTL (separated because it can't be verilated)
+  rtl-coprosit:
+    depend:
+    - davidmallasen:ip:coprosit:0.0.1
 
   # RTL that depends on TSMC65
   rtl-tsmc65:
@@ -240,6 +245,7 @@ targets:
     filesets:
     - rtl
     - rtl-x-heep
+    - "!tool_verilator ? (rtl-coprosit)"
     toplevel: heeperator_top
 
   # Synthesis

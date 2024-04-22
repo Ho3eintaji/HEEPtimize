@@ -1,0 +1,5 @@
+build/
+*.do
+
+# ignore the following hw automatically generated files
+tb/tb_util.svh

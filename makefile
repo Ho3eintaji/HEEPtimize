@@ -507,6 +507,12 @@ vendor-update:
 		exit 1; \
 	fi
 
+# Run PHEE-Coprosit tests
+.PHONY: test
+test:
+	$(RM) test/*.log
+	./test/test_all.sh
+
 # Create directories
 %/:
 	mkdir -p $@
