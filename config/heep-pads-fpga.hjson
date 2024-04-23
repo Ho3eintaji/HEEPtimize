@@ -65,18 +65,6 @@
             num: 1, #carefull, the x-heep uses the CS from the spi pkg, change it
             type: inout
         },
-        spi_flash_cs_1: {
-            num: 1,
-            type: bypass_inout
-            mux: {
-                spi_flash_cs_1: {
-                    type: inout
-                },
-                gpio_31: {
-                    type: inout
-                },
-            }
-        },
         spi_flash_sd: {
             num: 4,
             type: inout

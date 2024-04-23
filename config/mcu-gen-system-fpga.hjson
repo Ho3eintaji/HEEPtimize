@@ -1,0 +1,30 @@
+{
+    bus_type: "NtoM",
+    ram_banks: {
+        code: {
+            sizes: 32
+        }
+        data: {
+            sizes: 32
+        }
+        extra_data: {
+            type: continuous
+            num: 13
+            sizes: 32
+        }
+    }
+
+    linker_sections: 
+    [
+        {
+            name: code
+            start: 0
+            // minimum size for freeRTOS and clang
+            size: 0x00000C800
+        },
+        {
+            name: data
+            start: 0x00000C800
+        }
+    ]
+}

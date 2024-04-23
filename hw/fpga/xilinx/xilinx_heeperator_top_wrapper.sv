@@ -7,12 +7,16 @@
 // Date: 01/02/2024
 // Description: HEEPerator FPGA top-level module
 
-
 module xilinx_heeperator_top_wrapper #(
   parameter int CLK_LED_COUNT_LENGTH = 27
 ) (
 
+`ifdef FPGA_ZCU104
+  inout logic clk_300mhz_n,
+  inout logic clk_300mhz_p,
+`else
   inout logic clk_i,
+`endif
   inout logic rst_i,
 
   //visibility signals
@@ -64,8 +68,14 @@ module xilinx_heeperator_top_wrapper #(
   logic [                      31:0] exit_value;
   wire                               rst_n;
   logic [CLK_LED_COUNT_LENGTH - 1:0] clk_count;
+  wire                               zero_value;
 
-  assign rst_n     = !rst_i;
+  // low active reset
+`ifdef FPGA_NEXYS
+  assign rst_n = rst_i;
+`else
+  assign rst_n = !rst_i;
+`endif
 
   // reset LED for debugging
   assign rst_led_o = rst_n;
@@ -81,13 +91,23 @@ module xilinx_heeperator_top_wrapper #(
     end
   end
 
-  // eXtension Interface
-  if_xif #() ext_if ();
-
+`ifdef FPGA_ZCU104
+  xilinx_clk_wizard_wrapper xilinx_clk_wizard_wrapper_i (
+    .CLK_IN1_D_0_clk_n(clk_300mhz_n),
+    .CLK_IN1_D_0_clk_p(clk_300mhz_p),
+    .clk_out1_0       (clk_gen)
+  );
+`elsif FPGA_NEXYS
+  xilinx_clk_wizard_wrapper xilinx_clk_wizard_wrapper_i (
+    .clk_100MHz(clk_i),
+    .clk_out1_0(clk_gen)
+  );
+`else  // FPGA PYNQ-Z2
   xilinx_clk_wizard_wrapper xilinx_clk_wizard_wrapper_i (
     .clk_125MHz(clk_i),
     .clk_out1_0(clk_gen)
   );
+`endif
 
   // Instantiate the HEEPerator top-level module
   heeperator_top i_heeperator_top (
