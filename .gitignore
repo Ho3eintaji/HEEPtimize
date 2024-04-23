@@ -1,5 +1,47 @@
+# Logs and temporary files
+*~
+*.swp
+*.cdslck
+*.cdslck.*
+*.~lock.*
+layout.oa.*.oacache
+*.log
 build/
+*.so
+*.hex
+*.elf
+*.dis
 *.do
+*.cache
+*.jou
 
-# ignore the following hw automatically generated files
+#generated files
 tb/tb_util.svh
+hw/vendor/x-heep/sw/device/lib/crt/crt0.S
+hw/fpga/xilinx/scripts/set_board.tcl
+hw/vendor/x-heep/hw/core-v-mini-mcu/core_v_mini_mcu.sv
+hw/vendor/x-heep/hw/core-v-mini-mcu/peripheral_subsystem.sv
+
+# Python outputs
+**/__pycache__
+
+# Questasim files
+transcipt
+*.wlf
+
+# Synthesis outputs
+implementation/synthesis/dc_shell/output_*
+implementation/synthesis/last_output/
+implementation/synthesis/lc_shell/lc_output.txt
+implementation/synthesis/lc_shell/nm-caesar/
+implementation/synthesis/lc_shell/nm-carus/
+
+# Power Analysis
+implementation/power_analysis/pwr_shell*
+implementation/power_analysis/reports
+implementation/power_analysis/heeperator*
+
+# User-specific files
+private/
+.vscode/
+.Xil/

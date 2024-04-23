@@ -181,6 +181,12 @@ ${pad.internal_signals}
 ${pad.core_v_mini_mcu_bonding}
 % endfor
 
+`ifdef FPGA
+    .spi_flash_cs_1_o (),
+    .spi_flash_cs_1_i ('0),
+    .spi_flash_cs_1_oe_o(),
+`endif
+
     // CORE-V eXtension Interface
     .xif_compressed_if (ext_xif.cpu_compressed),
     .xif_issue_if      (ext_xif.cpu_issue),

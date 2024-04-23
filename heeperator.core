@@ -182,29 +182,11 @@ filesets:
 
   # FPGA IPs
   ip-fpga:
+    depend:
+    - openhwgroup.org:systems:core-v-mini-mcu-fpga
     files:
-    - hw/fpga/xilinx/scripts/xilinx_generate_clk_wizard.tcl: {file_type: tclSource}
     - hw/fpga/xilinx/scripts/generate_sram_8.tcl: {file_type: tclSource}
     - hw/fpga/xilinx/scripts/generate_sram_16.tcl: {file_type: tclSource}
-    - hw/vendor/x-heep/hw/fpga/scripts/generate_sram.tcl:  { file_type: tclSource }
-    - hw/vendor/x-heep/hw/fpga/sram_wrapper.sv:  { file_type: systemVerilogSource }
-    - hw/vendor/x-heep/hw/fpga/prim_xilinx_clk.sv:  { file_type: systemVerilogSource }
-    - hw/vendor/x-heep/hw/fpga/cv32e40p_xilinx_clock_gate.sv:  { file_type: systemVerilogSource }
-    - hw/vendor/x-heep/hw/fpga/cv32e40x_xilinx_clock_gate.sv:  { file_type: systemVerilogSource }
-    - hw/vendor/x-heep/hw/fpga/cve2_xilinx_clock_gate.sv:  { file_type: systemVerilogSource }
-    - hw/vendor/x-heep/hw/fpga/cv32e40px_xilinx_clock_gate.sv:  { file_type: systemVerilogSource }
-    - hw/vendor/x-heep/hw/fpga/pad_cell_input_xilinx.sv:  { file_type: systemVerilogSource }
-    - hw/vendor/x-heep/hw/fpga/pad_cell_output_xilinx.sv:  { file_type: systemVerilogSource }
-    - hw/vendor/x-heep/hw/fpga/pad_cell_inout_xilinx.sv:  { file_type: systemVerilogSource }
-    - hw/vendor/x-heep/hw/fpga/pad_cell_bypass_input_xilinx.sv:  { file_type: systemVerilogSource }
-    - hw/vendor/x-heep/hw/fpga/pad_cell_bypass_output_xilinx.sv:  { file_type: systemVerilogSource }
-
-  # FPGA constraints
-  xdc-fpga-pynq-z2:
-    files:
-    - hw/vendor/x-heep/hw/fpga/constraints/pynq-z2/pin_assign.xdc
-    - hw/vendor/x-heep/hw/fpga/constraints/pynq-z2/constraints.xdc
-    file_type: xdc
 
 scripts:
   # Create log directory
@@ -279,13 +261,14 @@ targets:
     - nm_carus_sim
     - fpga-top
     - ip-fpga
-    - xdc-fpga-pynq-z2
     parameters:
     - SYNTHESIS=true
     - FPGA=true
     tools:
       vivado:
         part: xc7z020clg400-1
+        board_part: tul.com.tw:pynq-z2:part0:1.0
+        board_repo_paths: [../../../hw/vendor/x-heep/hw/fpga/board_files/vendor/esl_epfl_pynq_z2_board_files]
     toplevel: [xilinx_heeperator_top_wrapper]
 
   # RTL simulation

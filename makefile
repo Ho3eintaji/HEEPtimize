@@ -21,18 +21,21 @@ CARUS_NUM			?= 1
 
 # X-HEEP configuration
 XHEEP_DIR			:= $(ROOT_DIR)/hw/vendor/x-heep
-MCU_CFG				?= $(ROOT_DIR)/config/mcu-gen.hjson
-MCU_CFG_FPGA    	?= $(ROOT_DIR)/config/mcu-gen-fpga.hjson
+MCU_CFG_PERIPHERALS ?= $(ROOT_DIR)/config/mcu-gen.hjson
+X_HEEP_CFG  		?= $(ROOT_DIR)/config/mcu-gen-system.hjson
+X_HEEP_CFG_FPGA    	?= $(ROOT_DIR)/config/mcu-gen-system-fpga.hjson
 PAD_CFG				?= $(ROOT_DIR)/config/heep-pads.hjson
 PAD_CFG_FPGA	    ?= $(ROOT_DIR)/config/heep-pads-fpga.hjson
 EXT_PAD_CFG			?= $(ROOT_DIR)/config/heeperator-pads.hjson
 EXTERNAL_DOMAINS	:= 2 # NM-Caesar, NM-Carus
 MCU_GEN_OPTS		:= \
-	--cfg $(MCU_CFG) \
+	--config $(X_HEEP_CFG) \
+	--cfg_peripherals $(MCU_CFG_PERIPHERALS) \
 	--pads_cfg $(PAD_CFG) \
 	--external_domains $(EXTERNAL_DOMAINS)
 MCU_GEN_OPTS_FPGA	:= \
-	--cfg $(MCU_CFG_FPGA) \
+	--config $(X_HEEP_CFG_FPGA) \
+	--cfg_peripherals $(MCU_CFG_PERIPHERALS) \
 	--pads_cfg $(PAD_CFG_FPGA) \
 	--external_domains $(EXTERNAL_DOMAINS)
 HEEPERATOR_TOP_TPL		:= $(ROOT_DIR)/hw/ip/heeperator_top.sv.tpl
@@ -142,7 +145,7 @@ $(MCU_GEN_LOCK): $(MCU_CFG) $(PAD_CFG) $(EXT_PAD_CFG) | $(BUILD_DIR)/
 else ifeq ($(TARGET), pynq-z2)
 $(MCU_GEN_LOCK): $(MCU_CFG_FPGA) $(PAD_CFG) $(EXT_PAD_CFG) | $(BUILD_DIR)/
 	@echo "### Building X-HEEP MCU for PYNQ-Z2..."
-	$(MAKE) -f $(XHEEP_MAKE) mcu-gen MCU_CFG=$(MCU_CFG_FPGA)
+	$(MAKE) -f $(XHEEP_MAKE) mcu-gen X_HEEP_CFG=$(X_HEEP_CFG_FPGA) MCU_CFG_PERIPHERALS=$(MCU_CFG_PERIPHERALS)
 	touch $@
 	$(RM) -f $(HEEPERATOR_GEN_LOCK)
 	@echo "### DONE! X-HEEP MCU generated successfully"
@@ -170,6 +173,10 @@ ifeq ($(TARGET), asic)
 		--outdir $(ROOT_DIR)/hw/ip/pad-ring/ \
 		--external_pads $(EXT_PAD_CFG) \
 		--tpl-sv $(PAD_RING_TPL)
+	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
+		--outdir $(ROOT_DIR)/tb/ \
+		--external_pads $(EXT_PAD_CFG) \
+		--tpl-sv $(ROOT_DIR)/tb/tb_util.svh.tpl
 	@echo "### Generating HEEPerator files..."
 else ifeq ($(TARGET), pynq-z2)
 	@echo "### Generating HEEPerator top and padrings for PYNQ-Z2..."
@@ -181,13 +188,13 @@ else ifeq ($(TARGET), pynq-z2)
 		--outdir $(ROOT_DIR)/hw/ip/pad-ring/ \
 		--external_pads $(EXT_PAD_CFG) \
 		--tpl-sv $(PAD_RING_TPL)
-else
-	$(error ### ERROR: Unsupported target implementation: $(TARGET_IMPL))
-endif
-	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
+	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS_FPGA) \
 		--outdir $(ROOT_DIR)/tb/ \
 		--external_pads $(EXT_PAD_CFG) \
 		--tpl-sv $(ROOT_DIR)/tb/tb_util.svh.tpl
+else
+	$(error ### ERROR: Unsupported target implementation: $(TARGET_IMPL))
+endif
 	python3 util/heeperator-gen.py $(HEEPERATOR_GEN_OPTS) \
 		--outdir hw/ip/heeperator-ctrl/data \
 		--tpl-sv hw/ip/heeperator-ctrl/data/heeperator_ctrl.hjson.tpl
@@ -546,8 +553,8 @@ clean-lock:
 ####################################
 # ----- INCLUDE X-HEEP RULES ----- #
 ####################################
-
-export MCU_CFG
+export X_HEEP_CFG
+export MCU_CFG_PERIPHERALS
 export PAD_CFG
 export EXT_PAD_CFG
 export EXTERNAL_DOMAINS
