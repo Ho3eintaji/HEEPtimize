@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
 // File: heeperator_ctrl.hjson
-// Author: Michele Caon
-// Date: 13/05/2023
+// Author: Michele Caon, Luigi Giuffrida
+// Date: 29/04/2024
 // Description: HEEPerator near-memory computing control registers
 
 {
@@ -21,24 +21,11 @@
     registers: [
         {
             name: "OP_MODE",
-            desc: "NM-Caesar and NM-Carus operating mode control",
+            desc: "NM-Carus operating mode control",
             fields: [
-% for inst in range(caesar_num):
-                {
-                    bits: "${inst}",
-                    name: "CAESAR_IMC_${inst}",
-                    desc: '''
-                        When this bit is set, NM-Caesar enters computing mode, where bus requests are interpreted as commands.
-                        When this bit is cleared, NM-Caesar enters memory mode, where bus requests are interpreted as memory accesses.
-                    ''',
-                    swaccess: "rw",
-                    hwaccess: "hro",
-                    resval: "0",
-                },
-% endfor
 % for inst in range(carus_num):
                 {
-                    bits: "${16+inst}",
+                    bits: "${inst}",
                     name: "CARUS_IMC_${inst}",
                     desc: '''
                         When this bit is set, NM-Carus enters configuration mode, where it is possible to access the integrated instruction cache and its configuration registers.

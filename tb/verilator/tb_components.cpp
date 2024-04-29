@@ -24,9 +24,6 @@ Monitor::Monitor(Vtb_system *dut) {
     this->carus_exec_time_en = false;
     this->carus_kernel_start = 0;
     this->carus_kernel_end = 0;
-    this->caesar_exec_time_en = false;
-    this->caesar_kernel_start = 0;
-    this->caesar_kernel_end = 0;
 }
 
 Monitor::~Monitor() {
@@ -37,9 +34,6 @@ void Monitor::monitor() {
     static vluint8_t carus_prev_done = 0;
     vluint8_t carus_start = this->dut->tb_get_carus_cfg(CARUS_CFG_START);
     vluint8_t carus_done = this->dut->tb_get_carus_cfg(CARUS_CFG_DONE);
-    static vluint8_t caesar_prev_trig = 0;
-    vluint8_t caesar_trig = this->dut->tb_get_caesar_timer_trigger();
-
     // NM-Carus execution timer
     if (this->carus_exec_time_en) {
         // Set start time
@@ -56,37 +50,15 @@ void Monitor::monitor() {
         carus_prev_start = carus_start;
         carus_prev_done = carus_done;
     }
-
-    // NM-Caesar execution timer
-    if (this->caesar_exec_time_en) {
-        // Set start time
-        if (caesar_trig && !caesar_prev_trig) {
-            this->caesar_kernel_start = this->dut->contextp()->time();
-            TB_LOG(LOG_HIGH, "Caesar kernel start: %lu", this->caesar_kernel_start);
-        }
-        // Set end time
-        else if (!caesar_trig && caesar_prev_trig) {
-            this->caesar_kernel_end = this->dut->contextp()->time();
-            TB_LOG(LOG_HIGH, "Caesar kernel end: %lu", this->caesar_kernel_end);
-        }
-        caesar_prev_trig = caesar_trig;
-    }
 }
 
 void Monitor::carusExecTimeEn(bool en) {
     this->carus_exec_time_en = en;
 }
 
-void Monitor::caesarExecTimeEn(bool en) {
-    this->caesar_exec_time_en = en;
-}
 
 vluint64_t Monitor::carusGetCycles() {
     // Divide by 2 to get the number of cycles
     return (this->carus_kernel_end - this->carus_kernel_start) >> 1;
 }
 
-vluint64_t Monitor::caesarGetCycles() {
-    // Divide by 2 to get the number of cycles
-    return (this->caesar_kernel_end - this->caesar_kernel_start) >> 1;
-}

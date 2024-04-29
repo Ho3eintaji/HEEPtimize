@@ -20,7 +20,7 @@ set lib_std(wc_m40) $design(FLOW_ROOT)/hw/asic/symlinks/STDCELLs/Front_End/timin
 set lib_std(bc_125) $design(FLOW_ROOT)/hw/asic/symlinks/STDCELLs/Front_End/timing_power_noise/CCS/tcbn65lplvt_200a/tcbn65lplvtml_ccs.db
 set lib_std(bc_m40) $design(FLOW_ROOT)/hw/asic/symlinks/STDCELLs/Front_End/timing_power_noise/CCS/tcbn65lplvt_200a/tcbn65lplvtlt1d1_ccs.db
 
-#For Caesar and Carus
+#For Carus
 set lib_std_rvt(wc) $design(FLOW_ROOT)/hw/asic/symlinks/STDCELLs/Front_End/timing_power_noise/CCS/tcbn65lp_200a/tcbn65lpwc_ccs.db
 set lib_std_rvt(bc) $design(FLOW_ROOT)/hw/asic/symlinks/STDCELLs/Front_End/timing_power_noise/CCS/tcbn65lp_200a/tcbn65lpbc_ccs.db
 set lib_std_rvt(tc) $design(FLOW_ROOT)/hw/asic/symlinks/STDCELLs/Front_End/timing_power_noise/CCS/tcbn65lp_200a/tcbn65lptc_ccs.db
@@ -89,15 +89,6 @@ set lib_mem(bc_m40) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram8192x32
 set lib_mem(wc_m40) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram8192x32m8/db/sram8192x32m8_ss_1p08v_1p08v_m40c.db
 set lib_mem(bc_125) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram8192x32m8/db/sram8192x32m8_ff_1p32v_1p32v_125c.db
 
-# LIBs specific to CAESAR
-set lib_mem_caesar(wc) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram4096x32m8/db/sram4096x32m8_ss_1p08v_1p08v_125c.db
-set lib_mem_caesar(bc) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram4096x32m8/db/sram4096x32m8_ff_1p32v_1p32v_m40c.db
-set lib_mem_caesar(tc) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram4096x32m8/db/sram4096x32m8_tt_1p20v_1p20v_25c.db
-set lib_mem_caesar(wc_m40) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram4096x32m8/db/sram4096x32m8_ss_1p08v_1p08v_m40c.db
-set lib_mem_caesar(bc_125) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram4096x32m8/db/sram4096x32m8_ff_1p32v_1p32v_125c.db
-set lib_mem_caesar(bc_m40) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram4096x32m8/db/sram4096x32m8_ff_1p32v_1p32v_m40c.db
-
-
 # LIBs specific to Carus
 set lib_emem(wc)        $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/rf128x32m2/db/rf128x32m2_ss_1p08v_1p08v_125c.db
 set lib_emem(bc)        $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/rf128x32m2/db/rf128x32m2_ff_1p32v_1p32v_m40c.db
@@ -115,7 +106,7 @@ set lib_vrf(bc_125) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram2048x32
 
 
 # target library
-set target_library "$lib_std($ANALYSIS_MODE) $lib_std_rvt($ANALYSIS_MODE) $lib_std_hvt($ANALYSIS_MODE) $lib_std_dualrail($ANALYSIS_MODE) $lib_cgcells($ANALYSIS_MODE) $lib_pswitch($ANALYSIS_MODE) $lib_fll($ANALYSIS_MODE) $lib_io($ANALYSIS_MODE) $lib_mem($ANALYSIS_MODE) $lib_mem_caesar($ANALYSIS_MODE) $lib_emem($ANALYSIS_MODE) $lib_vrf($ANALYSIS_MODE)"
+set target_library "$lib_std($ANALYSIS_MODE) $lib_std_rvt($ANALYSIS_MODE) $lib_std_hvt($ANALYSIS_MODE) $lib_std_dualrail($ANALYSIS_MODE) $lib_cgcells($ANALYSIS_MODE) $lib_pswitch($ANALYSIS_MODE) $lib_fll($ANALYSIS_MODE) $lib_io($ANALYSIS_MODE) $lib_mem($ANALYSIS_MODE) $lib_emem($ANALYSIS_MODE) $lib_vrf($ANALYSIS_MODE)"
 
 # link library
 set link_library ""

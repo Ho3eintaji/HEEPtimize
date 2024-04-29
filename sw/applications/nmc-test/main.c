@@ -7,15 +7,10 @@
 // Date: 19/06/2023
 // Description: Test application for near-memory computing peripherals.
 
-#include "caesar.h"
 #include "carus.h"
 
 int main(int argc, char const *argv[])
 {
-    // Set NM-Caesar in computing mode
-    if (caesar_set_mode(0, CAESAR_MODE_COMP) != 0) return 1;
-    if (caesar_set_mode(0, CAESAR_MODE_MEM) != 0) return 1;
-
     // Set NM-Carus in configuration mode
     if (carus_set_mode(0, CARUS_MODE_CFG) != 0) return 1;
     if (carus_set_mode(0, CARUS_MODE_MEM) != 0) return 1;

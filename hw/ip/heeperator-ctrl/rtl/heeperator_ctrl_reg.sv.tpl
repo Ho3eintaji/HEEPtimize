@@ -3,13 +3,12 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
 // File: heeperator_ctrl_reg.sv
-// Author: Michele Caon
-// Date: 15/05/2023
+// Author: Michele Caon, Luigi Giuffrida
+// Date: 29/04/2024
 // Description: HEEPerator control registers
 
 module heeperator_ctrl_reg #(
   // Dependent parameters: do not override!
-  localparam int unsigned CaesarNumRnd = (heeperator_pkg::CaesarNum > 32'd1) ? heeperator_pkg::CaesarNum : 32'd1,
   localparam int unsigned CarusNumRnd = (heeperator_pkg::CarusNum > 32'd1) ? heeperator_pkg::CarusNum : 32'd1
 ) (
   input logic clk_i,
@@ -20,7 +19,6 @@ module heeperator_ctrl_reg #(
   output reg_pkg::reg_rsp_t rsp_o,
 
   // Hardware interface
-  output logic [CaesarNumRnd-1:0] caesar_imc_o,
   output logic [CarusNumRnd-1:0] carus_imc_o
 );
   import reg_pkg::*;
@@ -35,17 +33,14 @@ module heeperator_ctrl_reg #(
   // --------------
 
   // To near-memory computing IPs
-  assign caesar_imc_o = {
-% for inst in reversed(range(1, caesar_num)):
-    reg2hw.op_mode.caesar_imc_${inst}.q,
-% endfor
-    reg2hw.op_mode.caesar_imc_0.q
-  };
   assign carus_imc_o = {
-% for inst in reversed(range(1, carus_num)):
-    reg2hw.op_mode.carus_imc_${inst}.q,
-% endfor
-    reg2hw.op_mode.carus_imc_0.q
+% if carus_num > 1:
+  % for inst in reversed(range(1, carus_num)):
+      reg2hw.op_mode.carus_imc_${inst}.q,
+  % endfor
+%else:
+    reg2hw.op_mode.q
+%endif
   };
 
   // ----------

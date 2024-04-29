@@ -5,8 +5,8 @@ CAPI=2:
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 #
 # File: peripherals.core
-# Author: Michele Caon
-# Date: 07/06/2023
+# Author: Michele Caon, Luigi Giuffrida
+# Date: 29/04/2024
 # Description: HEEPerator external peripherals
 
 name: epfl:heeperator:peripherals:0.1.0
@@ -21,13 +21,11 @@ filesets:
     files:
     - ip/heeperator-peripherals/fll_subsystem.sv
     - ip/heeperator-peripherals/heeperator_peripherals.sv
-    - ip/heeperator-peripherals/nm_caesar_wrapper.sv
     - ip/heeperator-peripherals/nm_carus_wrapper.sv
     file_type: systemVerilogSource
 
   rtl-vendor:
     depend:
-    - epfl:caesar:packages
     - epfl:carus:packages
     - x-heep::packages
     files:

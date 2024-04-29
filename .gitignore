@@ -33,7 +33,6 @@ transcipt
 implementation/synthesis/dc_shell/output_*
 implementation/synthesis/last_output/
 implementation/synthesis/lc_shell/lc_output.txt
-implementation/synthesis/lc_shell/nm-caesar/
 implementation/synthesis/lc_shell/nm-carus/
 
 # Power Analysis

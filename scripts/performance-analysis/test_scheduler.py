@@ -180,13 +180,6 @@ class test_scheduler:
                 print(f"    - NM-Carus cycles: {thr_data['carus_cycles']}")
                 self.add_throughput_report(rpt)
 
-            elif 'caesar-' in t.data['app_name']:
-                # Add NM-Caesar cycles to the report
-                rpt['memory_type'] = "caesar"
-                rpt['cycles'] = thr_data['caesar_cycles']
-                print(f"    - NM-Caesar cycles: {thr_data['caesar_cycles']}")
-                self.add_throughput_report(rpt)
-
             else:
                 print(f"ERROR: unsupported test name '{t.data['app_name']}'", file=sys.stderr)
                 sys.exit(1)
@@ -237,30 +230,7 @@ class test_scheduler:
                 "kernel_params": t.data['kernel_params']
             }
 
-            # Check whether testing NM-Caesar or NM-Carus
-            if "caesar-" in t.data['app_name']:
-                # Run power analysis on the VCD file
-                vcd_file = os.path.join(log_dir, "waves-0.vcd")
-                print(f"  # Running power analysis on {vcd_file}...")
-                self.run_primepower(vcd_file)
-
-                # Move power report to the report directory
-                pwr_csv = os.path.join("implementation", "power_analysis", "reports", "power.csv")
-                pwr_csv_new = os.path.join(out_dir, f"power-{t.data['data_type']}.csv")
-                os.rename(pwr_csv, pwr_csv_new)
-
-                # Extract power consumption
-                pwr_data = self.get_power("caesar", pwr_csv_new)
-
-                # Add test results to the report
-                rpt['memory_type'] = "caesar"
-                rpt.update(pwr_data)
-                self.add_power_report(rpt)
-
-                # Report power consumption
-                print(f"    - NM-Caesar power: {(pwr_data['sys_pwr'] + pwr_data['nmc_pwr'])*1000:.4} mW")
-
-            elif "carus-" in t.data['app_name']:
+            if "carus-" in t.data['app_name']:
                 # Run power analysis on NM-Carus VCD file
                 vcd_file = os.path.join(log_dir, "waves-0.vcd")
                 print(f"  # Running NM-Carus power analysis on {vcd_file}...")
@@ -303,7 +273,7 @@ class test_scheduler:
     def get_power(self, mode: str, csv_file: str) -> dict:
         """Analyse power report."""
         # Cehck for valid mode
-        if not mode in ["cpu", "carus", "caesar"]:
+        if not mode in ["cpu", "carus"]:
             print(f"ERROR: invalid mode '{mode}'", file=sys.stderr)
             sys.exit(1)
 
@@ -382,47 +352,6 @@ class test_scheduler:
             nmc_ctl_rows = ["carus_ctl"]
             nmc_comp_rows = ["carus_vector"]
             nmc_mem_rows = ["carus_vrf"]
-        elif mode == "caesar":
-            # Add NM-Caesar contributions from the CSV file
-            sys_pwr_rows = [
-                "u_core_v_mini_mcu/cpu_subsystem_i",                            # system CPU (idle)
-                "u_core_v_mini_mcu/system_bus_i",                               # system bus
-                "heeperator_bus",                                               # external bus
-                "u_core_v_mini_mcu/memory_subsystem_i/gen_sram_0__ram_i",       # SRAM bank 0 (.text)
-                "u_core_v_mini_mcu/memory_subsystem_i/gen_sram_1__ram_i",       # SRAM bank 1 (.data)
-                "u_core_v_mini_mcu/memory_subsystem_i/gen_sram_2__ram_i",       # SRAM interleaved bank 0
-                "u_core_v_mini_mcu/memory_subsystem_i/gen_sram_3__ram_i",       # SRAM interleaved bank 1
-                "u_core_v_mini_mcu/memory_subsystem_i/gen_sram_4__ram_i",       # SRAM interleaved bank 2
-                "u_core_v_mini_mcu/memory_subsystem_i/gen_sram_5__ram_i",       # NM-Caesar replaces one bank for leakage, but leakage is 1000x lower than active power, so it's negligible
-                "u_core_v_mini_mcu/ao_peripheral_subsystem_i/boot_rom_i",       # Boot ROM
-                "u_core_v_mini_mcu/ao_peripheral_subsystem_i/soc_ctrl_i",       # SoC controller
-                "u_core_v_mini_mcu/ao_peripheral_subsystem_i/power_manager_i",  # Power manager
-                "u_core_v_mini_mcu/ao_peripheral_subsystem_i/fast_intr_ctrl_i", # fast interrupt controller (DMA)
-                "u_core_v_mini_mcu/ao_peripheral_subsystem_i/dma_i",            # DMA
-                "u_core_v_mini_mcu/peripheral_subsystem_i/rv_plic_i",           # PLIC
-            ]
-            sys_cpu_rows = [
-                "u_core_v_mini_mcu/cpu_subsystem_i"
-            ]
-            sys_mem_rows = [
-                "u_core_v_mini_mcu/memory_subsystem_i/gen_sram_0__ram_i",       # SRAM bank 0 (.text)
-                "u_core_v_mini_mcu/memory_subsystem_i/gen_sram_1__ram_i",       # SRAM bank 1 (.data)
-                "u_core_v_mini_mcu/memory_subsystem_i/gen_sram_2__ram_i",       # SRAM interleaved bank 0
-                "u_core_v_mini_mcu/memory_subsystem_i/gen_sram_3__ram_i",       # SRAM interleaved bank 1
-                "u_core_v_mini_mcu/memory_subsystem_i/gen_sram_4__ram_i",       # SRAM interleaved bank 2
-                # "u_core_v_mini_mcu/memory_subsystem_i/gen_sram_5__ram_i",     # Replaced by NM-Carus
-            ]
-            sys_peri_rows = [
-                "u_core_v_mini_mcu/ao_peripheral_subsystem_i/fast_intr_ctrl_i",
-                "u_core_v_mini_mcu/ao_peripheral_subsystem_i/dma_i",
-                "u_core_v_mini_mcu/peripheral_subsystem_i/rv_plic_i",
-            ]
-            nmc_pwr_rows = [
-                "u_heeperator_peripherals/gen_caesar_0__u_nm_caesar_wrapper",   # NM-Caesar
-            ]
-            nmc_ctl_rows = ["caesar_ctl"]
-            nmc_comp_rows = ["caesar_alu"]
-            nmc_mem_rows = ["caesar_mem0", "caesar_mem1"]
 
         # Compute power consumption
         sys_pwr: float = 0.0
@@ -470,25 +399,18 @@ class test_scheduler:
     # Parse Verilator simulation output   
     def parse_sim_output(self, sim_out: str) -> (int, int, int):
         """Parse the simulation output."""
-        # Look for NM-Carus and NM-Caesar number of cycles
+        # Look for NM-Carus number of cycles
         carus_regex = re.compile(r"- NM-Carus kernel execution time: (\d+) cycles\n")
-        caesar_regex = re.compile(r"- NM-Caesar kernel execution time: (\d+) cycles\n")
         cpu_regex = re.compile(r"CPU: (\d+)\n")
         carus_cycles = carus_regex.search(sim_out)
-        caesar_cycles = caesar_regex.search(sim_out)
         cpu_cycles = cpu_regex.search(sim_out)
-        if not (carus_cycles and caesar_cycles):
-            print("ERROR: could not find NM-Carus and NM-Caesar cycles", file=sys.stderr)
-            sys.exit(1)
         carus_cycles = int(carus_cycles.group(1))
-        caesar_cycles = int(caesar_cycles.group(1))
         if cpu_cycles is None:
             cpu_cycles = 0
         else:
             cpu_cycles = int(cpu_cycles.group(1))
         thr_data: dict = {
             "carus_cycles": carus_cycles,
-            "caesar_cycles": caesar_cycles,
             "cpu_cycles": cpu_cycles
         }
         return thr_data

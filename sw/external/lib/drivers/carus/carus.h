@@ -5,7 +5,7 @@
 // File: carus.h
 // Author: Michele Caon
 // Date: 19/06/2023
-// Description: Header file for NM-Caesar driver
+// Description: Header file for NM-Carus driver
 
 #ifndef CARUS_H_
 #define CARUS_H_

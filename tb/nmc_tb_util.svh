@@ -22,9 +22,6 @@
 // Get NM-Carus configuration registers value
 export "DPI-C" function tb_get_carus_cfg;
 
-// Get NM-Caesar execution timer GPIO trigger
-export "DPI-C" function tb_get_caesar_timer_trigger;
-
 // NM-Carus monitor functions
 // --------------------------
 typedef struct packed {
@@ -50,10 +47,5 @@ function int tb_get_carus_cfg(int unsigned field);
   endcase
 endfunction: tb_get_carus_cfg
 
-// NM-Caesar execution timer GPIO trigger
-// --------------------------------------
-function logic tb_get_caesar_timer_trigger();
-  return `TOP.gpio_1_io; // check GPIO pin number in "timer_util.h"
-endfunction: tb_get_caesar_timer_trigger
 
 `endif // NMC_TB_UTIL_SVH_

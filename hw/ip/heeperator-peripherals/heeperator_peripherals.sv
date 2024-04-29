@@ -3,13 +3,12 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
 // File: heeperator_peripherals.sv
-// Author: Michele Caon
-// Date: 30/05/2023
+// Author: Michele Caon, Luigi Giuffrida
+// Date: 29/04/2024
 // Description: HEEPerator peripheral subsystem
 
 module heeperator_peripherals #(
   // Dependent parameters: do not override!
-  localparam int unsigned CaesarNumRnd = (heeperator_pkg::CaesarNum > 32'd1) ? heeperator_pkg::CaesarNum : 32'd1,
   localparam int unsigned CarusNumRnd  = (heeperator_pkg::CarusNum > 32'd1) ? heeperator_pkg::CarusNum : 32'd1
 ) (
   input logic ref_clk_i,
@@ -20,11 +19,6 @@ module heeperator_peripherals #(
   input  logic bypass_fll_i,
 
   // Slaves
-  input  logic                                  caesar_rst_ni,
-  input  logic                                  caesar_set_retentive_ni,
-  input  obi_pkg::obi_req_t  [CaesarNumRnd-1:0] caesar_req_i,
-  output obi_pkg::obi_resp_t [CaesarNumRnd-1:0] caesar_rsp_o,
-
   input  logic                                 carus_rst_ni,
   input  logic                                 carus_set_retentive_ni,
   input  obi_pkg::obi_req_t  [CarusNumRnd-1:0] carus_req_i,
@@ -44,12 +38,11 @@ module heeperator_peripherals #(
   // INTERNAL SIGNALS
   // ----------------
   // System clock
-  logic                    system_clk;
+  logic                   system_clk;
 
   // Near-memory computing devices
-  logic [CaesarNumRnd-1:0] caesar_imc;  // computing mode trigger for NM-Caesar
-  logic [ CarusNumRnd-1:0] carus_imc;  // computing mode trigger for NM-Carus
-  logic [    CarusNum-1:0] carus_intr;  // interrupts from NM-Carus
+  logic [CarusNumRnd-1:0] carus_imc;  // computing mode trigger for NM-Carus
+  logic [   CarusNum-1:0] carus_intr;  // interrupts from NM-Carus
 
   // --------------
   // OUTPUT CONTROL
@@ -65,23 +58,6 @@ module heeperator_peripherals #(
   // ----------
   // COMPONENTS
   // ----------
-
-  // NM-Caesar
-  // ---------
-  generate
-    for (genvar i = 0; unsigned'(i) < CaesarNum; i++) begin : gen_caesar
-      nm_caesar_wrapper #(
-        .REQ_PROXY(32'd0)  // imc_i synchronization ensured by software nops
-      ) u_nm_caesar_wrapper (
-        .clk_i           (system_clk),
-        .rst_ni          (caesar_rst_ni),
-        .set_retentive_ni(caesar_set_retentive_ni),
-        .imc_i           (caesar_imc[i]),
-        .bus_req_i       (caesar_req_i[i]),
-        .bus_rsp_o       (caesar_rsp_o[i])
-      );
-    end
-  endgenerate
 
   // NM-Carus
   // --------
@@ -121,11 +97,10 @@ module heeperator_peripherals #(
   // Control and status registers
   // ----------------------------
   heeperator_ctrl_reg u_heeperator_ctrl_reg (
-    .clk_i       (system_clk),
-    .rst_ni      (rst_ni),
-    .req_i       (heeperator_ctrl_req_i),
-    .rsp_o       (heeperator_ctrl_rsp_o),
-    .caesar_imc_o(caesar_imc),
-    .carus_imc_o (carus_imc)
+    .clk_i      (system_clk),
+    .rst_ni     (rst_ni),
+    .req_i      (heeperator_ctrl_req_i),
+    .rsp_o      (heeperator_ctrl_rsp_o),
+    .carus_imc_o(carus_imc)
   );
 endmodule

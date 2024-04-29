@@ -3,15 +3,14 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
 // File: heeperator_bus.sv
-// Author: Michele Caon
-// Date: 01/06/2023
+// Author: Michele Caon, Luigi Giuffrida
+// Date: 29/04/2024
 // Description: External bus for HEEPerator
 
 module heeperator_bus #(
   // Dependent parameters: do not override!
   localparam int unsigned ExtXbarNmasterRnd = (heeperator_pkg::ExtXbarNMaster > 0) ?
     heeperator_pkg::ExtXbarNMaster : 32'd1,
-  localparam int unsigned CaesarNumRnd = (heeperator_pkg::CaesarNum > 0) ? heeperator_pkg::CaesarNum : 32'd1,
   localparam int unsigned CarusNumRnd = (heeperator_pkg::CarusNum > 0) ? heeperator_pkg::CarusNum : 32'd1
 ) (
   input logic clk_i,
@@ -36,10 +35,6 @@ module heeperator_bus #(
   // X-HEEP slave ports (one per external master)
   output obi_pkg::obi_req_t  [ExtXbarNmasterRnd-1:0] heep_slave_req_o,
   input  obi_pkg::obi_resp_t [ExtXbarNmasterRnd-1:0] heep_slave_resp_i,
-
-  // NM-Caesar slave ports
-  output obi_pkg::obi_req_t  [CaesarNumRnd-1:0] caesar_req_o,
-  input  obi_pkg::obi_resp_t [CaesarNumRnd-1:0] caesar_resp_i,
 
   // NM-Carus slave ports
   output obi_pkg::obi_req_t  [CarusNumRnd-1:0] carus_req_o,
@@ -76,20 +71,15 @@ module heeperator_bus #(
   // ----------
   // COMPONENTS
   // ----------
-
+  generate
+    for (genvar i = 0; i < CarusNumRnd; i++) begin : gen_carus_req
+      assign carus_req_o[i]   = ext_slave_req[i];
+      assign ext_slave_rsp[i] = carus_resp_i[i];
+    end
+  endgenerate
   // External slave bus
   // ------------------
   // External slave mapping
-  generate
-    for (genvar i = 0; i < CaesarNumRnd; i++) begin : gen_caesar_req
-      assign caesar_req_o[i]  = ext_slave_req[i];
-      assign ext_slave_rsp[i] = caesar_resp_i[i];
-    end
-    for (genvar i = 0; i < CarusNumRnd; i++) begin : gen_carus_req
-      assign carus_req_o[i]             = ext_slave_req[CaesarNum+i];
-      assign ext_slave_rsp[CaesarNum+i] = carus_resp_i[i];
-    end
-  endgenerate
 
   // External bus
   ext_bus #(

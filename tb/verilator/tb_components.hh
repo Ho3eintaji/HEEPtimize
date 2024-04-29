@@ -21,9 +21,6 @@ private:
     bool carus_exec_time_en;
     vluint64_t carus_kernel_start;
     vluint64_t carus_kernel_end;
-    bool caesar_exec_time_en;
-    vluint64_t caesar_kernel_start;
-    vluint64_t caesar_kernel_end;
 
 public:
     Monitor(Vtb_system *dut);
@@ -36,9 +33,6 @@ public:
     void carusExecTimeEn(bool en);
     vluint64_t carusGetCycles();
 
-    // NM-Caesar execution time measurement
-    void caesarExecTimeEn(bool en);
-    vluint64_t caesarGetCycles();
 };
 
 #endif // TB_COMPONENTS_HH_

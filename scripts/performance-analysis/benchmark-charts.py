@@ -41,7 +41,6 @@ thr_df["cycles_per_output"] = thr_df["cycles"] / thr_df["num_outs"]
 
 # Separate data by memory type
 thr_df_cpu = thr_df.loc[thr_df["memory_type"] == "cpu"].reset_index(drop=True)
-thr_df_caesar = thr_df.loc[thr_df["memory_type"] == "caesar"].reset_index(drop=True)
 thr_df_carus = thr_df.loc[thr_df["memory_type"] == "carus"].reset_index(drop=True)
 
 # Read CSV report with power data
@@ -56,47 +55,41 @@ pwr_df["energy"] = (pwr_df["sys_pwr"] + pwr_df['nmc_pwr']) * thr_df["cycles_per_
 
 # Separate data by memory type
 pwr_df_cpu = pwr_df.loc[pwr_df["memory_type"] == "cpu"].reset_index(drop=True)
-pwr_df_caesar = pwr_df.loc[pwr_df["memory_type"] == "caesar"].reset_index(drop=True)
 pwr_df_carus = pwr_df.loc[pwr_df["memory_type"] == "carus"].reset_index(drop=True)
 
 # Throughput benchmark chart
 # --------------------------
 # Compute throughput gain in each data frame
 thr_df_cpu["gain"] = thr_df_cpu["cycles_per_output"] / thr_df_cpu["cycles_per_output"]
-thr_df_caesar["gain"] = thr_df_cpu["cycles_per_output"] / thr_df_caesar["cycles_per_output"]
 thr_df_carus["gain"] = thr_df_cpu["cycles_per_output"] / thr_df_carus["cycles_per_output"]
 
 # Keep only kernel, data type and throughput gain columns and reset index
 thr_df_cpu = thr_df_cpu[["kernel_name", "data_type", "gain"]]
-thr_df_caesar = thr_df_caesar[["kernel_name", "data_type", "gain"]]
 thr_df_carus = thr_df_carus[["kernel_name", "data_type", "gain"]]
 
 # Transform rows with the same data type into columns
 thr_df_cpu = thr_df_cpu.pivot(index="kernel_name", columns="data_type", values="gain")
-thr_df_caesar = thr_df_caesar.pivot(index="kernel_name", columns="data_type", values="gain")
 thr_df_carus = thr_df_carus.pivot(index="kernel_name", columns="data_type", values="gain")
 
 # Reorder columns
 thr_df_cpu = thr_df_cpu[["int32", "int16", "int8"]]
-thr_df_caesar = thr_df_caesar[["int32", "int16", "int8"]]
 thr_df_carus = thr_df_carus[["int32", "int16", "int8"]]
 
 # Reorder rows as [xor, add, mul, matmul, gemm, conv2d, relu, leaky-relu, maxpool]
 thr_df_cpu = thr_df_cpu.reindex(["xor", "add", "mul", "matmul", "gemm", "conv2d", "relu", "leaky-relu", "maxpool"])
-thr_df_caesar = thr_df_caesar.reindex(["xor", "add", "mul", "matmul", "gemm", "conv2d", "relu", "leaky-relu", "maxpool"])
 thr_df_carus = thr_df_carus.reindex(["xor", "add", "mul", "matmul", "gemm", "conv2d", "relu", "leaky-relu", "maxpool"])
 
-df = pd.concat([thr_df_cpu, thr_df_caesar, thr_df_carus], axis=1, keys=["CPU", "NM-Caesar", "NM-Carus"])
+df = pd.concat([thr_df_cpu, thr_df_carus], axis=1, keys=["CPU", "NM-Carus"])
 print(df)
 
-# Plot Caesar and Carus throughput bar chart
+# Plot Carus throughput bar chart
 # - the kernel is the x-axis
 # - the throughput gain is the y-axis
 # - group columns by memory type
 # - ignore the CPU
 colors = ["#6d1a3680", "#6d1a36c0", "#6d1a36ff", "#00748080", "#007480c0", "#007480ff"]
 patterns = ["/", "\\", "|", "-", "+", "x"]
-df_bars = df[["NM-Caesar", "NM-Carus"]]
+df_bars = df[["NM-Carus"]]
 df_bars.plot(kind="bar", rot=0, title="Cycles per output sample: CPU only vs. CPU + NMC (higher is better)", ylabel="Throughput w.r.t. CPU", xlabel="Benchmark application", figsize=(12, 3), grid=False, width=0.8, color=colors, logy=log_scale)
 
 # Set patterns by series (broken)
@@ -142,40 +135,35 @@ plt.savefig(chart_file, dpi=600, bbox_inches="tight")
 # ----------------------
 # Compute energy gain vs. CPU in each data frame
 pwr_df_cpu["gain"] = pwr_df_cpu["energy"] / pwr_df_cpu["energy"]
-pwr_df_caesar["gain"] = pwr_df_cpu["energy"] / pwr_df_caesar["energy"]
 pwr_df_carus["gain"] = pwr_df_cpu["energy"] / pwr_df_carus["energy"]
 
 # Keep only kernel, data type and energy gain columns
 energy_df_cpu = pwr_df_cpu[["kernel_name", "data_type", "gain"]]
-energy_df_caesar = pwr_df_caesar[["kernel_name", "data_type", "gain"]]
 energy_df_carus = pwr_df_carus[["kernel_name", "data_type", "gain"]]
 
 # Transform rows with the same data type into columns
 energy_df_cpu = energy_df_cpu.pivot(index="kernel_name", columns="data_type", values="gain")
-energy_df_caesar = energy_df_caesar.pivot(index="kernel_name", columns="data_type", values="gain")
 energy_df_carus = energy_df_carus.pivot(index="kernel_name", columns="data_type", values="gain")
 
 # Reorder columns
 energy_df_cpu = energy_df_cpu[["int32", "int16", "int8"]]
-energy_df_caesar = energy_df_caesar[["int32", "int16", "int8"]]
 energy_df_carus = energy_df_carus[["int32", "int16", "int8"]]
 
 # Reorder rows as [xor, add, mul, matmul, gemm, conv2d, relu, leaky-relu, maxpool]
 energy_df_cpu = energy_df_cpu.reindex(["xor", "add", "mul", "matmul", "gemm", "conv2d", "relu", "leaky-relu", "maxpool"])
-energy_df_caesar = energy_df_caesar.reindex(["xor", "add", "mul", "matmul", "gemm", "conv2d", "relu", "leaky-relu", "maxpool"])
 energy_df_carus = energy_df_carus.reindex(["xor", "add", "mul", "matmul", "gemm", "conv2d", "relu", "leaky-relu", "maxpool"])
 
 # Combine data frames, grouping columns by memory type
-energy_df = pd.concat([energy_df_cpu, energy_df_caesar, energy_df_carus], axis=1, keys=["CPU", "NM-Caesar", "NM-Carus"])
+energy_df = pd.concat([energy_df_cpu, energy_df_carus], axis=1, keys=["CPU", "NM-Carus"])
 print(energy_df)
 
-# Plot Caesar and Carus throughput bar chart
+# Plot Carus throughput bar chart
 # - the kernel is the x-axis
 # - the throughput gain is the y-axis
 # - group columns by memory type
 # - ignore the CPU
 colors = ["#6d1a3680", "#6d1a36c0", "#6d1a36ff", "#00748080", "#007480c0", "#007480ff"]
-df_bars = energy_df[["NM-Caesar", "NM-Carus"]]
+df_bars = energy_df[["NM-Carus"]]
 df_bars.plot(kind="bar", rot=0, title="Energy per output sample: CPU only vs. CPU + NMC (higher is better)", ylabel="Energy efficiency w.r.t. CPU", xlabel="Benchmark application", figsize=(12, 3), grid=False, width=0.8, color=colors, logy=log_scale)
 
 # Draw horizontal grid only
