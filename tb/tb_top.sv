@@ -373,25 +373,6 @@ module tb_top;
   end
 `endif
 
-  // NM-Caesar execution time monitor (GPIO triggered)
-  logic caesar_trig, caesar_prev_trig = 0;
-  longint caesar_start_time = 0;
-  longint caesar_done_time = 0;
-`ifndef SYNTHESIS
-  always_ff @(posedge sys_clk) begin : caesar_exec_mon
-    caesar_trig      <= tb_get_caesar_timer_trigger();
-    caesar_prev_trig <= caesar_trig;
-
-    if (caesar_trig && !caesar_prev_trig) begin
-      caesar_start_time <= $time;
-      $display("[%t] Caesar start", $time);
-    end else if (!caesar_trig && caesar_prev_trig) begin
-      caesar_done_time <= $time;
-      $display("[%t] Caesar end", $time);
-    end
-  end
-`endif
-
   // Exit monitor
   always_ff @(posedge sys_clk or negedge sys_rst_n) begin : exit_monitor
     if (exit_valid) begin
@@ -403,8 +384,6 @@ module tb_top;
       $display("[%t] - return value: %0d", $time, $signed(exit_value));
       $display("[%t] - NM-Carus kernel execution time: %0d ns", $time,
                carus_done_time - carus_start_time);
-      $display("[%t] - NM-Caesar kernel execution time: %0d ns", $time,
-               caesar_done_time - caesar_start_time);
       $dumpoff;
       if (exit_value == 0) begin
         $finish;

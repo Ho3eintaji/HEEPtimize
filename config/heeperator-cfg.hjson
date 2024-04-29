@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
 // File: heeperator_cgf.hjson
-// Author: Michele Caon
+// Author: Michele Caon, Luigi Giuffrida
 // Date: 13/05/2023
 // Description: Configuration file for HEEPerator
 
@@ -19,11 +19,6 @@
     // Slaves memory map
     ext_xbar_masters: 0,
     ext_xbar_slaves: {
-        caesar: {
-            offset: "0x00000000",
-            length: "0x00008000",
-            num:    1,
-        },
         carus: {
             offset: "0x00100000",
             length: "0x00008000",

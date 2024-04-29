@@ -19,7 +19,6 @@
 #include "core_v_mini_mcu.h"
 #include "x-heep.h"
 
-#define TIMER_CAESAR_GPIO 1
 #define TICK_FREQ 1000000
 
 /******************************/
@@ -97,24 +96,5 @@ inline uint32_t timer_stop() {
     timer_value += timer_get_cycles();
     return timer_value;
 }
-
-/**
- * @brief Initialize NM-Caesar timer (GPIO trigger)
- * 
- * @return int Initialization outcome
- */
-int timer_caesar_init();
-
-/**
- * @brief Start the NM-Caesar timer
- * 
- */
-void timer_caesar_start();
-
-/**
- * @brief Stop the NM-Caesar timer
- * 
- */
-void timer_caesar_stop();
 
 #endif /* TIMER_H_ */

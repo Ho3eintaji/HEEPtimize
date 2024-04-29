@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
 // File: heeperator_pkg.sv
-// Author: Michele Caon
-// Date: 13/05/2023
+// Author: Michele Caon, Luigi Giuffrida
+// Date: 29/04/2024
 // Description: Package containing memory map and other definitions.
 
 package heeperator_pkg;
@@ -33,29 +33,18 @@ package heeperator_pkg;
 
   // Memory map
   // ----------
-  // NM-Caesar
-  localparam int unsigned CaesarNum = 32'd${caesar_num};
-  localparam int unsigned LogCaesarNum = CaesarNum > 32'd1 ? $clog2(CaesarNum) : 32'd1;
-% for inst in range(caesar_num):
-  localparam int unsigned Caesar${inst}Idx = 32'd${inst};
-  localparam logic [31:0] Caesar${inst}StartAddr = EXT_SLAVE_START_ADDRESS + 32'h${caesar_start_address + inst * caesar_size};
-  localparam logic [31:0] Caesar${inst}EndAddr = Caesar${inst}StartAddr + 32'h${caesar_size};
-% endfor
 
   // NM-Carus
   localparam int unsigned CarusNum = 32'd${carus_num};
   localparam int unsigned LogCarusNum = CarusNum > 32'd1 ? $clog2(CarusNum) : 32'd1;
 % for inst in range(carus_num):
-  localparam int unsigned Carus${inst}Idx = 32'd${caesar_num + inst};
+  localparam int unsigned Carus${inst}Idx = 32'd${inst};
   localparam logic [31:0] Carus${inst}StartAddr = EXT_SLAVE_START_ADDRESS + 32'h${carus_start_address};
   localparam logic [31:0] Carus${inst}EndAddr = Carus${inst}StartAddr + 32'h${carus_size};
 % endfor
 
   // Near-memory computing IPs address map
   localparam addr_map_rule_t [ExtXbarNSlave-1:0] ExtSlaveAddrRules = '{
-  % for inst in range(caesar_num):
-    '{idx: Caesar${inst}Idx, start_addr: Caesar${inst}StartAddr, end_addr: Caesar${inst}EndAddr},
-  % endfor
   % for inst in range(carus_num-1):
     '{idx: Carus${inst}Idx, start_addr: Carus${inst}StartAddr, end_addr: Carus${inst}EndAddr}
   % endfor

@@ -9,7 +9,6 @@ set_scope .
 #####################
 
 create_power_domain PD_TOP -include_scope
-create_power_domain PD_CAESAR -elements {u_heeperator_peripherals/gen_caesar_0__u_nm_caesar_wrapper/u_caesar_top}
 create_power_domain PD_CARUS -elements {u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top}
 
 create_power_domain PD_MEM_BANK_0 -elements {u_core_v_mini_mcu/memory_subsystem_i/gen_sram_0__ram_i/gen_32kB_mem_mem_bank}
@@ -35,8 +34,6 @@ connect_supply_net VSS -ports VSS
 
 create_supply_set PD_TOP.primary -function {power VDD} -function {ground VSS} -update
 
-create_supply_net VDD_CAESAR
-create_supply_set PD_CAESAR.primary -function {power VDD_CAESAR} -function {ground VSS} -update
 
 create_supply_net VDD_CARUS
 create_supply_set PD_CARUS.primary -function {power VDD_CARUS} -function {ground VSS} -update
@@ -52,18 +49,12 @@ create_supply_set PD_MEM_BANK_5.primary -function {power VDD} -function {ground 
 ##  CONNECT MACRO SUPPLY NETS  ##
 #################################
 
-connect_supply_net VDD -ports mem_caesar_sw*_i/VIN
 connect_supply_net VDD -ports mem_carus_sw*_i/VIN
 
 
 ### CAREFUL, they need to be attached by HAND in innovus with all the SWITCHES, not only the 0
 
-connect_supply_net VDD_CAESAR -ports mem_caesar_sw0_i/VOUT
 connect_supply_net VDD_CARUS  -ports mem_carus_sw0_i/VOUT
-
-connect_supply_net VDD_CAESAR -ports u_heeperator_peripherals/gen_caesar_0__u_nm_caesar_wrapper/u_caesar_top/VDDCE
-connect_supply_net VDD_CAESAR -ports u_heeperator_peripherals/gen_caesar_0__u_nm_caesar_wrapper/u_caesar_top/VDDPE
-connect_supply_net VSS -ports u_heeperator_peripherals/gen_caesar_0__u_nm_caesar_wrapper/u_caesar_top/VSSE
 
 connect_supply_net VDD_CARUS -ports u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/VDDCE
 connect_supply_net VDD_CARUS -ports u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/VDDPE
@@ -101,12 +92,6 @@ connect_supply_net VSS -ports u_core_v_mini_mcu/memory_subsystem_i/gen_sram_5__r
 add_power_state PD_TOP.primary -state TOP_ON \
     {-supply_expr {power == `{FULL_ON, 1.2} && ground == `{FULL_ON, 0.0}}} -update
 
-add_power_state PD_CAESAR.primary -state CAESAR_ON \
-    {-supply_expr {power == `{FULL_ON, 1.2} && ground == `{FULL_ON, 0.0}}} -update
-
-add_power_state PD_CAESAR.primary -state CAESAR_OFF \
-    {-supply_expr {power == `{OFF} && ground == `{FULL_ON, 0.0}}} -simstate CORRUPT -update
-
 
 add_power_state PD_CARUS.primary -state CARUS_ON \
     {-supply_expr {power == `{FULL_ON, 1.2} && ground == `{FULL_ON, 0.0}}} -update
@@ -118,17 +103,6 @@ add_power_state PD_CARUS.primary -state CARUS_OFF \
 #################
 ##  ISOLATION  ##
 #################
-
-set_isolation caesar_iso \
-    -domain PD_CAESAR \
-    -isolation_power_net VDD \
-    -isolation_ground_net VSS \
-    -isolation_signal external_subsystem_powergate_iso[0] \
-    -isolation_sense low \
-    -clamp_value 0 \
-    -applies_to outputs \
-    -name_prefix caesar_iso_cell \
-    -location parent
 
 set_isolation carus_iso \
     -domain PD_CARUS \

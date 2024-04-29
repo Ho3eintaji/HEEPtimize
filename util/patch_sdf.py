@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 #
-# CAREFUL, THIS SCRIPT DOES NOT WORK with MORE THAN 1 INSTANCE of CARUS or CAESAR
+# CAREFUL, THIS SCRIPT DOES NOT WORK with MORE THAN 1 INSTANCE of CARUS
 # IT MAKES ASSUMPTIONS, and IT HAS BEEN TESTED ONLY FOR ONE PURPOSE
 #
 
@@ -74,10 +74,8 @@ def main():
 
     found_appended_sdf = False
     found_carus = False
-    found_caesar = False
     start_copying = False
     found_carus_lib = False
-    found_caesar_lib = False
 
     #first, remove the appended information as SDFFILE etc
     for sdf_obj_line in sdf_obj:
@@ -97,31 +95,6 @@ def main():
 
         if ("DELAYFILE" not in next_sdf_line) and found_appended_sdf == False:
 
-            if ("(CELL" in next_sdf_line) and ("(CELLTYPE  \"caesar_top" in next_next_sdf_line):
-                found_caesar_lib = True
-                found_carus_lib = False
-                file.write(sdf_obj_line)
-                if(verbose):
-                    print("Found caesar_top lib " + sdf_obj_line + " in line " + str(line_number))
-
-            if ("(CELL" in next_sdf_line) and ("(CELLTYPE  \"carus_top" in next_next_sdf_line):
-                found_caesar_lib = False
-                found_carus_lib = True
-                file.write(sdf_obj_line)
-                if(verbose):
-                    print("Found carus_top lib " + sdf_obj_line + " in line " + str(line_number))
-
-            if (found_caesar_lib or found_carus_lib):
-                if ("(CELL" in sdf_obj_line):
-                    if(found_caesar_lib):
-                        found_caesar_lib == False
-                    if(found_carus_lib):
-                            found_carus_lib == False
-
-            if (found_caesar_lib == False and found_carus_lib == False):
-                file.write(sdf_obj_line)
-
-        else:
             modified_string = False
             if ("DELAYFILE" in next_sdf_line) and found_appended_sdf == False:
                 if(verbose):
@@ -141,15 +114,8 @@ def main():
             except:
                 pass
 
-            if("(CELLTYPE  \"caesar_top" in sdf_obj_line):
-                found_caesar = True
-                found_carus = False
-                if(verbose):
-                    print("Found caesar_top" + sdf_obj_line + " in line " + str(line_number))
-
             if("(CELLTYPE  \"carus_top" in sdf_obj_line):
                 found_carus = True
-                found_caesar = False
                 if(verbose):
                     print("Found carus_top" + sdf_obj_line + " in line " + str(line_number))
 
@@ -157,9 +123,6 @@ def main():
                 if found_carus:
                     sdf_line[1] = "u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/" + sdf_line[1]
                     sdf_line[2] = "u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/" + sdf_line[2]
-                if found_caesar:
-                    sdf_line[1] = "u_heeperator_peripherals/gen_caesar_0__u_nm_caesar_wrapper/u_caesar_top/" + sdf_line[1]
-                    sdf_line[2] = "u_heeperator_peripherals/gen_caesar_0__u_nm_caesar_wrapper/u_caesar_top/" + sdf_line[2]
                 if start_copying:
                     file.write(" ".join(sdf_line) + "\n")
                     modified_string = True
@@ -168,8 +131,6 @@ def main():
             if ("(INSTANCE" in sdf_line):
                 if found_carus:
                     sdf_line[1] = "u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/" + sdf_line[1]
-                if found_caesar:
-                    sdf_line[1] = "u_heeperator_peripherals/gen_caesar_0__u_nm_caesar_wrapper/u_caesar_top/" + sdf_line[1]
                 if start_copying:
                     file.write(" ".join(sdf_line) + "\n")
                     modified_string = True

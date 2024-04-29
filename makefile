@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 #
 # File: makefile
-# Author: Michele Caon
-# Date: 14/05/2023
+# Author: Michele Caon, Luigi Giuffrida
+# Date: 29/04/2024
 # Description: Top-level makefile for HEEPerator
 
 #############################
@@ -16,7 +16,6 @@ ROOT_DIR			:= $(realpath .)
 BUILD_DIR 			:= build
 
 # NMC slaves number
-CAESAR_NUM			?= 1
 CARUS_NUM			?= 1
 
 # X-HEEP configuration
@@ -27,7 +26,7 @@ X_HEEP_CFG_FPGA    	?= $(ROOT_DIR)/config/mcu-gen-system-fpga.hjson
 PAD_CFG				?= $(ROOT_DIR)/config/heep-pads.hjson
 PAD_CFG_FPGA	    ?= $(ROOT_DIR)/config/heep-pads-fpga.hjson
 EXT_PAD_CFG			?= $(ROOT_DIR)/config/heeperator-pads.hjson
-EXTERNAL_DOMAINS	:= 2 # NM-Caesar, NM-Carus
+EXTERNAL_DOMAINS	:= 1 # NM-Carus
 MCU_GEN_OPTS		:= \
 	--config $(X_HEEP_CFG) \
 	--cfg_peripherals $(MCU_CFG_PERIPHERALS) \
@@ -46,7 +45,6 @@ MCU_GEN_LOCK			:= $(BUILD_DIR)/.mcu-gen.lock
 HEEPERATOR_GEN_CFG	:= config/heeperator-cfg.hjson
 HEEPERATOR_GEN_OPTS	:= \
 	--cfg $(HEEPERATOR_GEN_CFG) \
-	--caesar_num $(CAESAR_NUM) \
 	--carus_num $(CARUS_NUM)
 HEEPERATOR_GEN_TPL  := \
 	hw/ip/heeperator-ctrl/data/heeperator_ctrl.hjson.tpl \
@@ -103,8 +101,7 @@ PWR_VCD ?= $(QUESTA_SIM_POSTLAYOUT_DIR)/logs/waves-0.vcd
 THR_TESTS ?= scripts/performance-analysis/throughput-tests.txt
 PWR_TESTS ?= scripts/performance-analysis/power-tests.txt
 
-#CAESAR and CARUS PL Netlist and SDF
-CAESAR_PL_SDF := $(ROOT_DIR)/hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/sdf/NMCaesar_top_pared.sdf
+#CARUS PL Netlist and SDF
 CARUS_PL_SDF := $(ROOT_DIR)/hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/sdf/NMCarus_top_pared.sdf
 
 #HEEPERATOR PL Netlist and SDF
@@ -539,7 +536,6 @@ clean:
 	$(RM) -r $(BUILD_DIR)
 	$(MAKE) -C $(HEEP_DIR) clean-all
 	$(MAKE) -C $(SW_DIR) clean
-	$(RM) -r implementation/synthesis/lc_shell/nm-caesar
 clean-lock:
 	$(RM) $(BUILD_DIR)/.*.lock
 

@@ -242,7 +242,6 @@ int main(int argc, char *argv[])
 
     // Enable kernel execution time monitors
     mon->carusExecTimeEn(true);
-    mon->caesarExecTimeEn(true);
 
     // Run until the end of simulation is reached
     while (!cntx->gotFinish() && cntx->time() < (max_cycles << 1) && dut->exit_valid_o == 0) {
@@ -257,7 +256,6 @@ int main(int argc, char *argv[])
     // Print simulation status
     TB_LOG(LOG_LOW, "Simulation complete");
     TB_LOG(LOG_MEDIUM, "- NM-Carus kernel execution time: %lu cycles", mon->carusGetCycles());
-    TB_LOG(LOG_MEDIUM, "- NM-Caesar kernel execution time: %lu cycles", mon->caesarGetCycles());
 
     // Check exit value
     if (dut->exit_valid_o) {

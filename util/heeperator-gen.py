@@ -64,10 +64,6 @@ def main():
                         type=str,
                         metavar='C_SOURCE',
                         help='C template filename')
-    parser.add_argument('--caesar_num',
-                        type=int,
-                        metavar='CAESAR_NUM',
-                        help='Number of NM-Caesar instances')
     parser.add_argument('--carus_num',
                         type=int,
                         metavar='CARUS_NUM',
@@ -108,12 +104,7 @@ def main():
     if args.corev_pulp != None:
         cpu_features['corev_pulp'] = args.corev_pulp
 
-    # NM-Caesar and NM-Carus instance number
-    caesar_num = int(cfg['ext_xbar_slaves']['caesar']['num'])
-    if args.caesar_num is not None:
-        caesar_num = args.caesar_num
-    if caesar_num < 0 or caesar_num > 16:
-        exit(f'NM-Caesar instances number must be <16: {caesar_num}')
+    # NM-Carus instance number
     carus_num = int(cfg['ext_xbar_slaves']['carus']['num'])
     if args.carus_num is not None:
         carus_num = args.carus_num
@@ -122,15 +113,10 @@ def main():
 
     # Bus configuration
     xbar_nmasters = int(cfg['ext_xbar_masters'])
-    xbar_nslaves = caesar_num + carus_num
+    xbar_nslaves = carus_num
     periph_nslaves = len(cfg['ext_periph'])
 
     # Slaves map
-    caesar_start_address = int(cfg['ext_xbar_slaves']['caesar']['offset'], 16)
-    caesar_start_address_hex = int2hexstr(caesar_start_address, 32)
-    caesar_size = int(cfg['ext_xbar_slaves']['caesar']['length'], 16)
-    caesar_size_hex = int2hexstr(caesar_size, 32)
-    
     carus_start_address = int(cfg['ext_xbar_slaves']['carus']['offset'], 16)
     carus_start_address_hex = int2hexstr(carus_start_address, 32)
     carus_size = int(cfg['ext_xbar_slaves']['carus']['length'], 16)
@@ -156,10 +142,7 @@ def main():
         'xbar_nmasters': xbar_nmasters,
         'xbar_nslaves': xbar_nslaves,
         'periph_nslaves': periph_nslaves,
-        'caesar_num': caesar_num,
         'carus_num': carus_num,
-        'caesar_start_address': caesar_start_address_hex,
-        'caesar_size': caesar_size_hex,
         'carus_start_address': carus_start_address_hex,
         'carus_size': carus_size_hex,
         'fll_start_address': fll_start_address_hex,

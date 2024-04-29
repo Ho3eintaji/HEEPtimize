@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
 // File: heeperator-top.sv
-// Author: Michele Caon
-// Date: 13/05/2023
+// Author: Michele Caon, Luigi Giuffrida
+// Date: 29/04/2024
 // Description: HEEPerator top-level module
 
 module heeperator_top (
@@ -59,8 +59,6 @@ ${pad.x_heep_system_interface}
   logic [core_v_mini_mcu_pkg::NEXT_INT-1:0] ext_int_vector;
 
   // OBI external slaves
-  obi_req_t  caesar_req; // request to NM-Caesar
-  obi_resp_t caesar_rsp; // response from NM-Caesar
   obi_req_t  carus_req; // request to NM-Carus
   obi_resp_t carus_rsp; // response from NM-Carus
 
@@ -90,8 +88,6 @@ ${pad.x_heep_system_interface}
 
   // External domains reset
   logic [ExtDomainsRnd-1:0] external_subsystem_rst_n;
-  logic caesar_rst_n;
-  logic caesar_set_retentive_n;
   logic carus_rst_n;
   logic carus_set_retentive_n;
 
@@ -251,19 +247,13 @@ ${pad.core_v_mini_mcu_bonding}
 
   // External peripherals
   // --------------------
-  assign caesar_rst_n = external_subsystem_rst_n[0];
-  assign carus_rst_n  = external_subsystem_rst_n[1];
-  assign caesar_set_retentive_n = external_ram_banks_set_retentive_n[0];
-  assign carus_set_retentive_n  = external_ram_banks_set_retentive_n[1];
+  assign carus_rst_n  = external_subsystem_rst_n[0];
+  assign carus_set_retentive_n  = external_ram_banks_set_retentive_n[0];
   heeperator_peripherals u_heeperator_peripherals(
     .ref_clk_i             (ref_clk_in_x),
     .rst_ni                (rst_nin_sync),
     .system_clk_o          (system_clk),
     .bypass_fll_i          (bypass_fll_in_x),
-    .caesar_rst_ni         (caesar_rst_n),
-    .caesar_set_retentive_ni(caesar_set_retentive_n),
-    .caesar_req_i          (caesar_req),
-    .caesar_rsp_o          (caesar_rsp),
     .carus_rst_ni          (carus_rst_n),
     .carus_set_retentive_ni(carus_set_retentive_n),
     .carus_req_i           (carus_req),
@@ -293,8 +283,6 @@ ${pad.core_v_mini_mcu_bonding}
     .heep_dma_write_ch0_resp_o(heep_dma_write_ch0_rsp),
     .heep_slave_req_o         (heep_slave_req),
     .heep_slave_resp_i        (heep_slave_rsp),
-    .caesar_req_o             (caesar_req),
-    .caesar_resp_i            (caesar_rsp),
     .carus_req_o              (carus_req),
     .carus_resp_i             (carus_rsp),
     .heep_periph_req_i        (heep_peripheral_req),
@@ -368,75 +356,6 @@ ${pad_mux_process}
       .cycl_count_o()
   );
 
-  // CAESAR
-  // -----------
-  // TODO: add clock gating cell
-  // Connect to CORE-V-MINI-MCU power manager
-
-  logic caesar_sw0_ctrl;
-  logic caesar_sw0_ack, caesar_sw1_ack, caesar_sw2_ack, caesar_sw3_ack;
-
-`ifndef FPGA
-
-    assign caesar_sw0_ctrl = ~external_subsystem_powergate_switch_n[0];
-    assign external_subsystem_powergate_switch_ack_n[0] = ~caesar_sw3_ack;
-
-    // Power switch and synchronizer
-    switch_cell_mem mem_caesar_sw0_i (
-  `ifdef USE_PG_PIN
-      .VIN,
-      .VOUT,
-      .VSS,
-  `endif
-      .VCTRL    (caesar_sw0_ctrl),  // Switch Signal Input
-      .VCTRLFBn (),               // Negated Schmitt Trigger Output
-      .VCTRLFB  (),    // Schmitt Trigger Output
-      .VCTRL_BUF(caesar_sw0_ack)    //ACK signal Output
-    );
-
-    switch_cell_mem mem_caesar_sw1_i (
-  `ifdef USE_PG_PIN
-      .VIN,
-      .VOUT,
-      .VSS,
-  `endif
-      .VCTRL    (caesar_sw0_ack),  // Switch Signal Input
-      .VCTRLFBn (),              // Negated Schmitt Trigger Output
-      .VCTRLFB  (),   // Schmitt Trigger Output
-      .VCTRL_BUF(caesar_sw1_ack)   //ACK signal Output
-    );
-
-    switch_cell_mem mem_caesar_sw2_i (
-  `ifdef USE_PG_PIN
-      .VIN,
-      .VOUT,
-      .VSS,
-  `endif
-      .VCTRL    (caesar_sw1_ack),  // Switch Signal Input
-      .VCTRLFBn (),              // Negated Schmitt Trigger Output
-      .VCTRLFB  (),   // Schmitt Trigger Output
-      .VCTRL_BUF(caesar_sw2_ack)   //ACK signal Output
-    );
-
-    switch_cell_mem mem_caesar_sw3_i (
-  `ifdef USE_PG_PIN
-      .VIN,
-      .VOUT,
-      .VSS,
-  `endif
-      .VCTRL    (caesar_sw2_ack),  // Switch Signal Input
-      .VCTRLFBn (),              // Negated Schmitt Trigger Output
-      .VCTRLFB  (),   // Schmitt Trigger Output
-      .VCTRL_BUF(caesar_sw3_ack)   //ACK signal Output
-    );
-
-`else
-
-    assign caesar_sw0_ctrl = '0;
-    assign external_subsystem_powergate_switch_ack_n[0] = '0;
-
-`endif
-
   // CARUS
   // -----------
   // TODO: add clock gating cell
@@ -447,8 +366,8 @@ ${pad_mux_process}
 
 `ifndef FPGA
 
-    assign carus_sw0_ctrl = ~external_subsystem_powergate_switch_n[1];
-    assign external_subsystem_powergate_switch_ack_n[1] = ~carus_sw3_ack;
+    assign carus_sw0_ctrl = ~external_subsystem_powergate_switch_n[0];
+    assign external_subsystem_powergate_switch_ack_n[0] = ~carus_sw3_ack;
 
     // Power switch and synchronizer
     switch_cell_mem mem_carus_sw0_i (

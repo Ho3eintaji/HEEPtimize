@@ -70,30 +70,3 @@ void timer_init()
     CSR_CLEAR_BITS(CSR_REG_MCOUNTINHIBIT, 0x1);
 }
 
-// Initialize NM-Caesar timer (GPIO trigger)
-int timer_caesar_init()
-{
-    // Configure GPIO pin as output with push and pull
-    gpio_cfg_t pin_cfg = {
-        .pin = TIMER_CAESAR_GPIO,
-        .mode = GpioModeOutPushPull};
-
-    // Write configuration
-    if (gpio_config(pin_cfg) != GpioOk)
-        return -1;
-
-    // Return success
-    return 0;
-}
-
-// Start NM-Caesar timer (enable GPIO trigger)
-void timer_caesar_start()
-{
-    gpio_write(TIMER_CAESAR_GPIO, true);
-}
-
-// Stop NM-Caesar timer (disable GPIO trigger)
-void timer_caesar_stop()
-{
-    gpio_write(TIMER_CAESAR_GPIO, false);
-}

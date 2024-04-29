@@ -22,8 +22,6 @@ if {$TOP_MODULE == "heeperator_top"} {
     set STRIP_PATH tb_top/u_tb_system/u_heeperator_top/
 } elseif {$TOP_MODULE == "carus_top"} {
     set STRIP_PATH tb_top/u_tb_system/u_heeperator_top/u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/
-} elseif {$TOP_MODULE == "caesar_top"} {
-    set STRIP_PATH tb_top/u_tb_system/u_heeperator_top/u_heeperator_peripherals/gen_caesar_0__u_nm_caesar_wrapper/u_caesar_top/
 }
 
 # source init
@@ -82,8 +80,8 @@ set REPORT_FP [open ${REPORTS_PATH}/power.csv "w"]
 puts $REPORT_FP "CELL,INTERNAL_POWER,SWITCHING_POWER,LEAKAGE_POWER,TOTAL_POWER,RELATIVE_POWER"
 
 # Set scopes to analyse (full hierarchy report already generated with report_power above)
-set SCOPES "/ /u_core_v_mini_mcu /u_core_v_mini_mcu/ao_peripheral_subsystem_i /u_core_v_mini_mcu/peripheral_subsystem_i /u_core_v_mini_mcu/memory_subsystem_i /u_heeperator_bus /u_heeperator_peripherals /u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/u_carus_ctl /u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/u_vector_subsystem/u_vector_pipeline /u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/u_vector_subsystem/u_vrf /u_heeperator_peripherals/gen_caesar_0__u_nm_caesar_wrapper/u_caesar_top/IMCaesar_ctrl_Xi /u_heeperator_peripherals/gen_caesar_0__u_nm_caesar_wrapper/u_caesar_top/alu_Xi /u_heeperator_peripherals/gen_caesar_0__u_nm_caesar_wrapper/u_caesar_top/MEM0 /u_heeperator_peripherals/gen_caesar_0__u_nm_caesar_wrapper/u_caesar_top/MEM1"
-set SCOPE_NAMES "top core_v_mini_mcu ao_peripheral_subsystem peripheral_subsystem memory_subsystem heeperator_bus nmc_peripherals carus_ctl carus_vector carus_vrf caesar_ctl caesar_alu caesar_mem0 caesar_mem1"
+set SCOPES "/ /u_core_v_mini_mcu /u_core_v_mini_mcu/ao_peripheral_subsystem_i /u_core_v_mini_mcu/peripheral_subsystem_i /u_core_v_mini_mcu/memory_subsystem_i /u_heeperator_bus /u_heeperator_peripherals /u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/u_carus_ctl /u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/u_vector_subsystem/u_vector_pipeline /u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/u_vector_subsystem/u_vrf"
+set SCOPE_NAMES "top core_v_mini_mcu ao_peripheral_subsystem peripheral_subsystem memory_subsystem heeperator_bus nmc_peripherals carus_ctl carus_vector carus_vrf"
 
 # Dump report for each scope
 foreach scope $SCOPES name $SCOPE_NAMES {

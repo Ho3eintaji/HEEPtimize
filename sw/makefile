@@ -5,7 +5,7 @@
 # File: makefile
 # Author: Michele Caon
 # Date: 22/07/2023
-# Description: Makefile for NM-Carus and NM-Caesar computing kernels
+# Description: Makefile for NM-Carus computing kernels
 
 #############################
 # ----- CONFIGURATION ----- #
@@ -15,7 +15,6 @@
 ROOT_DIR				:= $(realpath ..)
 BUILD_DIR				:= $(ROOT_DIR)/build/sw
 CARUS_BUILD_DIR			:= $(BUILD_DIR)/carus
-CAESAR_BUILD_DIR		:= $(BUILD_DIR)/caesar
 
 # NM-Carus startup code header
 CARUS_INIT_HEADER_DIR	:= external/lib/drivers/carus
