@@ -28,7 +28,9 @@ module carus_sram_wrapper #(
   output logic [         31:0] rdata_o
 );
 
-  xilinx_mem_gen_8 tc_ram_i (
+ generate
+  if (NUM_WORDS == 128) begin
+    xilinx_emem_gen_carus tc_ram_i (
       .clka (clk_i),
       .ena  (req_i),
       .wea  ({4{req_i & we_i}} & be_i),
@@ -36,6 +38,19 @@ module carus_sram_wrapper #(
       .dina (wdata_i),
       // output ports
       .douta(rdata_o)
-  );
+    );
+  end else begin
+    xilinx_mem_gen_carus tc_ram_i (
+      .clka (clk_i),
+      .ena  (req_i),
+      .wea  ({4{req_i & we_i}} & be_i),
+      .addra(addr_i),
+      .dina (wdata_i),
+      // output ports
+      .douta(rdata_o)
+    );
+  end
+ endgenerate
+  
 
 endmodule
