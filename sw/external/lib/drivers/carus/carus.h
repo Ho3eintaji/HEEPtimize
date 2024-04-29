@@ -182,4 +182,23 @@ int carus_wait_done(const uint8_t inst);
  */
 int carus_exec_kernel(const uint8_t inst, const uint32_t *kernel, const uint32_t size);
 
+/**
+ * @brief Move a vector from and to the system memory to and from NM-Carus instance vector register file.
+ * @param inst NM-Carus instance number.
+ * @param src Pointer to the vector to be read.
+ * @param tgt Pointer to the vector to be written.
+ * @param size Size of the vector to be loaded (bytes)
+ */
+int carus_copy_vector_to_vector(const uint8_t inst, const uint32_t *src, const uint32_t *tgt, const uint32_t size);
+
+/**
+ * @brief Load a scalar in the specified NM-Carus instance vector register file (replicated size times).
+ * @param inst NM-Carus instance number.
+ * @param src the scalar to be loaded.
+ * @param tgt Pointer to the vector destination register.
+ * @param size Size of the vector to be loaded (number of words, not bytes)
+ */
+int carus_copy_scalar_to_vector(const uint8_t inst, const uint32_t src, const uint32_t *tgt, const uint32_t size);
+
+
 #endif // CARUS_H_

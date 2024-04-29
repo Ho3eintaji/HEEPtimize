@@ -12,30 +12,71 @@
 #include "timer_util.h"
 #include "csr.h"
 
+
 /******************************/
 /* ---- GLOBAL VARIABLES ---- */
 /******************************/
 
 // Timer value
 uint32_t timer_value = 0;
+uint32_t hw_timer_value = 0;
+
+rv_timer_t timer;
+
+rv_timer_config_t timer_cfg = {
+    .hart_count = RV_TIMER_PARAM_N_HARTS,
+    .comparator_count = RV_TIMER_PARAM_N_TIMERS,
+};
+
+mmio_region_t timer_base = {
+    .base = RV_TIMER_AO_START_ADDRESS,
+};
+
+rv_timer_tick_params_t tick_params;
 
 /*************************************/
 /* ---- FUNCTION IMPLEMENTATION ---- */
 /*************************************/
 
+// Initialize the hardware timer
+void hw_timer_init()
+{
+    // Initialize the timer
+    rv_timer_init(timer_base, timer_cfg, &timer);
+    rv_timer_approximate_tick_params( REFERENCE_CLOCK_Hz, REFERENCE_CLOCK_Hz, &tick_params);
+    rv_timer_set_tick_params(&timer, 0, tick_params);
+    rv_timer_counter_set_enabled(&timer, 0, true);
+}
+
+uint32_t hw_timer_get_cycles() {
+    int32_t cycle_count;
+    rv_timer_counter_read(&timer, 0, &cycle_count);
+    return cycle_count;
+}
+
+void hw_timer_start() {
+    timer_value = -hw_timer_get_cycles();
+}
+
+uint32_t hw_timer_stop() {
+    timer_value += hw_timer_get_cycles();
+    return timer_value;
+}
+
 // Initialize the timer
-void timer_init() {
+void timer_init()
+{
     // Enable MCYCLE counter
     CSR_CLEAR_BITS(CSR_REG_MCOUNTINHIBIT, 0x1);
 }
 
 // Initialize NM-Caesar timer (GPIO trigger)
-int timer_caesar_init() {
+int timer_caesar_init()
+{
     // Configure GPIO pin as output with push and pull
     gpio_cfg_t pin_cfg = {
         .pin = TIMER_CAESAR_GPIO,
-        .mode = GpioModeOutPushPull
-    };
+        .mode = GpioModeOutPushPull};
 
     // Write configuration
     if (gpio_config(pin_cfg) != GpioOk)
@@ -46,11 +87,13 @@ int timer_caesar_init() {
 }
 
 // Start NM-Caesar timer (enable GPIO trigger)
-void timer_caesar_start() {
+void timer_caesar_start()
+{
     gpio_write(TIMER_CAESAR_GPIO, true);
 }
 
 // Stop NM-Caesar timer (disable GPIO trigger)
-void timer_caesar_stop() {
+void timer_caesar_stop()
+{
     gpio_write(TIMER_CAESAR_GPIO, false);
 }

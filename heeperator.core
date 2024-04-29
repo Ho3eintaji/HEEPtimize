@@ -186,6 +186,7 @@ filesets:
     - openhwgroup.org:systems:core-v-mini-mcu-fpga
     files:
     - hw/fpga/xilinx/scripts/generate_sram_8.tcl: {file_type: tclSource}
+    - hw/fpga/xilinx/scripts/generate_sram_emem.tcl: {file_type: tclSource}
     - hw/fpga/xilinx/scripts/generate_sram_16.tcl: {file_type: tclSource}
 
 scripts:
