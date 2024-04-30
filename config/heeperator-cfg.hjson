@@ -20,9 +20,10 @@
     ext_xbar_masters: 0,
     ext_xbar_slaves: {
         carus: {
-            offset: "0x00100000",
-            length: "0x00008000",
-            num:    1,
+            offset:    "0x00100000",
+            length:    "0x00008000",
+            num:       1,
+            num_banks: 4, // bank address width is log2(length/num_banks)
         },
     },
 

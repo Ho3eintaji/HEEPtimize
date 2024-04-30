@@ -12,7 +12,10 @@
 // Author: Michele Caon
 // Date: 30/05/2023
 
-module nm_carus_wrapper (
+module nm_carus_wrapper #(
+  parameter int unsigned NUM_BANKS = 4,
+  parameter int unsigned BANK_ADDR_WIDTH = 13  // 8kiB
+) (
   input logic clk_i,
   input logic rst_ni,
 
@@ -28,14 +31,16 @@ module nm_carus_wrapper (
   output obi_pkg::obi_resp_t bus_rsp_o
 );
   // PARAMETERS
-  localparam int unsigned CarusAddrWidth = carus_pkg::VrfBankAddrWidth + unsigned'($clog2(
-      carus_pkg::VrfNumBanks
-  ));
+  localparam int unsigned CarusAddrWidth = BANK_ADDR_WIDTH + unsigned'($clog2(NUM_BANKS));
+
 
   // -------
   // NM-CARUS
   // -------
-  carus_top u_carus_top (
+  carus_top #(
+    .NUM_BANKS      (NUM_BANKS),
+    .BANK_ADDR_WIDTH(BANK_ADDR_WIDTH)
+  ) u_carus_top (
     .clk_i           (clk_i),
     .rst_ni          (rst_ni),
     .set_retentive_ni(set_retentive_ni),

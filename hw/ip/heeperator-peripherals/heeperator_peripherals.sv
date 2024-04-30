@@ -63,7 +63,10 @@ module heeperator_peripherals #(
   // --------
   generate
     for (genvar i = 0; unsigned'(i) < CarusNum; i++) begin : gen_carus
-      nm_carus_wrapper u_nm_carus_wrapper (
+      nm_carus_wrapper #(
+        .NUM_BANKS      (heeperator_pkg::CarusNumBanks),
+        .BANK_ADDR_WIDTH(heeperator_pkg::CarusBankAddrWidth)
+      ) u_nm_carus_wrapper (
         .clk_i           (system_clk),
         .rst_ni          (carus_rst_ni),
         .set_retentive_ni(carus_set_retentive_ni),

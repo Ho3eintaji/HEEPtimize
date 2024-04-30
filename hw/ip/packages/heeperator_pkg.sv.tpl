@@ -37,6 +37,8 @@ package heeperator_pkg;
   // NM-Carus
   localparam int unsigned CarusNum = 32'd${carus_num};
   localparam int unsigned LogCarusNum = CarusNum > 32'd1 ? $clog2(CarusNum) : 32'd1;
+  localparam int unsigned CarusNumBanks = 32'd${carus_num_banks};
+  localparam int unsigned CarusBankAddrWidth = 32'd${carus_bank_addr_width};
 % for inst in range(carus_num):
   localparam int unsigned Carus${inst}Idx = 32'd${inst};
   localparam logic [31:0] Carus${inst}StartAddr = EXT_SLAVE_START_ADDRESS + 32'h${carus_start_address};
