@@ -13,6 +13,7 @@
 
 import argparse
 import hjson
+import math
 import sys
 import pathlib
 import re
@@ -110,6 +111,7 @@ def main():
         carus_num = args.carus_num
     if carus_num < 0 or carus_num > 16:
         exit(f'NM-Carus instances number must be <16: {carus_num}')
+    carus_num_banks = int(cfg['ext_xbar_slaves']['carus']['num_banks'])
 
     # Bus configuration
     xbar_nmasters = int(cfg['ext_xbar_masters'])
@@ -133,6 +135,15 @@ def main():
     heeperator_ctrl_size = int(cfg['ext_periph']['heeperator_ctrl']['length'], 16)
     heeperator_ctrl_size_hex = int2hexstr(heeperator_ctrl_size, 32)
 
+    # Dependent parameters
+    if not math.log2(carus_size).is_integer():
+        exit(f'Carus size must be a power of 2: {carus_size}')
+    if not math.log2(carus_num_banks).is_integer():
+        exit(f'Carus number of banks must be a power of 2: {carus_num_banks}')
+    if carus_size % carus_num_banks != 0:
+        exit(f'Carus size must be a multiple of the number of banks: {carus_size} % {carus_num_banks} != 0')
+    carus_bank_addr_width = int(math.ceil(math.log2(carus_size // carus_num_banks)))
+
     # Explicit arguments
     kwargs = {
         'cpu_corev_pulp': int(cpu_features['corev_pulp']),
@@ -143,6 +154,8 @@ def main():
         'xbar_nslaves': xbar_nslaves,
         'periph_nslaves': periph_nslaves,
         'carus_num': carus_num,
+        'carus_num_banks': carus_num_banks,
+        'carus_bank_addr_width': carus_bank_addr_width,
         'carus_start_address': carus_start_address_hex,
         'carus_size': carus_size_hex,
         'fll_start_address': fll_start_address_hex,

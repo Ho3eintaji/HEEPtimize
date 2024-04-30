@@ -8,7 +8,7 @@
 
     upstream: {
         url: "git@eslgit.epfl.ch:blade/nm-carus.git",
-        rev: "c472e666f92b955e313d16fcf4f04f0940768a4a"
+        rev: "77ff8ac407ee73e07bc98462fc30f35274e9ef41"
     },
 
     exclude_from_upstream: [
