@@ -1,41 +1,38 @@
 CAPI=2:
 
-# Copyright 2022 EPFL and Politecnico di Torino.
+# Copyright 2024 EPFL and Universidad Complutense de Madrid
 # Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 #
-# File: prim-tsmc65.core
-# Author: Michele Caon
-# Date: 30/05/2023
-# Description: TSMC 65nm primitives
+# Author: David Mallasén
+# Date: 22/04/2024
+# Description: TSMC 16nm primitives
 
 # Based on technology_prim_tsmc65.core from HEEPpocrates.
 
-name: "epfl:heeperator:prim-tsmc65:0.1.0"
-description: "Technology-specific files for TSMC65"
+name: "epfl:heeperator:prim-tsmc16:0.1.0"
+description: "Technology-specific files for TSMC16"
 filesets:
   # RTL simulation models
   rtl:
+    depend:
+    - epfl:heeperator:packages
     files:
     - rtl/pad_cell_inout.sv
     - rtl/pad_cell_input.sv
     - rtl/pad_cell_output.sv
-    - rtl/prim_tsmc65_clk.sv
-    - rtl/tsmc65_pad_cell_inout.sv
-    - rtl/tsmc65_pad_cell_input.sv
-    - rtl/tsmc65_pad_cell_output.sv
+    - rtl/prim_tsmc16_clk.sv
+    - rtl/tsmc16_pad_cell_inout.sv
+    - rtl/tsmc16_pad_cell_input.sv
+    - rtl/tsmc16_pad_cell_output.sv
     - memories/sram_wrapper.sv
     file_type: systemVerilogSource
 
   # Post-synthesis simulation models
   rtl-postsyn:
     files:
-    - std-cells/tcbn65lplvt.v
-    - std-cells/tcbn65lpcglvt.v
-    - std-cells/tcbn65lpcghvt.v
-    - std-cells/tcbn65lphvt.v
-    - std-cells/tcbn65lp.v
-    - std-cells/sc8_cln65lp_base_lvt.v
+    - std-cells/tphn16ffcllgv18e_univ.v
+    - std-cells/sc8_cln65lp_base_lvt.v  # FIXME: Change to tsmc16
     - std-cells/sc8_cln65lp_base_rvt.v
     - std-cells/sc8_cln65lp_base_hvt.v
     - std-cells/sc8_cln65lp_base_lvt_udp.v
@@ -45,19 +42,13 @@ filesets:
     - memories/sram2048x32m8/vlog/sram2048x32m8.v
     - memories/sram4096x32m8/vlog/sram4096x32m8.v
     - memories/sram8192x32m8/vlog/sram8192x32m8.v
-    - pads/tpfn65lpgv2od3.v
-    - pads/tpdn65lpnv2od3.v
     file_type: verilogSource
 
   # Post-layout models
   rtl-postpnr:
     files:
-    - std-cells/tcbn65lplvt_pwr.v
-    - std-cells/tcbn65lpcglvt_pwr.v
-    - std-cells/tcbn65lpcghvt_pwr.v
-    - std-cells/tcbn65lphvt_pwr.v
-    - std-cells/tcbn65lp_pwr.v
-    - std-cells/sc8_cln65lp_base_lvt.v
+    - std-cells/tphn16ffcllgv18e_univ_pwr.v
+    - std-cells/sc8_cln65lp_base_lvt.v  # FIXME: Change to tsmc16
     - std-cells/sc8_cln65lp_base_rvt.v
     - std-cells/sc8_cln65lp_base_hvt.v
     - std-cells/sc8_cln65lp_base_lvt_udp.v
@@ -67,8 +58,6 @@ filesets:
     - memories/sram2048x32m8/vlog/sram2048x32m8.v
     - memories/sram4096x32m8/vlog/sram4096x32m8.v
     - memories/sram8192x32m8/vlog/sram8192x32m8.v
-    - pads/tpfn65lpgv2od3.v
-    - pads/tpdn65lpnv2od3.v
     file_type: verilogSource
 
 targets:
@@ -80,5 +69,5 @@ targets:
       - target_sim_postlayout ? (rtl)
       - target_sim_postlayout ? (rtl-postpnr)
       - target_sim_postsynthesis ? (rtl-postsyn)
-      - target_sim_rtl_tsmc65 ? (rtl)
-      - target_sim_rtl_tsmc65 ? (rtl-postpnr)
+      - target_sim_rtl_tsmc16 ? (rtl)
+      - target_sim_rtl_tsmc16 ? (rtl-postpnr)

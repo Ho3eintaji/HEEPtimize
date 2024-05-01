@@ -12,10 +12,10 @@ remove_design -all
 source ${SET_LIBS}
 
 # Make sure no HVT cells are used
-set_attribute [get_lib_cells tcbn65lp*/*HVT] dont_use true
+# set_attribute [get_lib_cells tcbn65lp*/*HVT] dont_use true
 # Use only power switches from the HVT lib
-set_attribute [get_lib_cells tcbn65lp*/FTR*HVT] dont_use false
-set_attribute [get_lib_cells tcbn65lp*/HDR*HVT] dont_use false
+# set_attribute [get_lib_cells tcbn65lp*/FTR*HVT] dont_use false
+# set_attribute [get_lib_cells tcbn65lp*/HDR*HVT] dont_use false
 
 source ${READ_SOURCES}.tcl
 
@@ -30,15 +30,15 @@ report_clocks > ${REPORT_DIR}/clocks.rpt
 report_timing -loop -max_paths 10 > ${REPORT_DIR}/timing_loop.rpt
 
 # Minimum number of bit required for clock gating and do not use Latches
-set_clock_gating_style -minimum_bitwidth 3 -positive_edge_logic integrated:CKLNQD16LVT -control_point before
+set_clock_gating_style -minimum_bitwidth 3 -positive_edge_logic integrated:CKLNQD10BWP16P90 -control_point before
 
-remove_upf
-load_upf ../../../heeperator.synthesis.upf
+# remove_upf
+# load_upf ../../../heeperator.synthesis.upf
 
 
-set_voltage 1.08 -object_list { VDD }
-set_voltage 0.00 -object_list { VSS }
-set_voltage 1.08 -object_list { VDD_CARUS }
+# set_voltage 1.08 -object_list { VDD }
+# set_voltage 0.00 -object_list { VSS }
+# set_voltage 1.08 -object_list { VDD_CARUS }
 
 compile_ultra -no_autoungroup -no_boundary_optimization -timing -gate_clock
 
@@ -61,7 +61,7 @@ report_timing -through u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper/
 report_timing -through u_core_v_mini_mcu/external_subsystem_powergate_switch_ack_i* -max_paths 5  >> ${REPORT_DIR}/timing_sw_cells.rpt
 
 ### save here also the report
-set report_date [sh date +%a_%d_%m_%k:%M]
+set report_date [sh date +%Y_%m_%d_%k:%M]
 
 file mkdir ${SCRIPT_DIR}/output_$report_date
 
@@ -73,6 +73,7 @@ sh cp -R ${REPORT_DIR} ${SCRIPT_DIR}/output_$report_date
 sh rm -rf ${SCRIPT_DIR}/../../synthesis/last_output
 file mkdir ${SCRIPT_DIR}/../../synthesis/last_output
 
+sh cp -R ${REPORT_DIR}/synth.log ${SCRIPT_DIR}/../../synthesis/last_output
 sh cp -R ${REPORT_DIR}/netlist.sdc ${SCRIPT_DIR}/../../synthesis/last_output
 sh cp -R ${REPORT_DIR}/netlist.sdf ${SCRIPT_DIR}/../../synthesis/last_output
 sh cp -R ${REPORT_DIR}/netlist.v ${SCRIPT_DIR}/../../synthesis/last_output

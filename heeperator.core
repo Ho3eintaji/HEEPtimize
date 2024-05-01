@@ -44,14 +44,14 @@ filesets:
 
   nm_carus_postsynthesis-netlist:
     depend:
-    - epfl:heeperator:prim-tsmc65:0.1.0
+    - epfl:heeperator:prim-tsmc16:0.1.0
     files:
     - hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/verilog/NMCarus_top_pared.v
     file_type: verilogSource
 
   nm_carus_postlayout-netlist:
     depend:
-    - epfl:heeperator:prim-tsmc65:0.1.0
+    - epfl:heeperator:prim-tsmc16:0.1.0
     files:
     - hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/verilog/NMCarus_top_pnr.v
     file_type: verilogSource
@@ -59,8 +59,8 @@ filesets:
   # FLL
   fll_simulation:
     depend:
-    - epfl:heeperator:digital-fll-tsmc65:0.1.0
-    - epfl:heeperator:analog-fll-tsmc65
+    - epfl:heeperator:digital-fll-tsmc65:0.1.0  # TODO: Migrate to tsmc16
+    - epfl:heeperator:analog-fll-tsmc65  # TODO: Migrate to tsmc16
 
   # RTL simulation models
   rtl-sim:
@@ -80,21 +80,21 @@ filesets:
     depend:
     - davidmallasen:ip:coprosit:0.0.1
 
-  # RTL that depends on TSMC65
-  rtl-tsmc65:
+  # RTL that depends on TSMC16
+  rtl-tsmc16:
     depend:
-    - epfl:heeperator:prim-tsmc65:0.1.0
+    - epfl:heeperator:prim-tsmc16:0.1.0
 
   # Post-synthesis simulation models
   rtl-postsyn:
     depend:
-    - epfl:heeperator:mem-pw-tsmc65
+    - epfl:heeperator:mem-pw-tsmc65  # TODO: Migrate to tsmc16
 
   # postsynthesis netlist
   postsynthesis-netlist:
     depend:
     - epfl:heeperator:packages
-    - epfl:heeperator:prim-tsmc65:0.1.0
+    - epfl:heeperator:prim-tsmc16:0.1.0
     files:
     - implementation/synthesis/last_output/netlist.v
     file_type: verilogSource
@@ -103,7 +103,7 @@ filesets:
   postlayout-netlist:
     depend:
     - epfl:heeperator:packages
-    - epfl:heeperator:prim-tsmc65:0.1.0
+    - epfl:heeperator:prim-tsmc16:0.1.0
     files:
     - build/innovus_latest/artefacts/export/heeperator_pg.v
     file_type: verilogSource
@@ -216,9 +216,9 @@ targets:
     description: Design Compiler Script
     parameters:
     - SYNTHESIS=true
-    - PRIM_DEFAULT_IMPL=prim_pkg::tsmc65 //not really needed as today
+    - PRIM_DEFAULT_IMPL=prim_pkg::tsmc16 //not really needed as today
     filesets_append:
-    - rtl-tsmc65
+    - rtl-tsmc16
     toplevel: [heeperator_top]
     tools:
       design_compiler:
@@ -331,7 +331,7 @@ targets:
     - tb-system
     - tb-system-vendor
     - rtl-sim
-    - rtl-tsmc65
+    - rtl-tsmc16
     - fll_simulation
     parameters:
     - boot_mode
@@ -340,7 +340,7 @@ targets:
     - verbose
     - vcd_mode
     - bypass_fll_opt
-    - PRIM_DEFAULT_IMPL=prim_pkg::tsmc65
+    - PRIM_DEFAULT_IMPL=prim_pkg::tsmc16
     - UNIT_DELAY=0
     - no_warning=true
     - SYNTHESIS=true
@@ -382,7 +382,7 @@ targets:
     - tb-system
     - tb-system-vendor
     - rtl-sim
-    - rtl-tsmc65
+    - rtl-tsmc16
     - fll_simulation
     parameters:
     - boot_mode
@@ -391,7 +391,7 @@ targets:
     - verbose
     - vcd_mode
     - bypass_fll_opt
-    - PRIM_DEFAULT_IMPL=prim_pkg::tsmc65
+    - PRIM_DEFAULT_IMPL=prim_pkg::tsmc16
     - UNIT_DELAY=0
     - no_warning=true
     - USE_PG_PIN=true

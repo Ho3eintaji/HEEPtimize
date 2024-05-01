@@ -1,3 +1,12 @@
+# Copyright 2024 EPFL and Universidad Complutense de Madrid
+#
+# Author: David Mallasén
+# Date: 24/04/2024
+# Description: makefile to interact with the memory compilers to
+#     generate the memories.
+
+# NOTE: based on the same file from HEEPerator
+
 #############################
 # ----- CONFIGURATION ----- #
 #############################
@@ -7,8 +16,8 @@ ROOT 		:= $(realpath ../../..)
 MEM_DIR 	:= $(realpath .)
 
 # Memory compiler executable
-SRAM_COMPILER	:= /dkits/arm/tsmc/cln65lp/sram_sp_hde_hvt_rvt/r0p0/bin/sram_sp_hde_hvt_rvt
-RF_COMPILER		:= /dkits/arm/tsmc/cln65lp/rf_sp_hdf_hvt_rvt/r0p0/bin/rf_sp_hdf_hvt_rvt
+SRAM_COMPILER	:= /dkits/arm/tsmc/cln16fcll001/sram_sp_hde_svt_mvt/r4p1/bin/sram_sp_hde_svt_mvt
+RF_COMPILER		:= /dkits/arm/tsmc/cln16fcll001/rf_sp_hde_svt_mvt_sga1/r1p2/bin/rf_sp_hde_svt_mvt_sga1
 LIB2DB_SCRIPT	:= mem_lib2db.tcl
 
 # Memory compiler configuration
@@ -16,50 +25,56 @@ NUM_ROWS		?= 2048
 NUM_BITS		?= 32
 MUX 			?= 8
 FREQUENCY 		?= 250
-CORNERS 		:= ff_1p32v_1p32v_125c,ff_1p32v_1p32v_m40c,ss_1p08v_1p08v_125c,ss_1p08v_1p08v_m40c,tt_1p20v_1p20v_25c
+CORNERS 		:= ffgnp_0p88v_0p88v_125c,ffgnp_0p88v_0p88v_m40c,ssgnp_0p675v_0p675v_125c,ssgnp_0p675v_0p675v_m40c,tt_0p80v_0p80v_25c
 SRAM_INST_NAME 	:= sram$(NUM_ROWS)x$(NUM_BITS)m$(MUX)
 RF_INST_NAME 	:= rf$(NUM_ROWS)x$(NUM_BITS)m$(MUX)
 LIB_NAME		:= arm_mem_$(NUM_ROWS)x$(NUM_BITS)m$(MUX)
 COMMON_OPT		:= \
 	-name_case upper \
-	-mvt "" \
-	-ser none \
+	-libname $(LIB_NAME) \
+	-mvt LP \
 	-bus_notation on \
+	-ser none \
 	-site_def off \
 	-check_instname on \
 	-frequency $(FREQUENCY) \
 	-bmux on \
 	-diodes on \
+	-PG_PINS_domain VDDPE \
 	-activity_factor 50 \
 	-words $(NUM_ROWS) \
 	-drive 6 \
-	-power_type otc \
 	-bits $(NUM_BITS) \
 	-retention on \
 	-write_mask on \
+	-atf off \
 	-left_bus_delim "[" \
-	-right_bus_delim "]" \
 	-pwr_gnd_rename vddpe:VDDPE,vddce:VDDCE,vsse:VSSE \
+	-right_bus_delim "]" \
+	-rows_p_bl 256 \
 	-wp_size 1 \
-	-libname $(LIB_NAME) \
-	-write_thru off \
+	-lren_bankmask off \
+	-metal_stack 2Xa1Xd \
 	-cust_comment "" \
+	-write_thru off \
+	-pipeline off \
 	-prefix "" \
-	-mux $(MUX) \
-	-back_biasing off \
+	-power_gating off \
 	-ema on \
+	-vmin_assist off \
+	-mux $(MUX) \
 	-corners $(CORNERS)
 SRAM_COMMON_OPT	:= \
 	-instname $(SRAM_INST_NAME) \
 	-rcols 2 \
 	-rrows 0 \
-	-rows_p_bl 256 \
-	-redundancy off \
-	-top_layer m5-m9 \
+	-flexible_banking 4 \
+	-redundancy on \
 	$(COMMON_OPT)
 RF_COMMON_OPT	:= \
 	-instname $(RF_INST_NAME) \
-	-top_layer m5-m10 \
+	-flexible_banking 1 \
+	-redundancy off \
 	$(COMMON_OPT)
 
 # Directory configuration
@@ -112,8 +127,7 @@ RF_PDF_FILES	:= $(patsubst %, $(RF_OUT_DIR)/$(DOC_DIR)/$(RF_INST_NAME)_%.pdf, $(
 
 # SRAM target (default)
 .PHONY: sram
-sram: $(SRAM_CCS_FILES) $(SRAM_DB_FILES) $(SRAM_LEF_FILES) $(SRAM_GDS_FILES) $(SRAM_CDL_FILES) $(SRAM_VLOG_FILES) $(SRAM_PDF_FILES)
-$(SRAM_CCS_FILES): sram-ccs
+sram: $(SRAM_DB_FILES) $(SRAM_LEF_FILES) $(SRAM_GDS_FILES) $(SRAM_CDL_FILES) $(SRAM_VLOG_FILES) $(SRAM_PDF_FILES)
 $(SRAM_DB_FILES): sram-db
 $(SRAM_LEF_FILES): sram-lef
 $(SRAM_GDS_FILES): sram-gds
@@ -122,8 +136,7 @@ $(SRAM_VLOG_FILES): sram-vlog
 
 # Register file targets
 .PHONY: rf
-rf: $(RF_CCS_FILES) $(RF_DB_FILES) $(RF_LEF_FILES) $(RF_GDS_FILES) $(RF_CDL_FILES) $(RF_VLOG_FILES) $(RF_PDF_FILES)
-$(RF_CCS_FILES): rf-ccs
+rf: $(RF_DB_FILES) $(RF_LEF_FILES) $(RF_GDS_FILES) $(RF_CDL_FILES) $(RF_VLOG_FILES) $(RF_PDF_FILES)
 $(RF_DB_FILES): rf-db
 $(RF_LEF_FILES): rf-lef
 $(RF_GDS_FILES): rf-gds
@@ -139,10 +152,6 @@ sram-lib: | $(SRAM_OUT_DIR)/$(LIB_DIR)/
 	@echo "Generating liberty NLDM files..."
 	cd $(SRAM_OUT_DIR)/$(LIB_DIR) && \
 	$(SRAM_COMPILER) liberty -libertyviewstyle nldm $(SRAM_COMMON_OPT)
-sram-ccs: | $(SRAM_OUT_DIR)/$(LIB_DIR)/
-	@echo "Generating liberty CCS files..."
-	cd $(SRAM_OUT_DIR)/$(LIB_DIR) && \
-	$(SRAM_COMPILER) liberty -libertyviewstyle ccs_tn $(SRAM_COMMON_OPT)
 
 sram-db: | $(SRAM_LIB_CACHE) .check-lc $(SRAM_OUT_DIR)/$(DB_DIR)/ $(BUILD_DIR)/
 	cd $(BUILD_DIR) && \
