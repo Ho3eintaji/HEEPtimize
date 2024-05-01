@@ -11,3 +11,4 @@
 lint_off -rule UNUSED -file "*/heepatia-bus/ext_xbar.sv" -match "Signal is not*used: 'neck_req'"
 lint_off -rule UNUSED -file "*/heepatia-bus/ext_xbar.sv" -match "Signal is not*used: 'neck_resp'"
 lint_off -rule UNUSED -file "*/heepatia-bus/ext_bus.sv" -match "Signal is not used: 'fwd_xbar_*'"
+lint_off -rule UNOPTFLAT -file "*/carus_obi_to_reg.sv" -match "Signal unoptimizable: Feedback to clock or circular logic:*"

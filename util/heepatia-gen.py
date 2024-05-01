@@ -5,8 +5,8 @@
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 #
 # File: heepatia-gen.py
-# Author: Michele Caon
-# Date: 13/05/2023
+# Author: Michele Caon, Luigi Giuffrida
+# Date: 30/04/2024
 # Description: Generate heepatia HDL files based on configuration.
 
 # Based on heepocrates_gen.py (https://eslgit.epfl.ch/heep/HEEPpocrates/-/blob/main/util/heepocrates_gen.py), which is based on occamygen.py from ETH Zurich (https://github.com/pulp-platform/snitch/blob/master/util/occamygen.py)
@@ -158,6 +158,9 @@ def main():
         'carus_bank_addr_width': carus_bank_addr_width,
         'carus_start_address': carus_start_address_hex,
         'carus_size': carus_size_hex,
+        'carus_mem_name' : "xilinx_mem_gen_carus",
+        'carus_tile_size' : carus_size//carus_num_banks//4,
+        'carus_vlen_max' : carus_size//32,
         'fll_start_address': fll_start_address_hex,
         'fll_size': fll_size_hex,
         'heepatia_ctrl_start_address': heepatia_ctrl_start_address_hex,
