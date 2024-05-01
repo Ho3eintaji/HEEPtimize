@@ -140,14 +140,21 @@ $(MCU_GEN_LOCK): $(MCU_CFG) $(PAD_CFG) $(EXT_PAD_CFG) | $(BUILD_DIR)/
 	$(RM) -f $(HEEPATIA_GEN_LOCK)
 	@echo "### DONE! X-HEEP MCU generated successfully"
 else ifeq ($(TARGET), pynq-z2)
-$(MCU_GEN_LOCK): $(MCU_CFG_FPGA) $(PAD_CFG) $(EXT_PAD_CFG) | $(BUILD_DIR)/
+$(MCU_GEN_LOCK): $(PAD_CFG) $(EXT_PAD_CFG) | $(BUILD_DIR)/
 	@echo "### Building X-HEEP MCU for PYNQ-Z2..."
 	$(MAKE) -f $(XHEEP_MAKE) mcu-gen X_HEEP_CFG=$(X_HEEP_CFG_FPGA) MCU_CFG_PERIPHERALS=$(MCU_CFG_PERIPHERALS)
 	touch $@
 	$(RM) -f $(HEEPATIA_GEN_LOCK)
 	@echo "### DONE! X-HEEP MCU generated successfully"
+else ifeq ($(TARGET), zcu104)
+$(MCU_GEN_LOCK): $(PAD_CFG) $(EXT_PAD_CFG) | $(BUILD_DIR)/
+	@echo "### Building X-HEEP MCU for zcu104..."
+	$(MAKE) -f $(XHEEP_MAKE) mcu-gen X_HEEP_CFG=$(X_HEEP_CFG_FPGA) MCU_CFG_PERIPHERALS=$(MCU_CFG_PERIPHERALS)
+	touch $@
+	$(RM) -f $(HEEPATIA_GEN_LOCK)
+	@echo "### DONE! X-HEEP MCU generated successfully"
 else
-	$(error ### ERROR: Unsupported target implementation: $(TARGET_IMPL))
+	$(error ### ERROR: Unsupported target implementation: $(TARGET))
 endif
 
 .PHONY: heepatia-gen-force
@@ -156,7 +163,7 @@ heepatia-gen-force:
 	$(MAKE) heepatia-gen
 
 # Generate heepatia files
-# @param TARGET=asic(default),pynq-z2
+# @param TARGET=asic(default),pynq-z2,zcu104
 .PHONY: heepatia-gen
 heepatia-gen: $(HEEPATIA_GEN_LOCK)
 $(HEEPATIA_GEN_LOCK): $(HEEPATIA_GEN_CFG) $(HEEPATIA_GEN_TPL) $(HEEPATIA_TOP_TPL) $(PAD_RING_TPL) $(MCU_GEN_LOCK) $(ROOT_DIR)/tb/tb_util.svh.tpl
@@ -195,8 +202,28 @@ else ifeq ($(TARGET), pynq-z2)
 	python3 util/heepatia-gen.py $(HEEPATIA_GEN_OPTS) \
 		--outdir sw/external/lib/drivers/carus/ \
 		--tpl-c sw/external/lib/drivers/carus/carus.h.tpl
+else ifeq ($(TARGET), zcu104)
+	@echo "### Generating heepatia top and padrings for zcu104..."
+	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS_FPGA) \
+		--outdir $(ROOT_DIR)/hw/ip/ \
+		--external_pads $(EXT_PAD_CFG) \
+		--tpl-sv $(HEEPATIA_TOP_TPL)
+	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS_FPGA) \
+		--outdir $(ROOT_DIR)/hw/ip/pad-ring/ \
+		--external_pads $(EXT_PAD_CFG) \
+		--tpl-sv $(PAD_RING_TPL)
+	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS_FPGA) \
+		--outdir $(ROOT_DIR)/tb/ \
+		--external_pads $(EXT_PAD_CFG) \
+		--tpl-sv $(ROOT_DIR)/tb/tb_util.svh.tpl
+	python3 util/heepatia-gen.py $(HEEPATIA_GEN_OPTS) \
+		--outdir hw/fpga/xilinx/scripts/ \
+		--tpl-sv hw/fpga/xilinx/scripts/generate_sram_carus.tcl.tpl
+	python3 util/heepatia-gen.py $(HEEPATIA_GEN_OPTS) \
+		--outdir sw/external/lib/drivers/carus/ \
+		--tpl-c sw/external/lib/drivers/carus/carus.h.tpl
 else
-	$(error ### ERROR: Unsupported target implementation: $(TARGET_IMPL))
+	$(error ### ERROR: Unsupported target implementation: $(TARGET))
 endif
 	python3 util/heepatia-gen.py $(HEEPATIA_GEN_OPTS) \
 		--outdir hw/ip/heepatia-ctrl/data \
@@ -404,14 +431,14 @@ pnr: implementation/pnr/inputs/heepocrates.io
 # FPGA-implementation
 # -------------------
 .PHONY: fpga
-fpga:
+vivado-fpga-synth:
 	@echo "### Running FPGA implementation..."
-	fusesoc run --no-export --target pynq-z2 --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia $(FUSESOC_ARGS)
+	fusesoc run --no-export --target $(TARGET) --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia $(FUSESOC_ARGS)
 
 .PHONY: prog-fpga
-prog-fpga:
+vivado-fpga-pgm:
 	@echo "### Programming the FPGA..."
-	$(MAKE) -C $(FUSESOC_BUILD_DIR)/pynq-z2-vivado pgm
+	$(MAKE) -C $(FUSESOC_BUILD_DIR)/$(TARGET)-vivado pgm
 
 # Flash ESL programmer
 .PHONY:flash-prog

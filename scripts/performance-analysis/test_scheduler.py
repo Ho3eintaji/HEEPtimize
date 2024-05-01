@@ -97,7 +97,6 @@ class test_scheduler:
             print(e.stderr.decode("utf-8"), file=sys.stderr)
             sys.exit(1)
 
-
     # Run RTL simulation with verilator and capture stdout
     def run_verilator(self, test: app_test) -> str:
         try:

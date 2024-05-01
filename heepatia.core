@@ -248,6 +248,26 @@ targets:
         board_part: tul.com.tw:pynq-z2:part0:1.0
         board_repo_paths: [../../../hw/vendor/x-heep/hw/fpga/board_files/vendor/esl_epfl_pynq_z2_board_files]
     toplevel: [xilinx_heepatia_top_wrapper]
+  
+  zcu104:
+    <<: *default
+    default_tool: vivado
+    description: ZCU104 Evaluation Board
+    filesets_append:
+    - rtl-fpga
+    - nm_carus_sim
+    - fpga-top
+    - ip-fpga
+    parameters:
+    - SYNTHESIS=true
+    - FPGA_ZCU104=true
+    - FPGA=true
+    tools:
+      vivado:
+        part: xczu7ev-ffvc1156-2-e
+        board_part: xilinx.com:zcu104:part0:1.0
+        board_repo_paths: [../../../hw/vendor/x-heep/hw/fpga/board_files/vendor/esl_epfl_zcu104_board_files]
+    toplevel: [xilinx_heepatia_top_wrapper]
 
   # RTL simulation
   sim: &sim
@@ -552,6 +572,10 @@ parameters:
     paramtype: vlogdefine
     default: true
   FPGA:
+    datatype: bool
+    paramtype: vlogdefine
+    default: false
+  FPGA_ZCU104:
     datatype: bool
     paramtype: vlogdefine
     default: false
