@@ -2,14 +2,14 @@
 // Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
-// File: heeperator_peripherals.sv
+// File: heepatia_peripherals.sv
 // Author: Michele Caon, Luigi Giuffrida
 // Date: 29/04/2024
-// Description: HEEPerator peripheral subsystem
+// Description: heepatia peripheral subsystem
 
-module heeperator_peripherals #(
+module heepatia_peripherals #(
   // Dependent parameters: do not override!
-  localparam int unsigned CarusNumRnd  = (heeperator_pkg::CarusNum > 32'd1) ? heeperator_pkg::CarusNum : 32'd1
+  localparam int unsigned CarusNumRnd  = (heepatia_pkg::CarusNum > 32'd1) ? heepatia_pkg::CarusNum : 32'd1
 ) (
   input logic ref_clk_i,
   input logic rst_ni,
@@ -27,13 +27,13 @@ module heeperator_peripherals #(
   input  reg_pkg::reg_req_t fll_req_i,
   output reg_pkg::reg_rsp_t fll_rsp_o,
 
-  input  reg_pkg::reg_req_t heeperator_ctrl_req_i,
-  output reg_pkg::reg_rsp_t heeperator_ctrl_rsp_o,
+  input  reg_pkg::reg_req_t heepatia_ctrl_req_i,
+  output reg_pkg::reg_rsp_t heepatia_ctrl_rsp_o,
 
   // Interrupts
   output [core_v_mini_mcu_pkg::NEXT_INT-1:0] ext_int_vector_o
 );
-  import heeperator_pkg::*;
+  import heepatia_pkg::*;
 
   // INTERNAL SIGNALS
   // ----------------
@@ -64,8 +64,8 @@ module heeperator_peripherals #(
   generate
     for (genvar i = 0; unsigned'(i) < CarusNum; i++) begin : gen_carus
       nm_carus_wrapper #(
-        .NUM_BANKS      (heeperator_pkg::CarusNumBanks),
-        .BANK_ADDR_WIDTH(heeperator_pkg::CarusBankAddrWidth)
+        .NUM_BANKS      (heepatia_pkg::CarusNumBanks),
+        .BANK_ADDR_WIDTH(heepatia_pkg::CarusBankAddrWidth)
       ) u_nm_carus_wrapper (
         .clk_i           (system_clk),
         .rst_ni          (carus_rst_ni),
@@ -99,11 +99,11 @@ module heeperator_peripherals #(
 
   // Control and status registers
   // ----------------------------
-  heeperator_ctrl_reg u_heeperator_ctrl_reg (
+  heepatia_ctrl_reg u_heepatia_ctrl_reg (
     .clk_i      (system_clk),
     .rst_ni     (rst_ni),
-    .req_i      (heeperator_ctrl_req_i),
-    .rsp_o      (heeperator_ctrl_rsp_o),
+    .req_i      (heepatia_ctrl_req_i),
+    .rsp_o      (heepatia_ctrl_rsp_o),
     .carus_imc_o(carus_imc)
   );
 endmodule

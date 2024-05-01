@@ -33,7 +33,7 @@ report_timing -loop -max_paths 10 > ${REPORT_DIR}/timing_loop.rpt
 set_clock_gating_style -minimum_bitwidth 3 -positive_edge_logic integrated:CKLNQD10BWP16P90 -control_point before
 
 # remove_upf
-# load_upf ../../../heeperator.synthesis.upf
+# load_upf ../../../heepatia.synthesis.upf
 
 
 # set_voltage 1.08 -object_list { VDD }
@@ -57,7 +57,7 @@ report_resources -hierarchy > ${REPORT_DIR}/resources.rpt
 report_constraints > ${REPORT_DIR}/constraints.rpt
 report_clock_gating > ${REPORT_DIR}/clock_gating.rpt
 report_power > ${REPORT_DIR}/power.rpt
-report_timing -through u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/*  > ${REPORT_DIR}/carus_timing.rpt
+report_timing -through u_heepatia_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/*  > ${REPORT_DIR}/carus_timing.rpt
 report_timing -through u_core_v_mini_mcu/external_subsystem_powergate_switch_ack_i* -max_paths 5  >> ${REPORT_DIR}/timing_sw_cells.rpt
 
 ### save here also the report

@@ -2,16 +2,16 @@
 // Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
-// File: heeperator_bus.sv
+// File: heepatia_bus.sv
 // Author: Michele Caon, Luigi Giuffrida
 // Date: 29/04/2024
-// Description: External bus for HEEPerator
+// Description: External bus for heepatia
 
-module heeperator_bus #(
+module heepatia_bus #(
   // Dependent parameters: do not override!
-  localparam int unsigned ExtXbarNmasterRnd = (heeperator_pkg::ExtXbarNMaster > 0) ?
-    heeperator_pkg::ExtXbarNMaster : 32'd1,
-  localparam int unsigned CarusNumRnd = (heeperator_pkg::CarusNum > 0) ? heeperator_pkg::CarusNum : 32'd1
+  localparam int unsigned ExtXbarNmasterRnd = (heepatia_pkg::ExtXbarNMaster > 0) ?
+    heepatia_pkg::ExtXbarNMaster : 32'd1,
+  localparam int unsigned CarusNumRnd = (heepatia_pkg::CarusNum > 0) ? heepatia_pkg::CarusNum : 32'd1
 ) (
   input logic clk_i,
   input logic rst_ni,
@@ -48,10 +48,10 @@ module heeperator_bus #(
   output reg_pkg::reg_req_t fll_req_o,
   input  reg_pkg::reg_rsp_t fll_resp_i,
 
-  output reg_pkg::reg_req_t heeperator_ctrl_req_o,
-  input  reg_pkg::reg_rsp_t heeperator_ctrl_resp_i
+  output reg_pkg::reg_req_t heepatia_ctrl_req_o,
+  input  reg_pkg::reg_rsp_t heepatia_ctrl_resp_i
 );
-  import heeperator_pkg::*;
+  import heepatia_pkg::*;
   import obi_pkg::*;
   import reg_pkg::*;
 
@@ -113,8 +113,8 @@ module heeperator_bus #(
   // External peripherals mapping
   assign fll_req_o                         = ext_periph_req[FLLIdx];
   assign ext_periph_rsp[FLLIdx]            = fll_resp_i;
-  assign heeperator_ctrl_req_o             = ext_periph_req[HeeperatorCtrlIdx];
-  assign ext_periph_rsp[HeeperatorCtrlIdx] = heeperator_ctrl_resp_i;
+  assign heepatia_ctrl_req_o               = ext_periph_req[HeeperatorCtrlIdx];
+  assign ext_periph_rsp[HeeperatorCtrlIdx] = heepatia_ctrl_resp_i;
 
   // External peripherals bus
   periph_bus #(

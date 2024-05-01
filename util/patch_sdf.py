@@ -121,8 +121,8 @@ def main():
 
             if ("(INTERCONNECT" in sdf_obj_line):
                 if found_carus:
-                    sdf_line[1] = "u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/" + sdf_line[1]
-                    sdf_line[2] = "u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/" + sdf_line[2]
+                    sdf_line[1] = "u_heepatia_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/" + sdf_line[1]
+                    sdf_line[2] = "u_heepatia_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/" + sdf_line[2]
                 if start_copying:
                     file.write(" ".join(sdf_line) + "\n")
                     modified_string = True
@@ -130,7 +130,7 @@ def main():
 
             if ("(INSTANCE" in sdf_line):
                 if found_carus:
-                    sdf_line[1] = "u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/" + sdf_line[1]
+                    sdf_line[1] = "u_heepatia_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/" + sdf_line[1]
                 if start_copying:
                     file.write(" ".join(sdf_line) + "\n")
                     modified_string = True

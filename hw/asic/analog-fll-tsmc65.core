@@ -11,7 +11,7 @@ CAPI=2:
 
 # Based on tsmc65_analog_fll.core from HEEPpocrates.
 
-name: "epfl:heeperator:analog-fll-tsmc65:0.1.0"
+name: "epfl:heepatia:analog-fll-tsmc65:0.1.0"
 description: "TSMC 65nm FLL model"
 
 filesets:

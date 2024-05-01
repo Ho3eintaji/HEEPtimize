@@ -5,7 +5,7 @@
 // File: tb_system.sv
 // Author: Michele Caon
 // Date: 15/06/2023
-// Description: HEEPerator testbench system
+// Description: heepatia testbench system
 
 module tb_system #(
   parameter int unsigned CLK_FREQ = 32'd100_000  // kHz
@@ -38,8 +38,8 @@ module tb_system #(
   wire jtag_tdo = '0;
 
   // UART
-  wire                          heeperator_uart_tx;
-  wire                          heeperator_uart_rx;
+  wire                          heepatia_uart_tx;
+  wire                          heepatia_uart_rx;
 
   // GPIO
   wire                   [31:0] gpio;
@@ -63,10 +63,10 @@ module tb_system #(
     .FREQ(CLK_FREQ * 1000),  // Hz
     .NAME("uart")
   ) u_uartdpi (
-    .clk_i (u_heeperator_top.u_heeperator_peripherals.system_clk_o),
+    .clk_i (u_heepatia_top.u_heepatia_peripherals.system_clk_o),
     .rst_ni(rst_ni),
-    .tx_o  (heeperator_uart_rx),
-    .rx_i  (heeperator_uart_tx)
+    .tx_o  (heepatia_uart_rx),
+    .rx_i  (heepatia_uart_tx)
   );
 
   // SPI flash emulator
@@ -115,7 +115,7 @@ module tb_system #(
 
   // DUT
   // ---
-  heeperator_top u_heeperator_top (
+  heepatia_top u_heepatia_top (
 `ifdef USE_PG_PIN
     .VSS,
     .VDD,
@@ -128,8 +128,8 @@ module tb_system #(
     .jtag_trst_ni        (jtag_trst_n),
     .jtag_tdi_i          (jtag_tdi),
     .jtag_tdo_o          (jtag_tdo),
-    .uart_rx_i           (heeperator_uart_rx),
-    .uart_tx_o           (heeperator_uart_tx),
+    .uart_rx_i           (heepatia_uart_rx),
+    .uart_tx_o           (heepatia_uart_tx),
     .exit_valid_o        (exit_valid_o),
     .gpio_0_io           (gpio[0]),
     .gpio_1_io           (gpio[1]),
@@ -186,5 +186,5 @@ module tb_system #(
   );
 
   // Exit value
-  assign exit_value_o[31:1] = u_heeperator_top.u_core_v_mini_mcu.exit_value_o[31:1];
+  assign exit_value_o[31:1] = u_heepatia_top.u_core_v_mini_mcu.exit_value_o[31:1];
 endmodule

@@ -2,12 +2,12 @@
 // Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
-// File: heeperator-top.sv
+// File: heepatia-top.sv
 // Author: Michele Caon, Luigi Giuffrida
 // Date: 29/04/2024
-// Description: HEEPerator top-level module
+// Description: heepatia top-level module
 
-module heeperator_top (
+module heepatia_top (
     // X-HEEP interface
 % for pad in total_pad_list:
 ${pad.x_heep_system_interface}
@@ -15,12 +15,12 @@ ${pad.x_heep_system_interface}
 );
   import obi_pkg::*;
   import reg_pkg::*;
-  import heeperator_pkg::*;
+  import heepatia_pkg::*;
   import core_v_mini_mcu_pkg::*;
 
   // PARAMETERS
-  localparam int unsigned ExtXbarNmasterRnd = (heeperator_pkg::ExtXbarNMaster > 0) ?
-    heeperator_pkg::ExtXbarNMaster : 32'd1;
+  localparam int unsigned ExtXbarNmasterRnd = (heepatia_pkg::ExtXbarNMaster > 0) ?
+    heepatia_pkg::ExtXbarNMaster : 32'd1;
   localparam int unsigned ExtDomainsRnd = core_v_mini_mcu_pkg::EXTERNAL_DOMAINS == 0 ?
     32'd1 : core_v_mini_mcu_pkg::EXTERNAL_DOMAINS;
 
@@ -65,8 +65,8 @@ ${pad.x_heep_system_interface}
   // External peripherals
   reg_req_t fll_req; // request to FLL subsystem
   reg_rsp_t fll_rsp; // response from FLL subsystem
-  reg_req_t heeperator_ctrl_req; // request to HEEPerator controller
-  reg_rsp_t heeperator_ctrl_rsp; // response from HEEPerator controller
+  reg_req_t heepatia_ctrl_req; // request to heepatia controller
+  reg_rsp_t heepatia_ctrl_rsp; // response from heepatia controller
 
   // Pad controller
   reg_req_t pad_req;
@@ -249,7 +249,7 @@ ${pad.core_v_mini_mcu_bonding}
   // --------------------
   assign carus_rst_n  = external_subsystem_rst_n[0];
   assign carus_set_retentive_n  = external_ram_banks_set_retentive_n[0];
-  heeperator_peripherals u_heeperator_peripherals(
+  heepatia_peripherals u_heepatia_peripherals(
     .ref_clk_i             (ref_clk_in_x),
     .rst_ni                (rst_nin_sync),
     .system_clk_o          (system_clk),
@@ -260,15 +260,15 @@ ${pad.core_v_mini_mcu_bonding}
     .carus_rsp_o           (carus_rsp),
     .fll_req_i             (fll_req),
     .fll_rsp_o             (fll_rsp),
-    .heeperator_ctrl_req_i (heeperator_ctrl_req),
-    .heeperator_ctrl_rsp_o (heeperator_ctrl_rsp),
+    .heepatia_ctrl_req_i (heepatia_ctrl_req),
+    .heepatia_ctrl_rsp_o (heepatia_ctrl_rsp),
     .ext_int_vector_o      (ext_int_vector)
   );
 
   // External peripherals bus
   // ------------------------
   // External subsystem bus
-  heeperator_bus u_heeperator_bus (
+  heepatia_bus u_heepatia_bus (
     .clk_i                    (system_clk),
     .rst_ni                   (rst_nin_sync),
     .heep_core_instr_req_i    (heep_core_instr_req),
@@ -289,8 +289,8 @@ ${pad.core_v_mini_mcu_bonding}
     .heep_periph_resp_o       (heep_peripheral_rsp),
     .fll_req_o                (fll_req),
     .fll_resp_i               (fll_rsp),
-    .heeperator_ctrl_req_o    (heeperator_ctrl_req),
-    .heeperator_ctrl_resp_i   (heeperator_ctrl_rsp)
+    .heepatia_ctrl_req_o    (heepatia_ctrl_req),
+    .heepatia_ctrl_resp_i   (heepatia_ctrl_rsp)
   );
 
   // Pad ring
@@ -425,4 +425,4 @@ ${pad_mux_process}
 
 `endif
 
-endmodule // heeperator_top
+endmodule // heepatia_top

@@ -170,7 +170,7 @@ df_bars.plot(kind="bar", rot=0, title="Energy per output sample: CPU only vs. CP
 plt.gca().yaxis.grid(True)
 
 # Set suptitle
-# plt.suptitle("HEEPerator Energy Efficiency Improvement", fontweight="bold", fontsize="x-large", color="#3d3d3dff")
+# plt.suptitle("heepatia Energy Efficiency Improvement", fontweight="bold", fontsize="x-large", color="#3d3d3dff")
 
 # Superpose an horizontal line at y=1 with label "CPU"
 if not log_scale:

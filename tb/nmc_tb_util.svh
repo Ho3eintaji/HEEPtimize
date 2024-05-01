@@ -11,9 +11,9 @@
 `define NMC_TB_UTIL_SVH_
 
 `ifdef VERILATOR
-`define TOP u_heeperator_top
+`define TOP u_heepatia_top
 `else
-`define TOP u_tb_system.u_heeperator_top
+`define TOP u_tb_system.u_heepatia_top
 `endif
 
 // ------------------
@@ -33,10 +33,10 @@ typedef struct packed {
 
 function int tb_get_carus_cfg(int unsigned field);
   carus_cfg_t cfg;
-  cfg.start = `TOP.u_heeperator_peripherals.gen_carus[0].u_nm_carus_wrapper.u_carus_top.u_carus_ctl.u_carus_ctl_reg.start_o;
-  cfg.done = `TOP.u_heeperator_peripherals.gen_carus[0].u_nm_carus_wrapper.u_carus_top.u_carus_ctl.u_carus_ctl_reg.done_o;
-  cfg.fetch_en = `TOP.u_heeperator_peripherals.gen_carus[0].u_nm_carus_wrapper.u_carus_top.u_carus_ctl.u_carus_ctl_reg.fetch_en_o;
-  cfg.boot_pc = `TOP.u_heeperator_peripherals.gen_carus[0].u_nm_carus_wrapper.u_carus_top.u_carus_ctl.u_carus_ctl_reg.boot_pc_o;
+  cfg.start = `TOP.u_heepatia_peripherals.gen_carus[0].u_nm_carus_wrapper.u_carus_top.u_carus_ctl.u_carus_ctl_reg.start_o;
+  cfg.done = `TOP.u_heepatia_peripherals.gen_carus[0].u_nm_carus_wrapper.u_carus_top.u_carus_ctl.u_carus_ctl_reg.done_o;
+  cfg.fetch_en = `TOP.u_heepatia_peripherals.gen_carus[0].u_nm_carus_wrapper.u_carus_top.u_carus_ctl.u_carus_ctl_reg.fetch_en_o;
+  cfg.boot_pc = `TOP.u_heepatia_peripherals.gen_carus[0].u_nm_carus_wrapper.u_carus_top.u_carus_ctl.u_carus_ctl_reg.boot_pc_o;
 
   case (field)
     0: return {31'h0, cfg.start};

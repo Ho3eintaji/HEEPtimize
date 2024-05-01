@@ -1,10 +1,10 @@
 # Automatically-generated RTL
-heeperator-ctrl/rtl/*_top.sv
-heeperator-ctrl/rtl/*_pkg.sv
-heeperator-ctrl/rtl/heeperator_ctrl_reg.sv
-packages/heeperator_pkg.sv
+heepatia-ctrl/rtl/*_top.sv
+heepatia-ctrl/rtl/*_pkg.sv
+heepatia-ctrl/rtl/heepatia_ctrl_reg.sv
+packages/heepatia_pkg.sv
 pad-ring/pad_ring.sv
-heeperator_top.sv
+heepatia_top.sv
 
 # Automatically generated configuration files
-heeperator-ctrl/data/*.hjson
+heepatia-ctrl/data/*.hjson

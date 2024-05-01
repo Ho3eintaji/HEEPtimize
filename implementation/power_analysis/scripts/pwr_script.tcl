@@ -18,16 +18,16 @@ echo "NETLIST FILE: " $NETLIST
 echo "SDF FILE: " $SDF_FILE
 echo "TOP_MODULE: " $TOP_MODULE
 
-if {$TOP_MODULE == "heeperator_top"} {
-    set STRIP_PATH tb_top/u_tb_system/u_heeperator_top/
+if {$TOP_MODULE == "heepatia_top"} {
+    set STRIP_PATH tb_top/u_tb_system/u_heepatia_top/
 } elseif {$TOP_MODULE == "carus_top"} {
-    set STRIP_PATH tb_top/u_tb_system/u_heeperator_top/u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/
+    set STRIP_PATH tb_top/u_tb_system/u_heepatia_top/u_heepatia_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/
 }
 
 # source init
 source ../common/primetime/init.tcl
 
-if {$TOP_MODULE == "heeperator_top"} {
+if {$TOP_MODULE == "heepatia_top"} {
     # set constraints
     source ${CONSTRAINTS}
 } else {
@@ -59,8 +59,8 @@ if { $PERFORM_STA == 1 } {
 read_vcd ${VCD_FILE} -strip_path $STRIP_PATH
 
 # read UPF
-if {$TOP_MODULE == "heeperator_top"} {
-    load_upf ../../heeperator.post_synthesis.upf
+if {$TOP_MODULE == "heepatia_top"} {
+    load_upf ../../heepatia.post_synthesis.upf
 }
 
 # run power analysis
@@ -80,8 +80,8 @@ set REPORT_FP [open ${REPORTS_PATH}/power.csv "w"]
 puts $REPORT_FP "CELL,INTERNAL_POWER,SWITCHING_POWER,LEAKAGE_POWER,TOTAL_POWER,RELATIVE_POWER"
 
 # Set scopes to analyse (full hierarchy report already generated with report_power above)
-set SCOPES "/ /u_core_v_mini_mcu /u_core_v_mini_mcu/ao_peripheral_subsystem_i /u_core_v_mini_mcu/peripheral_subsystem_i /u_core_v_mini_mcu/memory_subsystem_i /u_heeperator_bus /u_heeperator_peripherals /u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/u_carus_ctl /u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/u_vector_subsystem/u_vector_pipeline /u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/u_vector_subsystem/u_vrf"
-set SCOPE_NAMES "top core_v_mini_mcu ao_peripheral_subsystem peripheral_subsystem memory_subsystem heeperator_bus nmc_peripherals carus_ctl carus_vector carus_vrf"
+set SCOPES "/ /u_core_v_mini_mcu /u_core_v_mini_mcu/ao_peripheral_subsystem_i /u_core_v_mini_mcu/peripheral_subsystem_i /u_core_v_mini_mcu/memory_subsystem_i /u_heepatia_bus /u_heepatia_peripherals /u_heepatia_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/u_carus_ctl /u_heepatia_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/u_vector_subsystem/u_vector_pipeline /u_heepatia_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/u_vector_subsystem/u_vrf"
+set SCOPE_NAMES "top core_v_mini_mcu ao_peripheral_subsystem peripheral_subsystem memory_subsystem heepatia_bus nmc_peripherals carus_ctl carus_vector carus_vrf"
 
 # Dump report for each scope
 foreach scope $SCOPES name $SCOPE_NAMES {

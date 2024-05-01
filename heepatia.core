@@ -4,25 +4,25 @@ CAPI=2:
 # Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 #
-# File: heeperator.core
+# File: heepatia.core
 # Author: Michele Caon, Luigi Giuffrida
 # Date: 29/04/2024
-# Description: Top-level module for HEEPerator
+# Description: Top-level module for HEEPatia
 
-name: epfl:heeperator:heeperator:0.3.0
-description: Top-level module for HEEPerator
+name: epfl:heepatia:heepatia:0.3.0
+description: Top-level module for HEEPatia
 
 filesets:
   # Generic RTL source files
   rtl:
     depend:
-    - epfl:heeperator:packages
-    - epfl:heeperator:control-reg
-    - epfl:heeperator:bus
-    - epfl:heeperator:peripherals
-    - epfl:heeperator:pad-ring
+    - epfl:heepatia:packages
+    - epfl:heepatia:control-reg
+    - epfl:heepatia:bus
+    - epfl:heepatia:peripherals
+    - epfl:heepatia:pad-ring
     files:
-    - hw/ip/heeperator_top.sv
+    - hw/ip/heepatia_top.sv
     file_type: systemVerilogSource
 
   # XIlinx FPGA implementation files
@@ -34,7 +34,7 @@ filesets:
   
   fpga-top:
     files:
-    - hw/fpga/xilinx/xilinx_heeperator_top_wrapper.sv
+    - hw/fpga/xilinx/xilinx_heepatia_top_wrapper.sv
     file_type: systemVerilogSource
 
   # NM Carus
@@ -44,14 +44,14 @@ filesets:
 
   nm_carus_postsynthesis-netlist:
     depend:
-    - epfl:heeperator:prim-tsmc16:0.1.0
+    - epfl:heepatia:prim-tsmc16:0.1.0
     files:
     - hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/verilog/NMCarus_top_pared.v
     file_type: verilogSource
 
   nm_carus_postlayout-netlist:
     depend:
-    - epfl:heeperator:prim-tsmc16:0.1.0
+    - epfl:heepatia:prim-tsmc16:0.1.0
     files:
     - hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/verilog/NMCarus_top_pnr.v
     file_type: verilogSource
@@ -59,8 +59,8 @@ filesets:
   # FLL
   fll_simulation:
     depend:
-    - epfl:heeperator:digital-fll-tsmc65:0.1.0  # TODO: Migrate to tsmc16
-    - epfl:heeperator:analog-fll-tsmc65  # TODO: Migrate to tsmc16
+    - epfl:heepatia:digital-fll-tsmc65:0.1.0  # TODO: Migrate to tsmc16
+    - epfl:heepatia:analog-fll-tsmc65  # TODO: Migrate to tsmc16
 
   # RTL simulation models
   rtl-sim:
@@ -83,18 +83,18 @@ filesets:
   # RTL that depends on TSMC16
   rtl-tsmc16:
     depend:
-    - epfl:heeperator:prim-tsmc16:0.1.0
+    - epfl:heepatia:prim-tsmc16:0.1.0
 
   # Post-synthesis simulation models
   rtl-postsyn:
     depend:
-    - epfl:heeperator:mem-pw-tsmc65  # TODO: Migrate to tsmc16
+    - epfl:heepatia:mem-pw-tsmc65  # TODO: Migrate to tsmc16
 
   # postsynthesis netlist
   postsynthesis-netlist:
     depend:
-    - epfl:heeperator:packages
-    - epfl:heeperator:prim-tsmc16:0.1.0
+    - epfl:heepatia:packages
+    - epfl:heepatia:prim-tsmc16:0.1.0
     files:
     - implementation/synthesis/last_output/netlist.v
     file_type: verilogSource
@@ -102,10 +102,10 @@ filesets:
   # postlayout netlist
   postlayout-netlist:
     depend:
-    - epfl:heeperator:packages
-    - epfl:heeperator:prim-tsmc16:0.1.0
+    - epfl:heepatia:packages
+    - epfl:heepatia:prim-tsmc16:0.1.0
     files:
-    - build/innovus_latest/artefacts/export/heeperator_pg.v
+    - build/innovus_latest/artefacts/export/heepatia_pg.v
     file_type: verilogSource
 
   # RTL testbench system
@@ -128,7 +128,7 @@ filesets:
     files:
     - tb/verilator/tb_macros.cpp
     - tb/verilator/tb_components.cpp
-    - tb/verilator/heeperator_tb.cpp
+    - tb/verilator/heepatia_tb.cpp
     - tb/verilator/tb_components.hh: {is_include_file: true}
     - tb/verilator/tb_macros.hh: {is_include_file: true}
     file_type: cppSource
@@ -148,7 +148,7 @@ filesets:
   # Verilator waviver files
   verilator-waivers:
     files:
-    - hw/misc/heeperator-waivers.vlt
+    - hw/misc/heepatia-waivers.vlt
     - hw/misc/heep-waivers.vlt
     - tb/misc/tb-waivers.vlt
     file_type: vlt
@@ -207,7 +207,7 @@ targets:
     - rtl
     - rtl-x-heep
     - "!tool_verilator ? (rtl-coprosit)"
-    toplevel: heeperator_top
+    toplevel: heepatia_top
 
   # Synthesis
   asic_synthesis:
@@ -219,7 +219,7 @@ targets:
     - PRIM_DEFAULT_IMPL=prim_pkg::tsmc16 //not really needed as today
     filesets_append:
     - rtl-tsmc16
-    toplevel: [heeperator_top]
+    toplevel: [heepatia_top]
     tools:
       design_compiler:
         script_dir:
@@ -247,7 +247,7 @@ targets:
         part: xc7z020clg400-1
         board_part: tul.com.tw:pynq-z2:part0:1.0
         board_repo_paths: [../../../hw/vendor/x-heep/hw/fpga/board_files/vendor/esl_epfl_pynq_z2_board_files]
-    toplevel: [xilinx_heeperator_top_wrapper]
+    toplevel: [xilinx_heepatia_top_wrapper]
 
   # RTL simulation
   sim: &sim
@@ -314,7 +314,7 @@ targets:
         - '--x-initial unique'
         #- '--threads 2' # only use with Verilator v5.XXX
         - '--exe'
-        - 'heeperator_tb.cpp'
+        - 'heepatia_tb.cpp'
         - '-Wall'
         - '-Wpedantic'
         - '-LDFLAGS "-pthread -lutil -lelf"'
@@ -433,7 +433,7 @@ targets:
     - tb-system
     - tb-others
     - fpga-top
-    toplevel: heeperator_top
+    toplevel: heepatia_top
     description: Format source files using verible-verilog-format
     default_tool: veribleformat
     tools:
@@ -460,7 +460,7 @@ targets:
     - tb-system
     - tb-others
     - fpga-top
-    toplevel: heeperator_top
+    toplevel: heepatia_top
     description: Perform static analysis using Verible
     default_tool: veriblelint
     tools:

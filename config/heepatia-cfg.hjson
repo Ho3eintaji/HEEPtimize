@@ -2,10 +2,10 @@
 // Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
-// File: heeperator_cgf.hjson
+// File: heepatia_cgf.hjson
 // Author: Michele Caon, Luigi Giuffrida
 // Date: 13/05/2023
-// Description: Configuration file for HEEPerator
+// Description: Configuration file for heepatia
 
 {
     // CORE-V-MINI-MCU CPU features
@@ -33,7 +33,7 @@
             offset: "0x0000000",
             length: "0x0001000",
         },
-        heeperator_ctrl: {
+        heepatia_ctrl: {
             offset: "0x00001000",
             length: "0x00001000",
         },

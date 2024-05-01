@@ -7,10 +7,10 @@ CAPI=2:
 # File: pad-ring.core
 # Author: Michele Caon
 # Date: 07/06/2023
-# Description: Pad ring for HEEPerator
+# Description: Pad ring for heepatia
 
-name: epfl:heeperator:pad-ring:0.1.0
-description: Pad ring for HEEPerator
+name: epfl:heepatia:pad-ring:0.1.0
+description: Pad ring for heepatia
 
 filesets:
   rtl:

@@ -13,7 +13,7 @@ lint_off -rule UNOPTFLAT -file "*x-heep/hw/vendor/pulp_platform_riscv_dbg/src/dm
 lint_off -rule UNOPTFLAT -file "*x-heep/hw/vendor/pulp_platform_register_interface/src/periph_to_reg.sv" -match "Signal unoptimizable: Feedback to clock or circular logic: '*.u_core_v_mini_mcu.peripheral_subsystem_i.*'"
 lint_off -rule UNOPTFLAT -file "*x-heep/hw/vendor/pulp_platform_register_interface/src/periph_to_reg.sv" -match "Signal unoptimizable: Feedback to clock or circular logic: '*.u_core_v_mini_mcu.ao_peripheral_subsystem_i.*'"
 lint_off -rule UNOPTFLAT -file "*x-heep/hw/core-v-mini-mcu/core_v_mini_mcu.sv" -match "Signal unoptimizable: Feedback to clock or circular logic: '*.u_core_v_mini_mcu.flash_mem_slave_resp'"
-lint_off -rule UNOPTFLAT -file "*hw/vendor/nm-carus/hw/ip/common/carus_obi_to_sram.sv" -match "Signal unoptimizable: Feedback to clock or circular logic: '*.u_heeperator_peripherals.gen_carus[0].u_nm_carus_wrapper.u_carus_top.u_carus_ctl.u_ctl_bus.u_emem_obi_bridge.obi_rvalid'"
+lint_off -rule UNOPTFLAT -file "*hw/vendor/nm-carus/hw/ip/common/carus_obi_to_sram.sv" -match "Signal unoptimizable: Feedback to clock or circular logic: '*.u_heepatia_peripherals.gen_carus[0].u_nm_carus_wrapper.u_carus_top.u_carus_ctl.u_ctl_bus.u_emem_obi_bridge.obi_rvalid'"
 lint_off -rule UNOPTFLAT -file "*x-heep/hw/core-v-mini-mcu/memory_subsystem.sv" -match "Signal unoptimizable: Feedback to clock or circular logic: '*.u_core_v_mini_mcu.__Vcellout__memory_subsystem_i__ram_resp_o'"
 lint_off -rule UNOPTFLAT -file "*pulp_platform_common_cells/src/cdc_reset_ctrlr.sv" -match "Signal unoptimizable: *_ack'"
 lint_off -rule UNOPTFLAT -file "*pulp_platform_riscv_dbg/src/dm_top.sv" -match "Signal unoptimizable: *ack'"

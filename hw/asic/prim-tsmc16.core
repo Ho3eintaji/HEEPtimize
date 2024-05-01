@@ -10,13 +10,13 @@ CAPI=2:
 
 # Based on technology_prim_tsmc65.core from HEEPpocrates.
 
-name: "epfl:heeperator:prim-tsmc16:0.1.0"
+name: "epfl:heepatia:prim-tsmc16:0.1.0"
 description: "Technology-specific files for TSMC16"
 filesets:
   # RTL simulation models
   rtl:
     depend:
-    - epfl:heeperator:packages
+    - epfl:heepatia:packages
     files:
     - rtl/pad_cell_inout.sv
     - rtl/pad_cell_input.sv

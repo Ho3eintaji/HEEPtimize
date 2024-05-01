@@ -5,7 +5,7 @@
 // File: ext_bus.sv
 // Author: Michele Caon
 // Date: 30/05/2023
-// Description: external bus for HEEPerator
+// Description: external bus for heepatia
 
 module ext_bus #(
   parameter int unsigned EXT_XBAR_NMASTER = 1,

@@ -2,14 +2,14 @@
 // Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 
-// HEEPerator top-level
+// heepatia top-level
 
 `ifdef RTL_SIMULATION
 
 `ifdef VERILATOR
-`define TOP u_heeperator_top
+`define TOP u_heepatia_top
 `else
-`define TOP u_tb_system.u_heeperator_top
+`define TOP u_tb_system.u_heepatia_top
 `endif
 
 // task for loading 'mem' with SystemVerilog system task $readmemh()

@@ -9,8 +9,8 @@
 
 #include "carus.h"
 #include "carus_loader.h"
-#include "heeperator.h"
-#include "heeperator_ctrl_reg.h"
+#include "heepatia.h"
+#include "heepatia_ctrl_reg.h"
 #include "carus_addr_map.h"
 #include "dma_util.h"
 #include "ext_irq.h"
@@ -62,14 +62,14 @@ const uint8_t *vregs[] = {
 // Get NM-Carus configuration mode
 int carus_get_mode(const uint8_t inst, carus_mode_t *mode)
 {
-    const uint32_t *op_mode = (uint32_t *)(HEEPERATOR_CTRL_START_ADDRESS + HEEPERATOR_CTRL_OP_MODE_REG_OFFSET);
+    const uint32_t *op_mode = (uint32_t *)(HEEPATIA_CTRL_START_ADDRESS + HEEPATIA_CTRL_OP_MODE_REG_OFFSET);
 
     // Check instance number
     if (inst > (CARUS_NUM - 1))
         return -1;
 
     // Get mode
-    if (*op_mode & (1 << (inst + HEEPERATOR_CTRL_OP_MODE_CARUS_IMC_0_BIT)))
+    if (*op_mode & (1 << (inst + HEEPATIA_CTRL_OP_MODE_CARUS_IMC_0_BIT)))
     {
         *mode = CARUS_MODE_CFG;
     }
@@ -84,7 +84,7 @@ int carus_get_mode(const uint8_t inst, carus_mode_t *mode)
 // Set NM-Carus operating mode
 int carus_set_mode(const uint8_t inst, const carus_mode_t mode)
 {
-    uint32_t *op_mode = (uint32_t *)(HEEPERATOR_CTRL_START_ADDRESS + HEEPERATOR_CTRL_OP_MODE_REG_OFFSET);
+    uint32_t *op_mode = (uint32_t *)(HEEPATIA_CTRL_START_ADDRESS + HEEPATIA_CTRL_OP_MODE_REG_OFFSET);
 
     // Check instance number
     if (inst > (CARUS_NUM - 1))
@@ -93,12 +93,12 @@ int carus_set_mode(const uint8_t inst, const carus_mode_t mode)
     // Set mode
     if (mode == CARUS_MODE_CFG)
     {
-        *op_mode |= (1 << (inst + HEEPERATOR_CTRL_OP_MODE_CARUS_IMC_0_BIT));
+        *op_mode |= (1 << (inst + HEEPATIA_CTRL_OP_MODE_CARUS_IMC_0_BIT));
         asm volatile("nop"); // Wait device configuration to be completed
     }
     else
     {
-        *op_mode &= ~(1 << (inst + HEEPERATOR_CTRL_OP_MODE_CARUS_IMC_0_BIT));
+        *op_mode &= ~(1 << (inst + HEEPATIA_CTRL_OP_MODE_CARUS_IMC_0_BIT));
         asm volatile("nop"); // Wait device configuration to be completed
     }
 

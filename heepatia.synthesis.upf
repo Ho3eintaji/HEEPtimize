@@ -1,6 +1,6 @@
 upf_version 2.1
 
-set_design_top heeperator_top
+set_design_top heepatia_top
 set_scope .
 
 
@@ -9,7 +9,7 @@ set_scope .
 #####################
 
 create_power_domain PD_TOP -include_scope
-create_power_domain PD_CARUS -elements {u_heeperator_peripherals/gen_carus[0].u_nm_carus_wrapper/u_carus_top}
+create_power_domain PD_CARUS -elements {u_heepatia_peripherals/gen_carus[0].u_nm_carus_wrapper/u_carus_top}
 
 ###################
 ##  SUPPLY NETS  ##
@@ -41,9 +41,9 @@ connect_supply_net VDD -ports mem_carus_sw*_i/VIN
 
 connect_supply_net VDD_CARUS  -ports mem_carus_sw0_i/VOUT
 
-connect_supply_net VDD_CARUS -ports u_heeperator_peripherals/gen_carus[0].u_nm_carus_wrapper/u_carus_top/VDDCE
-connect_supply_net VDD_CARUS -ports u_heeperator_peripherals/gen_carus[0].u_nm_carus_wrapper/u_carus_top/VDDPE
-connect_supply_net VSS -ports u_heeperator_peripherals/gen_carus[0].u_nm_carus_wrapper/u_carus_top/VSSE
+connect_supply_net VDD_CARUS -ports u_heepatia_peripherals/gen_carus[0].u_nm_carus_wrapper/u_carus_top/VDDCE
+connect_supply_net VDD_CARUS -ports u_heepatia_peripherals/gen_carus[0].u_nm_carus_wrapper/u_carus_top/VDDPE
+connect_supply_net VSS -ports u_heepatia_peripherals/gen_carus[0].u_nm_carus_wrapper/u_carus_top/VSSE
 
 
 connect_supply_net VDD -ports u_core_v_mini_mcu/memory_subsystem_i/gen_sram[0].ram_i/gen_32kB_mem.mem_bank/VDDCE

@@ -5,7 +5,7 @@
 
 global design
 
-set design(TOPLEVEL) heeperator
+set design(TOPLEVEL) heepatia
 set design(FLOW_ROOT) $::env(FLOW_ROOT)
 
 set design(ALL_LEFS) {}
@@ -14,8 +14,8 @@ set design(ALL_GDS) {}
 set design(default_sdc) $design(FLOW_ROOT)/implementation/synthesis/last_output/netlist.sdc
 
 set design(netlist) $design(FLOW_ROOT)/implementation/synthesis/last_output/netlist.v
-set design(upf_file) $design(FLOW_ROOT)/heeperator.post_synthesis.upf
-set design(mmmc_view_file) $design(FLOW_ROOT)/implementation/common/heeperator.view
+set design(upf_file) $design(FLOW_ROOT)/heepatia.post_synthesis.upf
+set design(mmmc_view_file) $design(FLOW_ROOT)/implementation/common/heepatia.view
 
 set design(map_file) inputs/gds2.map
 

@@ -5,7 +5,7 @@
 # File: mcu-gen.hjson
 # Author: Michele Caon
 # Date: 14/05/2023
-# Description: CORE-V-MINI-MCU configuration for HEEPerator
+# Description: CORE-V-MINI-MCU configuration for heepatia
 
 {
     cpu_type: cv32e40x

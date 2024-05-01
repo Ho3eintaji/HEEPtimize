@@ -5,7 +5,7 @@
 // File: periph_bus.sv
 // Author: Michele Caon
 // Date: 01/06/2023
-// Description: External peripherals crossbar for HEEPerator
+// Description: External peripherals crossbar for heepatia
 
 module periph_bus #(
   parameter  int unsigned NSLAVE   = 2,
@@ -27,7 +27,7 @@ module periph_bus #(
   input  reg_pkg::reg_rsp_t [NSLAVE-1:0] slave_rsp_i
 );
   import reg_pkg::*;
-  import heeperator_pkg::*;
+  import heepatia_pkg::*;
 
   // INTERNAL SIGNALS
   // ----------------

@@ -10,7 +10,7 @@
 #include "ext_irq.h"
 #include "core_v_mini_mcu.h"
 #include "rv_plic.h"
-#include "heeperator.h"
+#include "heepatia.h"
 #include "carus.h"
 #include "vcd_util.h"
 

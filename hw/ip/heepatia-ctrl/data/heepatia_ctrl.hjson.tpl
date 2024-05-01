@@ -2,13 +2,13 @@
 // Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
-// File: heeperator_ctrl.hjson
+// File: heepatia_ctrl.hjson
 // Author: Michele Caon, Luigi Giuffrida
 // Date: 29/04/2024
-// Description: HEEPerator near-memory computing control registers
+// Description: heepatia near-memory computing control registers
 
 {
-    name: "heeperator_ctrl"
+    name: "heepatia_ctrl"
     clock_primary: "clk_i",
     reset_primary: "rst_ni",
     bus_interfaces: [

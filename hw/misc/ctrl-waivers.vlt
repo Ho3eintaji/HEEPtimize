@@ -5,10 +5,10 @@
 // File: ctrl-waivers.sv
 // Author: Michele Caon
 // Date: 09/06/2023
-// Description: Waivers for HEEPerator control registers
+// Description: Waivers for heepatia control registers
 
 `verilator_config
 // Automatically generated control registers
-lint_off -rule DECLFILENAME -file "*/heeperator-ctrl/rtl/heeperator_ctrl_reg_top.sv" -match "Filename 'heeperator_ctrl_reg_top' does not match MODULE name: 'heeperator_ctrl_reg_top_intf'"
+lint_off -rule DECLFILENAME -file "*/heepatia-ctrl/rtl/heepatia_ctrl_reg_top.sv" -match "Filename 'heepatia_ctrl_reg_top' does not match MODULE name: 'heepatia_ctrl_reg_top_intf'"
 
-lint_off -rule WIDTH -file "*/heeperator-ctrl/rtl/heeperator_ctrl_reg_top.sv" -match "Operator ASSIGNW expects * bits on the Assign RHS, but Assign RHS's SEL generates 32 bits."
+lint_off -rule WIDTH -file "*/heepatia-ctrl/rtl/heepatia_ctrl_reg_top.sv" -match "Operator ASSIGNW expects * bits on the Assign RHS, but Assign RHS's SEL generates 32 bits."

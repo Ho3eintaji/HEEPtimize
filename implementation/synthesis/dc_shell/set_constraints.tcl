@@ -23,7 +23,7 @@ set SPI_CLK_PERIOD 6.7
 # set I2C_CLK_PERIOD ?
 
 # SYSTEM CLOCK bypassed with REF CLOCK case set to 0
-set_case_analysis 0 [ get_pin u_heeperator_peripherals/u_fll_subsystem/clk_mux_fll_soc_i/clk_sel_i ]
+set_case_analysis 0 [ get_pin u_heepatia_peripherals/u_fll_subsystem/clk_mux_fll_soc_i/clk_sel_i ]
 
 # JTAG CLOCK
 # Warning: It is dangerous to create a clock source on inout port 'jtag_tck_i'. (UID-376)
@@ -34,29 +34,29 @@ create_clock -name "JTAG_CLK" -period $JTAG_CLK_PERIOD [ get_ports jtag_tck_i ]
 create_clock -name "REF_CLK" -period $REF_CLK_PERIOD [ get_ports ref_clk_i ]
 
 # FLL CLOCK
-create_clock -name "FLL_CLK" -period $FLL_CLK_PERIOD [ get_pins u_heeperator_peripherals/u_fll_subsystem/u_fll_wrapper/fll_i/FLLCLK ]
+create_clock -name "FLL_CLK" -period $FLL_CLK_PERIOD [ get_pins u_heepatia_peripherals/u_fll_subsystem/u_fll_wrapper/fll_i/FLLCLK ]
 
 # SYSTEM CLOCK
-create_generated_clock [ get_pin u_heeperator_peripherals/u_fll_subsystem/clk_mux_fll_soc_i/clk_o ] \
-                        -name SYSTEM_CLK -source [ get_pins u_heeperator_peripherals/u_fll_subsystem/u_fll_wrapper/fll_i/FLLCLK ] -divide_by 1
+create_generated_clock [ get_pin u_heepatia_peripherals/u_fll_subsystem/clk_mux_fll_soc_i/clk_o ] \
+                        -name SYSTEM_CLK -source [ get_pins u_heepatia_peripherals/u_fll_subsystem/u_fll_wrapper/fll_i/FLLCLK ] -divide_by 1
 
 # SPI subsystem connected to flash
 # # Yosis SPI
 # create_generated_clock [ get_pins u_core_v_mini_mcu/ao_peripheral_subsystem_i/spi_subsystem_i/obi_spimemio_i/spimemio_i/xfer/flash_clk_reg/Q ] \
-#                         -name SPI_MEMIO_FLASH_CLK -source [ get_pin u_heeperator_peripherals/u_fll_subsystem/clk_mux_fll_soc_i/clk_o ] -divide_by 6
+#                         -name SPI_MEMIO_FLASH_CLK -source [ get_pin u_heepatia_peripherals/u_fll_subsystem/clk_mux_fll_soc_i/clk_o ] -divide_by 6
 # # OT SPI host
 # create_generated_clock [ get_pins u_core_v_mini_mcu/ao_peripheral_subsystem_i/spi_subsystem_i/ot_spi_i/u_spi_core/u_fsm/sck_q_reg/Q ] \
-#                         -name SPI_HOST_FLASH_CLK -source [ get_pin u_heeperator_peripherals/u_fll_subsystem/clk_mux_fll_soc_i/clk_o ] -divide_by 6
+#                         -name SPI_HOST_FLASH_CLK -source [ get_pin u_heepatia_peripherals/u_fll_subsystem/clk_mux_fll_soc_i/clk_o ] -divide_by 6
 # # Set SPI flash clocks as mutually exclusive
 # set_clock_groups -logically_exclusive -group SPI_MEMIO_FLASH_CLK -group SPI_HOST_FLASH_CLK
 
 # Simplified version with one clock for both Yosis and OT SPIs
 create_generated_clock [ get_pins u_core_v_mini_mcu/ao_peripheral_subsystem_i/spi_subsystem_i/spi_flash_sck_o ] \
-                        -name SPI_FLASH_CLK -source [ get_pin u_heeperator_peripherals/u_fll_subsystem/clk_mux_fll_soc_i/clk_o ] -divide_by 2
+                        -name SPI_FLASH_CLK -source [ get_pin u_heepatia_peripherals/u_fll_subsystem/clk_mux_fll_soc_i/clk_o ] -divide_by 2
 
 # OT SPI host for external devices
 create_generated_clock [ get_pins u_core_v_mini_mcu/peripheral_subsystem_i/spi_host_dma_i/cio_sck_o ] \
-                        -name SPI_CLK -source [ get_pin u_heeperator_peripherals/u_fll_subsystem/clk_mux_fll_soc_i/clk_o ] -divide_by 2
+                        -name SPI_CLK -source [ get_pin u_heepatia_peripherals/u_fll_subsystem/clk_mux_fll_soc_i/clk_o ] -divide_by 2
 
 # Set clock asynchronous
 set_clock_groups -asynchronous -group JTAG_CLK

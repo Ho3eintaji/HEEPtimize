@@ -5,10 +5,10 @@
 // File: peripherals-waivers.sv
 // Author: Michele Caon
 // Date: 14/06/2023
-// Description: Waivers for HEEPerator peripherals
+// Description: Waivers for heepatia peripherals
 
 `verilator_config
-lint_off -rule UNUSED -file "*heeperator-peripherals/fll_subsystem.sv" -match "Bits of signal are not used: 'fll_slave_req_i'[67:64]"
+lint_off -rule UNUSED -file "*heepatia-peripherals/fll_subsystem.sv" -match "Bits of signal are not used: 'fll_slave_req_i'[67:64]"
 lint_off -rule UNUSED -file "*pulp_platform_apb_fll_if/src/apb_fll_if.sv" -match "Bits of signal are not used: 'PADDR'[11:7,1:0]"
 lint_off -rule UNUSED -file "*simulation/fll_wrapper.sv" -match "Bits of signal are not used: 'wdata_i'[31:2]"
 lint_off -rule UNUSED -file "*simulation/fll_wrapper.sv" -match "Signal is not used: '*'"

@@ -2,12 +2,12 @@
 // Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
-// File: heeperator_pkg.sv
+// File: heepatia_pkg.sv
 // Author: Michele Caon, Luigi Giuffrida
 // Date: 29/04/2024
 // Description: Package containing memory map and other definitions.
 
-package heeperator_pkg;
+package heepatia_pkg;
   import addr_map_rule_pkg::*;
   import core_v_mini_mcu_pkg::*;
 
@@ -69,10 +69,10 @@ package heeperator_pkg;
   localparam logic [31:0] FLLStartAddr = EXT_PERIPHERAL_START_ADDRESS + 32'h${fll_start_address};
   localparam logic [31:0] FLLEndAddr = FLLStartAddr + 32'h${fll_size};
 
-  // HEEPerator external subsystem control
+  // heepatia external subsystem control
   localparam int unsigned HeeperatorCtrlIdx = 32'd1;
-  localparam logic [31:0] HeeperatorCtrlStartAddr = EXT_PERIPHERAL_START_ADDRESS + 32'h${heeperator_ctrl_start_address};
-  localparam logic [31:0] HeeperatorCtrlEndAddr = HeeperatorCtrlStartAddr + 32'h${heeperator_ctrl_size};
+  localparam logic [31:0] HeeperatorCtrlStartAddr = EXT_PERIPHERAL_START_ADDRESS + 32'h${heepatia_ctrl_start_address};
+  localparam logic [31:0] HeeperatorCtrlEndAddr = HeeperatorCtrlStartAddr + 32'h${heepatia_ctrl_size};
 
   // External peripherals address map
   localparam addr_map_rule_t [ExtPeriphNSlave-1:0] ExtPeriphAddrRules = '{
