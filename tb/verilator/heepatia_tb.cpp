@@ -2,10 +2,10 @@
 // Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
-// File: heeperator_tb.cpp
+// File: heepatia_tb.cpp
 // Author: Michele Caon
 // Date: 08/06/2023
-// Description: Verilator C++ testbench for HEEPerator
+// Description: Verilator C++ testbench for heepatia
 
 // System libraries
 #include <cstdlib>

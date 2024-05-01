@@ -5,7 +5,7 @@
 // File: tb_top.sv
 // Author: Michele Caon
 // Date: 15/06/2023
-// Description: HEEPerator testbench top-level module
+// Description: heepatia testbench top-level module
 
 module tb_top;
   // Include testbench utils
@@ -217,7 +217,7 @@ module tb_top;
   // VCD DUMP
   // --------
   // VCD dump FSM control signals
-  assign vcd_trigger = u_tb_system.u_heeperator_top.gpio_0_io;
+  assign vcd_trigger = u_tb_system.u_heepatia_top.gpio_0_io;
 
   // VCD dump FSM
   // ------------
@@ -252,7 +252,7 @@ module tb_top;
         // part of the Verilog IEEE1364 standard, so may be not portable to
         // other simulators
         $fdumpfile(vcd_filename_d);
-        $fdumpvars(0, u_tb_system.u_heeperator_top, vcd_filename_d);
+        $fdumpvars(0, u_tb_system.u_heepatia_top, vcd_filename_d);
         $display("[%t] VCD file initialized: %s", $time, vcd_filename_d);
         $display("[%t] VCD dump ON", $time);
       end
@@ -330,8 +330,8 @@ module tb_top;
 
   // System clock and reset
   // ----------------------
-  assign sys_clk   = u_tb_system.u_heeperator_top.u_heeperator_peripherals.system_clk_o;
-  assign sys_rst_n = u_tb_system.u_heeperator_top.u_rstgen.rst_no;
+  assign sys_clk   = u_tb_system.u_heepatia_top.u_heepatia_peripherals.system_clk_o;
+  assign sys_rst_n = u_tb_system.u_heepatia_top.u_rstgen.rst_no;
 
   // TB Monitor
   // ----------

@@ -7,19 +7,19 @@ CAPI=2:
 # File: control-reg.core
 # Author: Michele Caon
 # Date: 07/06/2023
-# Description: HEEPerator control registers
+# Description: heepatia control registers
 
-name: epfl:heeperator:control-reg:0.1.0
-description: HEEPerator control registers
+name: epfl:heepatia:control-reg:0.1.0
+description: heepatia control registers
 
 filesets:
   rtl:
     depend:
-    - epfl:heeperator:packages
+    - epfl:heepatia:packages
     files:
-    - ip/heeperator-ctrl/rtl/heeperator_ctrl_reg_pkg.sv
-    - ip/heeperator-ctrl/rtl/heeperator_ctrl_reg_top.sv
-    - ip/heeperator-ctrl/rtl/heeperator_ctrl_reg.sv
+    - ip/heepatia-ctrl/rtl/heepatia_ctrl_reg_pkg.sv
+    - ip/heepatia-ctrl/rtl/heepatia_ctrl_reg_top.sv
+    - ip/heepatia-ctrl/rtl/heepatia_ctrl_reg.sv
     file_type: systemVerilogSource
 
   # Verilator waver files
@@ -33,7 +33,7 @@ targets:
     filesets:
     - rtl
     - tool_verilator ? (verilator-waivers)
-    toplevel: heeperator_ctrl_reg
+    toplevel: heepatia_ctrl_reg
 
   # Format using Verible
   format:

@@ -5,7 +5,7 @@
 // File: pad_ring.sv.tpl
 // Author: Michele Caon
 // Date: 14/05/2023
-// Description: HEEPerator pad ring
+// Description: heepatia pad ring
 
 module pad_ring (
 % for pad in pad_list:
@@ -36,7 +36,7 @@ ${external_pad.pad_ring_ctrl_interface}
   ${pad.pad_ring_instance}
 % endfor
 
-  // HEEPerator xternal pads
+  // heepatia xternal pads
   // -----------------------
 % for external_pad in external_pad_list:
   ${external_pad.pad_ring_instance}

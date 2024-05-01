@@ -2,14 +2,14 @@
 // Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
-// File: heeperator_ctrl_reg.sv
+// File: heepatia_ctrl_reg.sv
 // Author: Michele Caon, Luigi Giuffrida
 // Date: 29/04/2024
-// Description: HEEPerator control registers
+// Description: heepatia control registers
 
-module heeperator_ctrl_reg #(
+module heepatia_ctrl_reg #(
   // Dependent parameters: do not override!
-  localparam int unsigned CarusNumRnd = (heeperator_pkg::CarusNum > 32'd1) ? heeperator_pkg::CarusNum : 32'd1
+  localparam int unsigned CarusNumRnd = (heepatia_pkg::CarusNum > 32'd1) ? heepatia_pkg::CarusNum : 32'd1
 ) (
   input logic clk_i,
   input logic rst_ni,
@@ -26,7 +26,7 @@ module heeperator_ctrl_reg #(
   // INTERNAL SIGNALS
   // ----------------
   // Registers <--> hardware
-  heeperator_ctrl_reg_pkg::heeperator_ctrl_reg2hw_t reg2hw;
+  heepatia_ctrl_reg_pkg::heepatia_ctrl_reg2hw_t reg2hw;
 
   // --------------
   // OUTPUT CONTROL
@@ -47,10 +47,10 @@ module heeperator_ctrl_reg #(
   // COMPONENTS
   // ----------
   // Control and status registers
-  heeperator_ctrl_reg_top #(
+  heepatia_ctrl_reg_top #(
     .reg_req_t (reg_req_t),
     .reg_rsp_t (reg_rsp_t)
-  ) u_heeperator_ctrl_reg_top (
+  ) u_heepatia_ctrl_reg_top (
     .clk_i     (clk_i),
     .rst_ni    (rst_ni),
     .reg_req_i (req_i),

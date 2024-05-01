@@ -5,10 +5,10 @@
 // File: tb-waivers.sv
 // Author: Michele Caon
 // Date: 14/06/2023
-// Description: Waivers for HEEPerator testbench
+// Description: Waivers for heepatia testbench
 
 `verilator_config
-// HEEPerator testbench files
+// heepatia testbench files
 lint_off -rule UNUSED -file "*tb/tb_system.sv" -match "Signal is not*used: '*'"
 lint_off -rule UNUSED -file "*tb/tb_system.sv" -match "Bits of signal are not used: 'gpio'*"
 lint_off -rule UNUSED -file "*tb/tb_system.sv" -match "Bits of signal are not used: 'spi_flash_csb'*"

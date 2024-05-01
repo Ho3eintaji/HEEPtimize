@@ -5,7 +5,7 @@
 // File: ext_xbar.sv
 // Author: Michele Caon
 // Date: 30/05/2023
-// Description: External slaves crossbar for HEEPerator
+// Description: External slaves crossbar for heepatia
 
 module ext_xbar #(
   parameter core_v_mini_mcu_pkg::bus_type_e BUS_TYPE = core_v_mini_mcu_pkg::BusType,

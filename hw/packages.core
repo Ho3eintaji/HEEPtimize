@@ -7,17 +7,17 @@ CAPI=2:
 # File: packages.core
 # Author: Michele Caon
 # Date: 07/06/2023
-# Description: SystemVerilog packages for HEEPerator
+# Description: SystemVerilog packages for heepatia
 
-name: epfl:heeperator:packages:0.1.0
-description: SystemVerilog packages for HEEPerator
+name: epfl:heepatia:packages:0.1.0
+description: SystemVerilog packages for heepatia
 
 filesets:
   rtl:
     depend:
     - x-heep::packages
     files:
-    - ip/packages/heeperator_pkg.sv
+    - ip/packages/heepatia_pkg.sv
     file_type: systemVerilogSource
 
 targets:
@@ -30,7 +30,7 @@ targets:
     <<: *default
     description: Format source files using verible-verilog-format
     default_tool: veribleformat
-    toplevel: heeperator_pkg
+    toplevel: heepatia_pkg
     tools:
       veribleformat:
         verible_format_args:
@@ -52,7 +52,7 @@ targets:
     <<: *default
     description: Perform static analysis using Verible
     default_tool: veriblelint
-    toplevel: heeperator_pkg
+    toplevel: heepatia_pkg
     tools:
       veriblelint:
         ruleset: default

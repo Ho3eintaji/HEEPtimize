@@ -5,7 +5,7 @@
 # File: makefile
 # Author: Michele Caon, Luigi Giuffrida
 # Date: 29/04/2024
-# Description: Top-level makefile for HEEPerator
+# Description: Top-level makefile for heepatia
 
 #############################
 # ----- CONFIGURATION ----- #
@@ -25,7 +25,7 @@ X_HEEP_CFG  		?= $(ROOT_DIR)/config/mcu-gen-system.hjson
 X_HEEP_CFG_FPGA    	?= $(ROOT_DIR)/config/mcu-gen-system-fpga.hjson
 PAD_CFG				?= $(ROOT_DIR)/config/heep-pads.hjson
 PAD_CFG_FPGA	    ?= $(ROOT_DIR)/config/heep-pads-fpga.hjson
-EXT_PAD_CFG			?= $(ROOT_DIR)/config/heeperator-pads.hjson
+EXT_PAD_CFG			?= $(ROOT_DIR)/config/heepatia-pads.hjson
 EXTERNAL_DOMAINS	:= 1 # NM-Carus
 MCU_GEN_OPTS		:= \
 	--config $(X_HEEP_CFG) \
@@ -37,21 +37,21 @@ MCU_GEN_OPTS_FPGA	:= \
 	--cfg_peripherals $(MCU_CFG_PERIPHERALS) \
 	--pads_cfg $(PAD_CFG_FPGA) \
 	--external_domains $(EXTERNAL_DOMAINS)
-HEEPERATOR_TOP_TPL		:= $(ROOT_DIR)/hw/ip/heeperator_top.sv.tpl
+HEEPATIA_TOP_TPL		:= $(ROOT_DIR)/hw/ip/heepatia_top.sv.tpl
 PAD_RING_TPL			:= $(ROOT_DIR)/hw/ip/pad-ring/pad_ring.sv.tpl
 MCU_GEN_LOCK			:= $(BUILD_DIR)/.mcu-gen.lock
 
-# HEEPerator configuration
-HEEPERATOR_GEN_CFG	:= config/heeperator-cfg.hjson
-HEEPERATOR_GEN_OPTS	:= \
-	--cfg $(HEEPERATOR_GEN_CFG) \
+# heepatia configuration
+HEEPATIA_GEN_CFG	:= config/heepatia-cfg.hjson
+HEEPATIA_GEN_OPTS	:= \
+	--cfg $(HEEPATIA_GEN_CFG) \
 	--carus_num $(CARUS_NUM)
-HEEPERATOR_GEN_TPL  := \
-	hw/ip/heeperator-ctrl/data/heeperator_ctrl.hjson.tpl \
-	hw/ip/packages/heeperator_pkg.sv.tpl \
-	hw/ip/heeperator-ctrl/rtl/heeperator_ctrl_reg.sv.tpl \
-	sw/external/lib/runtime/heeperator.h.tpl
-HEEPERATOR_GEN_LOCK := build/.heeperator-gen.lock
+HEEPATIA_GEN_TPL  := \
+	hw/ip/heepatia-ctrl/data/heepatia_ctrl.hjson.tpl \
+	hw/ip/packages/heepatia_pkg.sv.tpl \
+	hw/ip/heepatia-ctrl/rtl/heepatia_ctrl_reg.sv.tpl \
+	sw/external/lib/runtime/heepatia.h.tpl
+HEEPATIA_GEN_LOCK := build/.heepatia-gen.lock
 
 # Implementation specific variables
 # TARGET options are 'asic' (default) and 'pynq-z2'
@@ -73,7 +73,7 @@ FUSESOC_FLAGS		?=
 FUSESOC_ARGS		?=
 
 # QuestaSim
-FUSESOC_BUILD_DIR			= $(shell find $(BUILD_DIR) -type d -name 'epfl_heeperator_heeperator_*' 2>/dev/null | sort | head -n 1)
+FUSESOC_BUILD_DIR			= $(shell find $(BUILD_DIR) -type d -name 'epfl_heepatia_heepatia_*' 2>/dev/null | sort | head -n 1)
 QUESTA_SIM_DIR				= $(FUSESOC_BUILD_DIR)/sim-modelsim
 QUESTA_SIM_POSTSYNTH_DIR 	= $(FUSESOC_BUILD_DIR)/sim_postsynthesis-modelsim
 QUESTA_SIM_POSTLAYOUT_DIR 	= $(FUSESOC_BUILD_DIR)/sim_postlayout-modelsim
@@ -104,13 +104,13 @@ PWR_TESTS ?= scripts/performance-analysis/power-tests.txt
 #CARUS PL Netlist and SDF
 CARUS_PL_SDF := $(ROOT_DIR)/hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/sdf/NMCarus_top_pared.sdf
 
-#HEEPERATOR PL Netlist and SDF
-HEEPERATOR_PL_NET := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heeperator_pg.v
-HEEPERATOR_PL_SDF := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heeperator.sdf
+#HEEPATIA PL Netlist and SDF
+HEEPATIA_PL_NET := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heepatia_pg.v
+HEEPATIA_PL_SDF := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heepatia.sdf
 #for power analysis
-HEEPERATOR_PL_NET_PA := $(ROOT_DIR)/implementation/power_analysis/heeperator_pg_power_analysis.v
-HEEPERATOR_PL_SDF_PA := $(ROOT_DIR)/implementation/power_analysis/heeperator.sdf
-HEEPERATOR_PL_SDF_PATCHED_PA := $(ROOT_DIR)/implementation/power_analysis/heeperator.patched.sdf
+HEEPATIA_PL_NET_PA := $(ROOT_DIR)/implementation/power_analysis/heepatia_pg_power_analysis.v
+HEEPATIA_PL_SDF_PA := $(ROOT_DIR)/implementation/power_analysis/heepatia.sdf
+HEEPATIA_PL_SDF_PATCHED_PA := $(ROOT_DIR)/implementation/power_analysis/heepatia.patched.sdf
 
 # Dependent variables
 # -------------------
@@ -125,7 +125,7 @@ endif
 # Default alias
 # -------------
 .PHONY: all
-all: heeperator-gen
+all: heepatia-gen
 
 # X-HEEP MCU system
 # -----------------
@@ -137,35 +137,35 @@ $(MCU_GEN_LOCK): $(MCU_CFG) $(PAD_CFG) $(EXT_PAD_CFG) | $(BUILD_DIR)/
 	@echo "### Building X-HEEP MCU..."
 	$(MAKE) -f $(XHEEP_MAKE) mcu-gen
 	touch $@
-	$(RM) -f $(HEEPERATOR_GEN_LOCK)
+	$(RM) -f $(HEEPATIA_GEN_LOCK)
 	@echo "### DONE! X-HEEP MCU generated successfully"
 else ifeq ($(TARGET), pynq-z2)
 $(MCU_GEN_LOCK): $(MCU_CFG_FPGA) $(PAD_CFG) $(EXT_PAD_CFG) | $(BUILD_DIR)/
 	@echo "### Building X-HEEP MCU for PYNQ-Z2..."
 	$(MAKE) -f $(XHEEP_MAKE) mcu-gen X_HEEP_CFG=$(X_HEEP_CFG_FPGA) MCU_CFG_PERIPHERALS=$(MCU_CFG_PERIPHERALS)
 	touch $@
-	$(RM) -f $(HEEPERATOR_GEN_LOCK)
+	$(RM) -f $(HEEPATIA_GEN_LOCK)
 	@echo "### DONE! X-HEEP MCU generated successfully"
 else
 	$(error ### ERROR: Unsupported target implementation: $(TARGET_IMPL))
 endif
 
-.PHONY: heeperator-gen-force-asic
-heeperator-gen-force:
-	rm -rf build/.mcu-gen.lock build/.heeperator-gen.lock;
-	$(MAKE) heeperator-gen
+.PHONY: heepatia-gen-force
+heepatia-gen-force:
+	rm -rf build/.mcu-gen.lock build/.heepatia-gen.lock;
+	$(MAKE) heepatia-gen
 
-# Generate HEEPerator files
+# Generate heepatia files
 # @param TARGET=asic(default),pynq-z2
-.PHONY: heeperator-gen
-heeperator-gen: $(HEEPERATOR_GEN_LOCK)
-$(HEEPERATOR_GEN_LOCK): $(HEEPERATOR_GEN_CFG) $(HEEPERATOR_GEN_TPL) $(HEEPERATOR_TOP_TPL) $(PAD_RING_TPL) $(MCU_GEN_LOCK) $(ROOT_DIR)/tb/tb_util.svh.tpl
+.PHONY: heepatia-gen
+heepatia-gen: $(HEEPATIA_GEN_LOCK)
+$(HEEPATIA_GEN_LOCK): $(HEEPATIA_GEN_CFG) $(HEEPATIA_GEN_TPL) $(HEEPATIA_TOP_TPL) $(PAD_RING_TPL) $(MCU_GEN_LOCK) $(ROOT_DIR)/tb/tb_util.svh.tpl
 ifeq ($(TARGET), asic)
-	@echo "### Generating HEEPerator top and pad rings for ASIC..."
+	@echo "### Generating heepatia top and pad rings for ASIC..."
 	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
 		--outdir $(ROOT_DIR)/hw/ip/ \
 		--external_pads $(EXT_PAD_CFG) \
-		--tpl-sv $(HEEPERATOR_TOP_TPL)
+		--tpl-sv $(HEEPATIA_TOP_TPL)
 	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
 		--outdir $(ROOT_DIR)/hw/ip/pad-ring/ \
 		--external_pads $(EXT_PAD_CFG) \
@@ -174,13 +174,13 @@ ifeq ($(TARGET), asic)
 		--outdir $(ROOT_DIR)/tb/ \
 		--external_pads $(EXT_PAD_CFG) \
 		--tpl-sv $(ROOT_DIR)/tb/tb_util.svh.tpl
-	@echo "### Generating HEEPerator files..."
+	@echo "### Generating heepatia files..."
 else ifeq ($(TARGET), pynq-z2)
-	@echo "### Generating HEEPerator top and padrings for PYNQ-Z2..."
+	@echo "### Generating heepatia top and padrings for PYNQ-Z2..."
 	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS_FPGA) \
 		--outdir $(ROOT_DIR)/hw/ip/ \
 		--external_pads $(EXT_PAD_CFG) \
-		--tpl-sv $(HEEPERATOR_TOP_TPL)
+		--tpl-sv $(HEEPATIA_TOP_TPL)
 	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS_FPGA) \
 		--outdir $(ROOT_DIR)/hw/ip/pad-ring/ \
 		--external_pads $(EXT_PAD_CFG) \
@@ -192,50 +192,50 @@ else ifeq ($(TARGET), pynq-z2)
 else
 	$(error ### ERROR: Unsupported target implementation: $(TARGET_IMPL))
 endif
-	python3 util/heeperator-gen.py $(HEEPERATOR_GEN_OPTS) \
-		--outdir hw/ip/heeperator-ctrl/data \
-		--tpl-sv hw/ip/heeperator-ctrl/data/heeperator_ctrl.hjson.tpl
-	sh hw/ip/heeperator-ctrl/gen-heeperator-ctrl.sh
+	python3 util/heepatia-gen.py $(HEEPATIA_GEN_OPTS) \
+		--outdir hw/ip/heepatia-ctrl/data \
+		--tpl-sv hw/ip/heepatia-ctrl/data/heepatia_ctrl.hjson.tpl
+	sh hw/ip/heepatia-ctrl/gen-heepatia-ctrl.sh
 	sh sw/external/lib/drivers/fll/fll_regs_gen.sh
-	python3 util/heeperator-gen.py $(HEEPERATOR_GEN_OPTS) \
-		--outdir hw/ip/heeperator-ctrl/rtl \
-		--tpl-sv hw/ip/heeperator-ctrl/rtl/heeperator_ctrl_reg.sv.tpl
-	python3 util/heeperator-gen.py $(HEEPERATOR_GEN_OPTS) \
+	python3 util/heepatia-gen.py $(HEEPATIA_GEN_OPTS) \
+		--outdir hw/ip/heepatia-ctrl/rtl \
+		--tpl-sv hw/ip/heepatia-ctrl/rtl/heepatia_ctrl_reg.sv.tpl
+	python3 util/heepatia-gen.py $(HEEPATIA_GEN_OPTS) \
 		--outdir hw/ip/packages \
-		--tpl-sv hw/ip/packages/heeperator_pkg.sv.tpl \
+		--tpl-sv hw/ip/packages/heepatia_pkg.sv.tpl \
 		--corev_pulp $(COREV_PULP)
-	python3 util/heeperator-gen.py $(HEEPERATOR_GEN_OPTS) \
+	python3 util/heepatia-gen.py $(HEEPATIA_GEN_OPTS) \
 		--outdir sw/external/lib/runtime \
-		--tpl-c sw/external/lib/runtime/heeperator.h.tpl
-	fusesoc run --no-export --target format epfl:heeperator:heeperator
-	fusesoc run --no-export --target lint epfl:heeperator:heeperator
-	@echo "### DONE! HEEPerator files generated successfully"
+		--tpl-c sw/external/lib/runtime/heepatia.h.tpl
+	fusesoc run --no-export --target format epfl:heepatia:heepatia
+	fusesoc run --no-export --target lint epfl:heepatia:heepatia
+	@echo "### DONE! heepatia files generated successfully"
 	touch $@
 
 # Verible format
 .PHONY: format
-format: $(HEEPERATOR_GEN_LOCK)
-	@echo "### Formatting HEEPerator RTL files..."
-	fusesoc run --no-export --target format epfl:heeperator:heeperator
+format: $(HEEPATIA_GEN_LOCK)
+	@echo "### Formatting heepatia RTL files..."
+	fusesoc run --no-export --target format epfl:heepatia:heepatia
 
 # Static analysis
 .PHONY: lint
-lint: $(HEEPERATOR_GEN_LOCK)
-	@echo "### Checking HEEPerator syntax and code style..."
-	fusesoc run --no-export --target lint epfl:heeperator:heeperator
+lint: $(HEEPATIA_GEN_LOCK)
+	@echo "### Checking heepatia syntax and code style..."
+	fusesoc run --no-export --target lint epfl:heepatia:heepatia
 
 # Verilator RTL simulation
 # ------------------------
 # Build simulation model (do not launch simulation)
 .PHONY: verilator-build
-verilator-build: $(HEEPERATOR_GEN_LOCK)
-	fusesoc run --no-export --target sim --tool verilator --build $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+verilator-build: $(HEEPATIA_GEN_LOCK)
+	fusesoc run --no-export --target sim --tool verilator --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		$(FUSESOC_ARGS)
 
 # Build simulation model and launch simulation
 .PHONY: verilator-sim
 verilator-sim: | verilator-build .verilator-check-params
-	fusesoc run --no-export --target sim --tool verilator --run $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+	fusesoc run --no-export --target sim --tool verilator --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		--log_level=$(LOG_LEVEL) \
 		--firmware=$(FIRMWARE) \
 		--boot_mode=$(BOOT_MODE) \
@@ -246,7 +246,7 @@ verilator-sim: | verilator-build .verilator-check-params
 # Launch simulation
 .PHONY: verilator-run
 verilator-run: | .verilator-check-params
-	fusesoc run --no-export --target sim --tool verilator --run $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+	fusesoc run --no-export --target sim --tool verilator --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		--log_level=$(LOG_LEVEL) \
 		--firmware=$(FIRMWARE) \
 		--boot_mode=$(BOOT_MODE) \
@@ -257,7 +257,7 @@ verilator-run: | .verilator-check-params
 # Launch simulation without waveform dumping
 .PHONY: verilator-opt
 verilator-opt: | .verilator-check-params
-	fusesoc run --no-export --target sim --tool verilator --run $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+	fusesoc run --no-export --target sim --tool verilator --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		--log_level=$(LOG_LEVEL) \
 		--firmware=$(FIRMWARE) \
 		--boot_mode=$(BOOT_MODE) \
@@ -275,15 +275,15 @@ verilator-waves: $(BUILD_DIR)/sim-common/waves.fst | .check-gtkwave
 # ------------------------
 # Build simulation model and launch simulation
 .PHONY: questasim-build
-questasim-build: $(HEEPERATOR_GEN_LOCK) $(DPI_LIBS)
-	fusesoc run --no-export --target sim --tool modelsim --build $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+questasim-build: $(HEEPATIA_GEN_LOCK) $(DPI_LIBS)
+	fusesoc run --no-export --target sim --tool modelsim --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		$(FUSESOC_ARGS)
 	cd $(QUESTA_SIM_DIR) ; make opt
 
 # Build simulation model and launch simulation
 .PHONY: questasim-sim
 questasim-sim: | questasim-build $(QUESTA_SIM_DIR)/logs/
-	fusesoc run --no-export --target sim --tool modelsim --run $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+	fusesoc run --no-export --target sim --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		--firmware=$(FIRMWARE) \
 		--bypass_fll_opt=$(BYPASS_FLL) \
 		--boot_mode=$(BOOT_MODE) \
@@ -295,7 +295,7 @@ questasim-sim: | questasim-build $(QUESTA_SIM_DIR)/logs/
 # Launch simulation
 .PHONY: questasim-run
 questasim-run: | $(QUESTA_SIM_DIR)/logs/
-	fusesoc run --no-export --target sim --tool modelsim --run $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+	fusesoc run --no-export --target sim --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		--firmware=$(FIRMWARE) \
 		--bypass_fll_opt=$(BYPASS_FLL) \
 		--boot_mode=$(BOOT_MODE) \
@@ -328,14 +328,14 @@ $(BUILD_DIR)/sw/sim/uartdpi.so: hw/vendor/x-heep/hw/vendor/lowrisc_opentitan/hw/
 # -------------------------------------------
 # Questasim PostSynth Simulation (with no timing)
 .PHONY: questasim-postsynth-build
-questasim-postsynth-build: $(HEEPERATOR_GEN_LOCK) $(DPI_LIBS)
-	fusesoc run --no-export --target sim_postsynthesis --tool modelsim --build $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+questasim-postsynth-build: $(HEEPATIA_GEN_LOCK) $(DPI_LIBS)
+	fusesoc run --no-export --target sim_postsynthesis --tool modelsim --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		$(FUSESOC_ARGS);
 	cd $(QUESTA_SIM_POSTSYNTH_DIR) ; make opt | tee fusesoc_questasim_postsynthesis.log
 
 .PHONY: questasim-postsynth-run
 questasim-postsynth-run:
-	fusesoc run --no-export --target sim_postsynthesis --tool modelsim --run $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+	fusesoc run --no-export --target sim_postsynthesis --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		--firmware=$(FIRMWARE) \
 		--bypass_fll_opt=$(BYPASS_FLL) \
 		--boot_mode=$(BOOT_MODE) \
@@ -351,14 +351,14 @@ questasim-postsynth-gui:
 
 # Questasim PostLayout Simulation (with no timing)
 .PHONY: questasim-postlayout-build
-questasim-postlayout-build: $(HEEPERATOR_GEN_LOCK) $(DPI_LIBS)
-	fusesoc run --no-export --target sim_postlayout --tool modelsim --build $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+questasim-postlayout-build: $(HEEPATIA_GEN_LOCK) $(DPI_LIBS)
+	fusesoc run --no-export --target sim_postlayout --tool modelsim --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		$(FUSESOC_ARGS);
 	cd $(QUESTA_SIM_POSTLAYOUT_DIR) ; make opt | tee fusesoc_questasim_postslayout.log
 
 .PHONY: questasim-postlayout-run
 questasim-postlayout-run:
-	fusesoc run --no-export --target sim_postlayout --tool modelsim --run $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+	fusesoc run --no-export --target sim_postlayout --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		--firmware=$(FIRMWARE) \
 		--bypass_fll_opt=$(BYPASS_FLL) \
 		--boot_mode=$(BOOT_MODE) \
@@ -377,8 +377,8 @@ questasim-postlayout-gui:
 # ---------
 # HEEperator synthesis with Synopsys DC Shell
 .PHONY: synthesis
-synthesis: $(HEEPERATOR_GEN_LOCK)
-	fusesoc run --no-export --target asic_synthesis --build $(FUSESOC_FLAGS) epfl:heeperator:heeperator \
+synthesis: $(HEEPATIA_GEN_LOCK)
+	fusesoc run --no-export --target asic_synthesis --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		$(FUSESOC_ARGS) 2>&1 | tee fusesoc_synthesis.log
 
 implementation/pnr/inputs/heepocrates.io:
@@ -400,7 +400,7 @@ pnr: implementation/pnr/inputs/heepocrates.io
 .PHONY: fpga
 fpga:
 	@echo "### Running FPGA implementation..."
-	fusesoc run --no-export --target pynq-z2 --build $(FUSESOC_FLAGS) epfl:heeperator:heeperator $(FUSESOC_ARGS)
+	fusesoc run --no-export --target pynq-z2 --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia $(FUSESOC_ARGS)
 
 .PHONY: prog-fpga
 prog-fpga:
@@ -443,23 +443,23 @@ charts: build/performance-analysis/power.csv build/performance-analysis/throughp
 # --------------
 .PHONY: patch-files-power-analysis
 patch-files-power-analysis: $(BUILD_DIR)/.patch-files-power-analysis.lock
-$(BUILD_DIR)/.patch-files-power-analysis.lock: $(HEEPERATOR_PL_NET) $(HEEPERATOR_PL_SDF).gz
+$(BUILD_DIR)/.patch-files-power-analysis.lock: $(HEEPATIA_PL_NET) $(HEEPATIA_PL_SDF).gz
 #   the LIB and LEF of the FLL are wrong as the VDDA power pin is missing, thus deleting it so that power analysis can be done
-	cp $(HEEPERATOR_PL_NET) $(HEEPERATOR_PL_NET_PA)
-	sed -i '/.VDDA(VDD)/d' $(HEEPERATOR_PL_NET_PA)
+	cp $(HEEPATIA_PL_NET) $(HEEPATIA_PL_NET_PA)
+	sed -i '/.VDDA(VDD)/d' $(HEEPATIA_PL_NET_PA)
 	touch $(BUILD_DIR)/.patch-files-power-analysis.lock
 
 .PHONY: power-analysis
 power-analysis: $(BUILD_DIR)/.patch-files-power-analysis.lock $(PWR_VCD)
 	@echo "### Running power analysis..."
 	rm -rf implementation/power_analysis/reports/*
-	pushd implementation/power_analysis/; ./run_pwr_flow.sh $(PWR_VCD) $(HEEPERATOR_PL_NET_PA) $(HEEPERATOR_PL_SDF).gz heeperator_top; popd;
+	pushd implementation/power_analysis/; ./run_pwr_flow.sh $(PWR_VCD) $(HEEPATIA_PL_NET_PA) $(HEEPATIA_PL_SDF).gz heepatia_top; popd;
 
 # Software
 # --------
-# HEEPerator applications
+# heepatia applications
 .PHONY: app
-app: $(HEEPERATOR_GEN_LOCK) | carus-sw $(BUILD_DIR)/sw/app/ $(BUILD_DIR)/sw/app-flash/
+app: $(HEEPATIA_GEN_LOCK) | carus-sw $(BUILD_DIR)/sw/app/ $(BUILD_DIR)/sw/app-flash/
 ifneq ($(APP_MAKE),)
 	$(MAKE) -C $(dir $(APP_MAKE))
 endif
@@ -487,7 +487,7 @@ vendor-update:
 	@echo "### Updating vendored IPs..."
 	find hw/vendor -maxdepth 1 -type f -name "*.vendor.hjson" -exec python3 util/vendor.py -vU '{}' \;
 	$(MAKE) clean-lock
-	$(MAKE) heeperator-gen
+	$(MAKE) heepatia-gen
 
 # Check if fusesoc is available
 .PHONY: .check-fusesoc
@@ -524,15 +524,15 @@ test:
 # Clean build directory
 .PHONY: clean clean-lock
 clean:
-	$(RM) $(HEEPERATOR_GEN_LOCK)
-	$(RM) hw/ip/heeperator_top.sv
+	$(RM) $(HEEPATIA_GEN_LOCK)
+	$(RM) hw/ip/heepatia_top.sv
 	$(RM) hw/ip/pad-ring/pad-ring.sv
-	$(RM) hw/ip/heeperator-ctrl/data/*.hjson
-	$(RM) hw/ip/heeperator-ctrl/rtl/heeperator_ctrl_reg_top.sv
-	$(RM) hw/ip/heeperator-ctrl/rtl/heeperator_ctrl_reg_pkg.sv
-	$(RM) hw/ip/heeperator-ctrl/rtl/heeperator_ctrl_reg.sv
-	$(RM) sw/device/include/heeperator.h
-	$(RM) sw/device/include/heeperator_ctrl_reg.h
+	$(RM) hw/ip/heepatia-ctrl/data/*.hjson
+	$(RM) hw/ip/heepatia-ctrl/rtl/heepatia_ctrl_reg_top.sv
+	$(RM) hw/ip/heepatia-ctrl/rtl/heepatia_ctrl_reg_pkg.sv
+	$(RM) hw/ip/heepatia-ctrl/rtl/heepatia_ctrl_reg.sv
+	$(RM) sw/device/include/heepatia.h
+	$(RM) sw/device/include/heepatia_ctrl_reg.h
 	$(RM) -r $(BUILD_DIR)
 	$(MAKE) -C $(HEEP_DIR) clean-all
 	$(MAKE) -C $(SW_DIR) clean

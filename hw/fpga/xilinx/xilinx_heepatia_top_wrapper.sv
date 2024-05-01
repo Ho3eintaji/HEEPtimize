@@ -2,12 +2,12 @@
 // Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
-// File: xilinx_heeperator_top_wrapper.sv
+// File: xilinx_heepatia_top_wrapper.sv
 // Author: Luigi Giuffrida
 // Date: 01/02/2024
-// Description: HEEPerator FPGA top-level module
+// Description: heepatia FPGA top-level module
 
-module xilinx_heeperator_top_wrapper #(
+module xilinx_heepatia_top_wrapper #(
   parameter int CLK_LED_COUNT_LENGTH = 27
 ) (
 
@@ -109,8 +109,8 @@ module xilinx_heeperator_top_wrapper #(
   );
 `endif
 
-  // Instantiate the HEEPerator top-level module
-  heeperator_top i_heeperator_top (
+  // Instantiate the heepatia top-level module
+  heepatia_top i_heepatia_top (
     .rst_ni   (rst_n),
     .ref_clk_i(clk_gen),
 
@@ -166,4 +166,4 @@ module xilinx_heeperator_top_wrapper #(
   );
 
 
-endmodule  // heeperator_top
+endmodule  // heepatia_top

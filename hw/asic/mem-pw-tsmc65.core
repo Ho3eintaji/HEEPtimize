@@ -11,7 +11,7 @@ CAPI=2:
 
 # Based on mem_power_switches.core from HEEPpocrates.
 
-name: "epfl:heeperator:mem-pw-tsmc65:0.1.0"
+name: "epfl:heepatia:mem-pw-tsmc65:0.1.0"
 description: "Full-custom memory power switches for TSMC65"
 
 filesets:

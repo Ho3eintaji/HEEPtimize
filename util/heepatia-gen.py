@@ -4,10 +4,10 @@
 # Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 #
-# File: heeperator-gen.py
+# File: heepatia-gen.py
 # Author: Michele Caon
 # Date: 13/05/2023
-# Description: Generate HEEPerator HDL files based on configuration.
+# Description: Generate heepatia HDL files based on configuration.
 
 # Based on heepocrates_gen.py (https://eslgit.epfl.ch/heep/HEEPpocrates/-/blob/main/util/heepocrates_gen.py), which is based on occamygen.py from ETH Zurich (https://github.com/pulp-platform/snitch/blob/master/util/occamygen.py)
 
@@ -42,7 +42,7 @@ def write_template(tpl_path, outdir, **kwargs):
 
 def main():
     # Parser for command line arguments
-    parser = argparse.ArgumentParser(prog='heeperator-gen.py', description='Generate HEEPerator HDL files based on the provided configuration.')
+    parser = argparse.ArgumentParser(prog='heepatia-gen.py', description='Generate heepatia HDL files based on the provided configuration.')
     parser.add_argument('--cfg', 
                         '-c', 
                         metavar='FILE',
@@ -130,10 +130,10 @@ def main():
     fll_size = int(cfg['ext_periph']['fll']['length'], 16)
     fll_size_hex = int2hexstr(fll_size, 32)
 
-    heeperator_ctrl_start_address = int(cfg['ext_periph']['heeperator_ctrl']['offset'], 16)
-    heeperator_ctrl_start_address_hex = int2hexstr(heeperator_ctrl_start_address, 32)
-    heeperator_ctrl_size = int(cfg['ext_periph']['heeperator_ctrl']['length'], 16)
-    heeperator_ctrl_size_hex = int2hexstr(heeperator_ctrl_size, 32)
+    heepatia_ctrl_start_address = int(cfg['ext_periph']['heepatia_ctrl']['offset'], 16)
+    heepatia_ctrl_start_address_hex = int2hexstr(heepatia_ctrl_start_address, 32)
+    heepatia_ctrl_size = int(cfg['ext_periph']['heepatia_ctrl']['length'], 16)
+    heepatia_ctrl_size_hex = int2hexstr(heepatia_ctrl_size, 32)
 
     # Dependent parameters
     if not math.log2(carus_size).is_integer():
@@ -160,8 +160,8 @@ def main():
         'carus_size': carus_size_hex,
         'fll_start_address': fll_start_address_hex,
         'fll_size': fll_size_hex,
-        'heeperator_ctrl_start_address': heeperator_ctrl_start_address_hex,
-        'heeperator_ctrl_size': heeperator_ctrl_size_hex,
+        'heepatia_ctrl_start_address': heepatia_ctrl_start_address_hex,
+        'heepatia_ctrl_size': heepatia_ctrl_size_hex,
     }
 
     # Generate SystemVerilog package

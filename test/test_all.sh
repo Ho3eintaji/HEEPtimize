@@ -23,9 +23,9 @@ echo "============="
 date
 echo ""
 
-echo -n "Running heeperator-gen-force..."
-make heeperator-gen-force > test/heeperator-gen-force.log 2>&1
-echo "DONE. Output in test/heeperator-gen-force.log"
+echo -n "Running heepatia-gen-force..."
+make heepatia-gen-force > test/heepatia-gen-force.log 2>&1
+echo "DONE. Output in test/heepatia-gen-force.log"
 echo ""
 
 # =========
@@ -91,9 +91,9 @@ echo ""
 # ==============
 # FPGA bitstream
 # ==============
-echo -n "Running heeperator-gen-force for the pynq-z2..."
-make heeperator-gen-force TARGET=pynq-z2 > test/heeperator-gen-force_fpga.log 2>&1
-echo "DONE. Output in test/heeperator-gen-force_fpga.log"
+echo -n "Running heepatia-gen-force for the pynq-z2..."
+make heepatia-gen-force TARGET=pynq-z2 > test/heepatia-gen-force_fpga.log 2>&1
+echo "DONE. Output in test/heepatia-gen-force_fpga.log"
 echo ""
 
 echo "======================"

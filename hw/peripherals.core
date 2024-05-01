@@ -7,21 +7,21 @@ CAPI=2:
 # File: peripherals.core
 # Author: Michele Caon, Luigi Giuffrida
 # Date: 29/04/2024
-# Description: HEEPerator external peripherals
+# Description: heepatia external peripherals
 
-name: epfl:heeperator:peripherals:0.1.0
-description: HEEPerator external peripherals
+name: epfl:heepatia:peripherals:0.1.0
+description: heepatia external peripherals
 
 filesets:
   # RTL source files
   rtl:
     depend:
-    - epfl:heeperator:packages
-    - epfl:heeperator:control-reg
+    - epfl:heepatia:packages
+    - epfl:heepatia:control-reg
     files:
-    - ip/heeperator-peripherals/fll_subsystem.sv
-    - ip/heeperator-peripherals/heeperator_peripherals.sv
-    - ip/heeperator-peripherals/nm_carus_wrapper.sv
+    - ip/heepatia-peripherals/fll_subsystem.sv
+    - ip/heepatia-peripherals/heepatia_peripherals.sv
+    - ip/heepatia-peripherals/nm_carus_wrapper.sv
     file_type: systemVerilogSource
 
   rtl-vendor:
@@ -61,7 +61,7 @@ targets:
     - tool_verilator ? (verilator-waivers)
     - tool_modelsim ? (rtl-asic)
     - target_asic_synthesis ? (rtl-asic)
-    toplevel: heeperator_peripherals
+    toplevel: heepatia_peripherals
 
   # Format using Verible
   format:

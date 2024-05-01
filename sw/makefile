@@ -43,7 +43,7 @@ CARUS_KERNEL_OUTS_C		:= $(CARUS_KERNEL_DSTS_C:$(CARUS_BUILD_DIR)/%.c=$(CARUS_KER
 CARUS_KERNEL_OUTS  		:= $(CARUS_KERNEL_HEADERS:$(CARUS_BUILD_DIR)/%=$(CARUS_KERNEL_OUT_DIR)/%)
 
 # Toolchain configuration
-RVV					?= /shares/eslfiler1/common/esl/HEEPerator/IP/carus_compiler_new
+RVV					?= /shares/eslfiler1/common/esl/heepatia/IP/carus_compiler_new
 RVV_PREFIX			:= $(RVV)/bin/riscv32-unknown-elf-
 RVV_CFLAGS			:= \
 	-march=rv32eczve32x_zicsr \

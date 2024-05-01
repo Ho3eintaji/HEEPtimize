@@ -11,7 +11,7 @@ CAPI=2:
 
 # Based on tsmc65_fll.core from HEEPpocrates.
 
-name: "epfl:heeperator:digital-fll-tsmc65:0.1.0"
+name: "epfl:heepatia:digital-fll-tsmc65:0.1.0"
 description: "TSMC65 digital FLL model"
 
 filesets:

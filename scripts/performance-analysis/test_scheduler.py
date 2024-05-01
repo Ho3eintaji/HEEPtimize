@@ -316,7 +316,7 @@ class test_scheduler:
             sys_pwr_rows = [
                 "u_core_v_mini_mcu/cpu_subsystem_i",                            # system CPU (idle)
                 "u_core_v_mini_mcu/system_bus_i",                               # system bus
-                "heeperator_bus",                                               # external bus
+                "heepatia_bus",                                               # external bus
                 "u_core_v_mini_mcu/memory_subsystem_i/gen_sram_0__ram_i",       # SRAM bank 0 (.text)
                 "u_core_v_mini_mcu/memory_subsystem_i/gen_sram_1__ram_i",       # SRAM bank 1 (.data)
                 "u_core_v_mini_mcu/memory_subsystem_i/gen_sram_2__ram_i",       # SRAM interleaved bank 0
@@ -347,7 +347,7 @@ class test_scheduler:
                 "u_core_v_mini_mcu/peripheral_subsystem_i/rv_plic_i",
             ]
             nmc_pwr_rows = [
-                "u_heeperator_peripherals/gen_carus_0__u_nm_carus_wrapper",     # NM-Carus
+                "u_heepatia_peripherals/gen_carus_0__u_nm_carus_wrapper",     # NM-Carus
             ]
             nmc_ctl_rows = ["carus_ctl"]
             nmc_comp_rows = ["carus_vector"]

@@ -1,7 +1,7 @@
 # Automatically generated files
 external/lib/drivers/fll/fll_regs.h
-external/lib/drivers/heeperator-ctrl/heeperator_ctrl_reg.h
-external/lib/runtime/heeperator.h
+external/lib/drivers/heepatia-ctrl/heepatia_ctrl_reg.h
+external/lib/runtime/heepatia.h
 
 # Python cache
 **/__pycache__/

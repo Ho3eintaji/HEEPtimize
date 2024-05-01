@@ -7,21 +7,21 @@ CAPI=2:
 # File: bus.core
 # Author: Michele Caon
 # Date: 07/06/2023
-# Description: HEEPerator external bus
+# Description: heepatia external bus
 
-name: epfl:heeperator:bus:0.1.0
-description: HEEPerator external bus
+name: epfl:heepatia:bus:0.1.0
+description: heepatia external bus
 
 filesets:
   # RTL files
   rtl:
     depend:
-    - epfl:heeperator:packages
+    - epfl:heepatia:packages
     files:
-    - ip/heeperator-bus/ext_bus.sv 
-    - ip/heeperator-bus/ext_xbar.sv 
-    - ip/heeperator-bus/heeperator_bus.sv 
-    - ip/heeperator-bus/periph_bus.sv
+    - ip/heepatia-bus/ext_bus.sv 
+    - ip/heepatia-bus/ext_xbar.sv 
+    - ip/heepatia-bus/heepatia_bus.sv 
+    - ip/heepatia-bus/periph_bus.sv
     file_type: systemVerilogSource
 
   # Vendored IPs
@@ -42,7 +42,7 @@ targets:
     - target_sim ? (rtl-vendor)
     - rtl
     - tool_verilator ? (verilator-waivers)
-    toplevel: heeperator_bus
+    toplevel: heepatia_bus
 
   # Format using Verible
   format:

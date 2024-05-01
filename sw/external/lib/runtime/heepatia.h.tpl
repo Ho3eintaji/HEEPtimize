@@ -2,13 +2,13 @@
 // Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
-// File: heeperator.h
+// File: heepatia.h
 // Author: Michele Caon
 // Date: 13/05/2023
-// Description: Address map for HEEPerator external peripherals.
+// Description: Address map for heepatia external peripherals.
 
-#ifndef HEEPERATOR_H_
-#define HEEPERATOR_H_
+#ifndef HEEPATIA_H_
+#define HEEPATIA_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,12 +37,12 @@ extern "C" {
 #define FLL_END_ADDRESS (FLL_START_ADDRESS + FLL_SIZE)
 
 // IMC control register
-#define HEEPERATOR_CTRL_START_ADDRESS (EXT_PERIPHERAL_START_ADDRESS + 0x${heeperator_ctrl_start_address})
-#define HEEPERATOR_CTRL_SIZE 0x${heeperator_ctrl_size}
-#define HEEPERATOR_CTRL_END_ADDRESS (NMC_CTRL_START_ADDRESS + NMC_CTRL_SIZE)
+#define HEEPATIA_CTRL_START_ADDRESS (EXT_PERIPHERAL_START_ADDRESS + 0x${heepatia_ctrl_start_address})
+#define HEEPATIA_CTRL_SIZE 0x${heepatia_ctrl_size}
+#define HEEPATIA_CTRL_END_ADDRESS (NMC_CTRL_START_ADDRESS + NMC_CTRL_SIZE)
 
 #ifdef __cplusplus
 } // extern "C"
 #endif // __cplusplus
 
-#endif /* HEEPERATOR_H_ */
+#endif /* HEEPATIA_H_ */
