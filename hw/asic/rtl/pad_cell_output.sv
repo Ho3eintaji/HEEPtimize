@@ -8,7 +8,8 @@
 // Description: Output pad standard cell
 
 module pad_cell_output #(
-  parameter int unsigned PADATTR = 16
+  parameter int unsigned PADATTR = 16,
+  parameter core_v_mini_mcu_pkg::pad_side_e SIDE = core_v_mini_mcu_pkg::TOP
 ) (
   input logic pad_in_i, // pad input value
   input logic pad_oe_i, // pad output enable
@@ -16,8 +17,9 @@ module pad_cell_output #(
   inout logic pad_io, // pad value
   input logic [PADATTR-1:0] pad_attributes_i // pad attributes
 );
-  tsmc65_pad_cell_output #(
-    .PADATTR (PADATTR )
+  tsmc16_pad_cell_output #(
+    .PADATTR (PADATTR ),
+    .SIDE    (SIDE    )
   ) u_pad_cell_output (
   	.pad_in_i         (pad_in_i         ),
     .pad_oe_i         (pad_oe_i         ),
