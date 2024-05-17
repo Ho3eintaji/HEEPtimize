@@ -9,8 +9,7 @@
 
 module heepatia_bus #(
   // Dependent parameters: do not override!
-  localparam int unsigned ExtXbarNmasterRnd = (heepatia_pkg::ExtXbarNMaster > 0) ?
-    heepatia_pkg::ExtXbarNMaster : 32'd1,
+  localparam int unsigned ExtXbarNmasterRnd = (heepatia_pkg::ExtXbarNMaster > 0) ? heepatia_pkg::ExtXbarNMaster : 32'd1,
   localparam int unsigned CarusNumRnd = (heepatia_pkg::CarusNum > 0) ? heepatia_pkg::CarusNum : 32'd1
 ) (
   input logic clk_i,
@@ -33,12 +32,23 @@ module heepatia_bus #(
   output obi_pkg::obi_resp_t heep_dma_write_ch0_resp_o,
 
   // X-HEEP slave ports (one per external master)
-  output obi_pkg::obi_req_t  [ExtXbarNmasterRnd-1:0] heep_slave_req_o,
+  output obi_pkg::obi_req_t  [ExtXbarNmasterRnd-1:0] heep_slave_req_o,  
   input  obi_pkg::obi_resp_t [ExtXbarNmasterRnd-1:0] heep_slave_resp_i,
 
   // NM-Carus slave ports
   output obi_pkg::obi_req_t  [CarusNumRnd-1:0] carus_req_o,
   input  obi_pkg::obi_resp_t [CarusNumRnd-1:0] carus_resp_i,
+
+  // CGRA slave ports
+  output obi_req_t  cgra_req_o,
+  input  obi_resp_t cgra_resp_i,
+
+  output reg_req_t cgra_periph_slave_req_o,
+  input  reg_rsp_t cgra_periph_slave_resp_i,
+
+  // input  reg_req_t ext_peripheral_slave_req_i, //TODO: double check these two are defined are I have them wih different names? I think yes these are the same as heep_periph_req_i
+  // output reg_rsp_t ext_peripheral_slave_resp_o,
+
 
   // X-HEEP peripheral master port
   input  reg_pkg::reg_req_t heep_periph_req_i,
@@ -67,6 +77,16 @@ module heepatia_bus #(
   // External peripherals request
   reg_req_t  [ExtPeriphNSlave-1:0] ext_periph_req;
   reg_rsp_t  [ExtPeriphNSlave-1:0] ext_periph_rsp;
+
+  // CGRA
+  //TODO: syntax is based on heepocrates which should be modified
+   //slave req
+  assign cgra_req_o = ext_slave_req[heepocrates_pkg::CGRA_IDX];
+  //slave resp
+  assign ext_slave_rsp[heepocrates_pkg::CGRA_IDX] = cgra_resp_i;
+
+  assign cgra_periph_slave_req_o = ext_periph_req[heepocrates_pkg::CGRA_PERIPH_IDX]; 
+  assign ext_periph_rsp[heepocrates_pkg::CGRA_PERIPH_IDX] = cgra_periph_slave_resp_i;
 
   // ----------
   // COMPONENTS
@@ -100,7 +120,7 @@ module heepatia_bus #(
     .heep_dma_read_ch0_resp_o (heep_dma_read_ch0_resp_o),
     .heep_dma_write_ch0_req_i (heep_dma_write_ch0_req_i),
     .heep_dma_write_ch0_resp_o(heep_dma_write_ch0_resp_o),
-    .ext_master_req_i         ('0),                                // no external masters
+    .ext_master_req_i         ('0),                                // no external masters //TODO: now we have masters!
     .ext_master_resp_o        (),                                  // no external masters
     .heep_slave_req_o         (heep_slave_req_o),
     .heep_slave_resp_i        (heep_slave_resp_i),

@@ -227,3 +227,11 @@ set_multicycle_path 1 -hold -through u_core_v_mini_mcu/ao_peripheral_subsystem_i
 
 set_multicycle_path 2 -setup -through u_core_v_mini_mcu/ao_peripheral_subsystem_i/power_manager_i/external_ram_banks_set_retentive_no*
 set_multicycle_path 1 -hold -through u_core_v_mini_mcu/ao_peripheral_subsystem_i/power_manager_i/external_ram_banks_set_retentive_no*
+
+# ###############################################
+# #           CGRA CONSTRAINTS                  #
+# ###############################################
+
+# set_multicycle_path 3 -setup -through u_heepatia_peripherals/cgra_top_wrapper_i/cgra_top_i/cgra_rcs_i/rc_row_gen[*].rc_col_gen[*].rc_i/rc_datapath/rc_alu/mult_read_gen[*].alu_mult_op*_i/d_i
+# set_multicycle_path 2 -hold -through u_heepatia_peripherals/cgra_top_wrapper_i/cgra_top_i/cgra_rcs_i/rc_row_gen[*].rc_col_gen[*].rc_i/rc_datapath/rc_alu/mult_read_gen[*].alu_mult_op*_i/d_i
+

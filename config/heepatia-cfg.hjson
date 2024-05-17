@@ -17,18 +17,22 @@
     },
 
     // Slaves memory map
+    // ext_xbar_masters: 0,
     ext_xbar_masters: 4,
     ext_xbar_slaves: {
+        nslaves: 2, // CGRA
+
         carus: {
             offset:    "0x00000000",
             length:    "0x00008000",
             num:       1,
             num_banks: 4, // bank address width is log2(length/num_banks)
         },
-        cgra_periph: {
-            offset:  0x0008000,
-            length:  0x0001000,
-        },
+        
+        cgra: {
+            offset: "0x00008000",
+            length: "0x00100000",
+        }
     },
 
     // External peripherals
@@ -41,5 +45,10 @@
             offset: "0x00001000",
             length: "0x00001000",
         },
+        cgra_periph: {
+            offset:  "0x00002000",
+            length:  "0x00001000",
+        },
+        
     }
 }

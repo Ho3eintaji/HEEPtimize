@@ -41,5 +41,23 @@
             hwaccess: "none",
             resval: "0",
         },
+
+        { name:     "CGRA_MEM_SW_MONITOR",
+        desc:     "CGRA Mem - Used to read Schmitt Trigger",
+        swaccess: "ro",
+        hwaccess: "hrw",
+        fields: [
+            { bits: "3:0", name: "CGRA_MEM_SW_MONITOR", desc: "Mem CGRA Schmitt Trigger" }
+        ]
+        },
+        { name:     "CGRA_ENABLE",
+        desc:     "Enable CGRA top wrapper clock gating unit",
+        resval:   1, // enable by default
+        swaccess: "rw",
+        hwaccess: "hro",
+        fields: [
+            { bits: "1:0", name: "CGRA_ENABLE", desc: "Enable CGRA top wrapper clock gating unit" }
+        ]
+        },
     ],
 }

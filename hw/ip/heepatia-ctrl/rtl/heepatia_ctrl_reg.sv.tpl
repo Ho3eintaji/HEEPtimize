@@ -9,7 +9,8 @@
 
 module heepatia_ctrl_reg #(
   // Dependent parameters: do not override!
-  localparam int unsigned CarusNumRnd = (heepatia_pkg::CarusNum > 32'd1) ? heepatia_pkg::CarusNum : 32'd1
+  localparam int unsigned CarusNumRnd = (heepatia_pkg::CarusNum > 32'd1) ? heepatia_pkg::CarusNum : 32'd1,
+  localparam int unsigned ExtXbarNmasterRnd = (heepatia_pkg::ExtXbarNMaster > 0) ? heepatia_pkg::ExtXbarNMaster : 32'd1
 ) (
   input logic clk_i,
   input logic rst_ni,
@@ -19,7 +20,13 @@ module heepatia_ctrl_reg #(
   output reg_pkg::reg_rsp_t rsp_o,
 
   // Hardware interface
-  output logic [CarusNumRnd-1:0] carus_imc_o
+  output logic [CarusNumRnd-1:0] carus_imc_o,
+
+  // for CGRA
+  input  logic [3:0] cgra_mem_sw_fb_i, //TODO: what should I add as the control logic for this?!!
+  output logic cgra_enable_o
+
+
 );
   import reg_pkg::*;
 
