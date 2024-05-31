@@ -21,6 +21,7 @@ filesets:
     - epfl:heepatia:bus
     - epfl:heepatia:peripherals
     - epfl:heepatia:pad-ring
+    - eslepfl::cgra
     files:
     - hw/ip/heepatia_top.sv
     file_type: systemVerilogSource
