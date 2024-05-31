@@ -18,9 +18,9 @@
 
     // Slaves memory map
     // ext_xbar_masters: 0,
-    ext_xbar_masters: 4,
+    ext_xbar_masters: 4,    // HT: increased for oecgra
     ext_xbar_slaves: {
-        nslaves: 2, // CGRA
+        nslaves: 2, // HT: carus+oecgra
 
         carus: {
             offset:    "0x00000000",
@@ -45,7 +45,7 @@
             offset: "0x00001000",
             length: "0x00001000",
         },
-        cgra_periph: {
+        cgra_periph: {  // HT
             offset:  "0x00002000",
             length:  "0x00001000",
         },

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
 // File: heepatia-top.sv
-// Author: Michele Caon, Luigi Giuffrida
+// Author: Michele Caon, Luigi Giuffrida, Hossein Taji
 // Date: 29/04/2024
 // Description: heepatia top-level module
 
@@ -20,8 +20,7 @@ ${pad.x_heep_system_interface}
 
   // PARAMETERS
   localparam int unsigned ExtXbarNmasterRnd = (heepatia_pkg::ExtXbarNMaster > 0) ? heepatia_pkg::ExtXbarNMaster : 32'd1;
-  localparam int unsigned ExtDomainsRnd = core_v_mini_mcu_pkg::EXTERNAL_DOMAINS == 0 ?
-    32'd1 : core_v_mini_mcu_pkg::EXTERNAL_DOMAINS;
+  localparam int unsigned ExtDomainsRnd = core_v_mini_mcu_pkg::EXTERNAL_DOMAINS == 0 ? 32'd1 : core_v_mini_mcu_pkg::EXTERNAL_DOMAINS;
 
   // INTERNAL SIGNALS
   // ----------------
@@ -60,12 +59,18 @@ ${pad.x_heep_system_interface}
   // OBI external slaves
   obi_req_t  carus_req; // request to NM-Carus
   obi_resp_t carus_rsp; // response from NM-Carus
+  // CGRA
+  obi_req_t  cgra_req; // request to CGRA
+  obi_resp_t cgra_resp; // response from CGRA
 
   // External peripherals
   reg_req_t fll_req; // request to FLL subsystem
   reg_rsp_t fll_rsp; // response from FLL subsystem
   reg_req_t heepatia_ctrl_req; // request to heepatia controller
   reg_rsp_t heepatia_ctrl_rsp; // response from heepatia controller
+  // CGRA peripherals
+  reg_req_t cgra_periph_slave_req; // request to CGRA peripherals
+  reg_rsp_t cgra_periph_slave_resp; // response from CGRA peripherals
 
   // Pad controller
   reg_req_t pad_req;
@@ -89,6 +94,11 @@ ${pad.x_heep_system_interface}
   logic [ExtDomainsRnd-1:0] external_subsystem_rst_n;
   logic carus_rst_n;
   logic carus_set_retentive_n;
+
+  // cgra reset
+  logic  cgra_logic_rst_n;
+
+  assign cgra_logic_rst_n = external_subsystem_rst_n[0];
 
   // eXtension Interface
   if_xif #() ext_xif ();
@@ -248,6 +258,7 @@ ${pad.core_v_mini_mcu_bonding}
   // --------------------
   assign carus_rst_n  = external_subsystem_rst_n[0];
   assign carus_set_retentive_n  = external_ram_banks_set_retentive_n[0];
+  assign cgra_set_retenive_n = external_ram_banks_set_retentive_n[1]; //todo: double check
   heepatia_peripherals #(
     localparam int unsigned ExtXbarNmasterRnd = (heepatia_pkg::ExtXbarNMaster > 0) ? heepatia_pkg::ExtXbarNMaster : 32'd1 //TODO: is syntax correct?
     ) u_heepatia_peripherals(
@@ -270,12 +281,18 @@ ${pad.core_v_mini_mcu_bonding}
     .cgra_resp_o(cgra_resp),
     .cgra_periph_slave_req_i(cgra_periph_slave_req),
     .cgra_periph_slave_resp_o(cgra_periph_slave_resp),
-    .cgra_ram_banks_set_retentive_i(external_ram_banks_set_retentive[1]),
+
+    // todo: below parts Im not sure
+    .cgra_ram_banks_set_retentive_i(cgra_set_retenive_n),
     .cgra_logic_rst_n(cgra_logic_rst_n)
-    .heepatia_ctrl_cgra_mem_sw_fb_i(cgra_mem_sw_fb_sync),
-    .heep_slave_req_o(heep_ext_master_req),     // TODO: these two im not sure
-    heep_slave_resp_i(heep_ext_master_resp)    // TODO: these two im not sure
+    .heepatia_ctrl_cgra_mem_sw_fb_i(), //.heepatia_ctrl_cgra_mem_sw_fb_i(cgra_mem_sw_fb_sync), //todo: check below how it is connected in heepocrates!
+    .heep_slave_req_o(heep_slave_req),     // TODO: these two im not sure, in heppocrates: .ext_xbar_master_req_o(heep_ext_master_req),
+    .heep_slave_resp_i(heep_slave_resp)    // TODO: these two im not sure, in heppocrates: .ext_xbar_master_resp_i(heep_ext_master_resp),
   );
+  //CGRA 4 Power Switches
+  // logic [3:0] cgra_mem_sw_fb_sync;
+  // assign cgra_mem_sw_fb_sync = {cgra_mem_sw3_fb_sync, cgra_mem_sw2_fb_sync, cgra_mem_sw1_fb_sync, cgra_mem_sw0_fb_sync};
+
 
   // External peripherals bus
   // ------------------------
@@ -304,18 +321,11 @@ ${pad.core_v_mini_mcu_bonding}
     .heepatia_ctrl_req_o    (heepatia_ctrl_req),
     .heepatia_ctrl_resp_i   (heepatia_ctrl_rsp),
 
-    // .ext_xbar_slave_req_i(heep_ext_slave_req),
-    // .ext_xbar_slave_resp_o(heep_ext_slave_resp),
+    // CGRA
     .cgra_req_o(cgra_req),
     .cgra_resp_i(cgra_resp),
-    // .ext_peripheral_slave_req_i(heep_ext_periph_slave_req),
-    // .ext_peripheral_slave_resp_o(heep_ext_periph_slave_resp),
     .cgra_periph_slave_req_o(cgra_periph_slave_req),
-    .cgra_periph_slave_resp_i(cgra_periph_slave_resp),
-    // .heepocrates_ctrl_slave_req_o(heepocrates_ctrl_slave_req),
-    // .heepocrates_ctrl_slave_resp_i(heepocrates_ctrl_slave_resp)
-    // .fll_slave_req_o(fll_slave_req),
-    // .fll_slave_resp_i(fll_slave_resp)
+    .cgra_periph_slave_resp_i(cgra_periph_slave_resp)
   );
 
   // Pad ring

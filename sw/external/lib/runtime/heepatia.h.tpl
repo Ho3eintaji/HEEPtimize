@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
 // File: heepatia.h
-// Author: Michele Caon
+// Author: Michele Caon, Hossein Taji
 // Date: 13/05/2023
 // Description: Address map for heepatia external peripherals.
 
@@ -30,6 +30,15 @@ extern "C" {
 #define CARUS${inst}_SIZE 0x${carus_size}
 #define CARUS${inst}_END_ADDRESS (CARUS${inst}_START_ADDRESS + CARUS_SIZE)
 %endfor
+
+// CGRA
+#define CGRA_START_ADDRESS (EXT_SLAVE_START_ADDRESS + 0x${cgra_start_address})
+#define CGRA_SIZE 0x${cgra_size}
+#define CGRA_END_ADDRESS (CGRA_START_ADDRESS + CGRA_SIZE)
+
+#define CGRA_PERIPH_START_ADDRESS (EXT_PERIPHERAL_START_ADDRESS + 0x${cgra_periph_start_address})
+#define CGRA_PERIPH_SIZE 0x${cgra_periph_size}
+#define CGRA_PERIPH_END_ADDRESS (CGRA_PERIPH_START_ADDRESS + CGRA_PERIPH_SIZE)
 
 // FLL
 #define FLL_START_ADDRESS (EXT_PERIPHERAL_START_ADDRESS + 0x${fll_start_address})

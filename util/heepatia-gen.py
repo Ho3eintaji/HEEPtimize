@@ -125,6 +125,12 @@ def main():
     if args.corev_pulp != None:
         cpu_features["corev_pulp"] = args.corev_pulp
 
+    # Bus configuration
+    xbar_nmasters = int(cfg["ext_xbar_masters"])
+    # xbar_nslaves = carus_num 
+    xbar_nslaves = int(cfg["ext_xbar_slaves"]["nslaves"])
+    periph_nslaves = len(cfg["ext_periph"])
+
     # NM-Carus instance number
     carus_num = int(cfg["ext_xbar_slaves"]["carus"]["num"])
     if args.carus_num is not None:
@@ -144,15 +150,28 @@ def main():
     if carus_size < 0 or carus_size > 2**32:
         exit(f"NM-Carus size must be <2^32: {carus_size}")
 
-    # Bus configuration
-    xbar_nmasters = int(cfg["ext_xbar_masters"])
-    xbar_nslaves = carus_num
-    periph_nslaves = len(cfg["ext_periph"])
+    # oecgra size (HT)
+    cgra_size = int(cfg["ext_xbar_slaves"]["cgra"]["length"], 16)
+    if args.cgra_size is not None:
+        cgra_size = args.cgra_size
 
     # Slaves map
+
+    # carus
     carus_start_address = int(cfg["ext_xbar_slaves"]["carus"]["offset"], 16)
     carus_start_address_hex = int2hexstr(carus_start_address, 32)
     carus_size_hex = int2hexstr(carus_size, 32)
+
+    # cgra
+    cgra_start_address = int(cfg["ext_xbar_slaves"]["cgra"]["offset"], 16)
+    cgra_start_address_hex = int2hexstr(cgra_start_address, 32)
+    cgra_size_hex = int2hexstr(cgra_size, 32)
+
+    # cgra_periph
+    cgra_periph_start_address = int(cfg["ext_periph"]["cgra_periph"]["offset"], 16)
+    cgra_periph_start_address_hex = int2hexstr(cgra_periph_start_address, 32)
+    cgra_periph_size = int(cfg["ext_periph"]["cgra_periph"]["length"], 16)
+    cgra_periph_size_hex = int2hexstr(cgra_periph_size, 32)
 
     # Peripherals map
     fll_start_address = int(cfg["ext_periph"]["fll"]["offset"], 16)
@@ -193,6 +212,10 @@ def main():
         "carus_mem_name": "xilinx_mem_gen_carus",
         "carus_tile_size": carus_size // carus_num_banks // 4,
         "carus_vlen_max": carus_size // 32,
+        "cgra_start_address": cgra_start_address_hex,
+        "cgra_size": cgra_size_hex,
+        "cgra_periph_start_address": cgra_periph_start_address_hex,
+        "cgra_periph_size": cgra_periph_size_hex,
         "fll_start_address": fll_start_address_hex,
         "fll_size": fll_size_hex,
         "heepatia_ctrl_start_address": heepatia_ctrl_start_address_hex,

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
 // File: heepatia_bus.sv
-// Author: Michele Caon, Luigi Giuffrida
+// Author: Michele Caon, Luigi Giuffrida, Hossein Taji
 // Date: 29/04/2024
 // Description: External bus for heepatia
 
@@ -40,14 +40,12 @@ module heepatia_bus #(
   input  obi_pkg::obi_resp_t [CarusNumRnd-1:0] carus_resp_i,
 
   // CGRA slave ports
-  output obi_req_t  cgra_req_o,
-  input  obi_resp_t cgra_resp_i,
+  output obi_pkg::obi_req_t  cgra_req_o,
+  input  obi_pkg::obi_resp_t cgra_resp_i,
 
-  output reg_req_t cgra_periph_slave_req_o,
-  input  reg_rsp_t cgra_periph_slave_resp_i,
-
+//todo: below ones are not going through heep anymore, but how should br managed?
   // input  reg_req_t ext_peripheral_slave_req_i, //TODO: double check these two are defined are I have them wih different names? I think yes these are the same as heep_periph_req_i
-  // output reg_rsp_t ext_peripheral_slave_resp_o,
+  // output reg_rsp_t ext_peripheral_slave_resp_o, //todo: they are not connected in heepatia (but connected in HEEPocrates) 
 
 
   // X-HEEP peripheral master port
@@ -60,6 +58,10 @@ module heepatia_bus #(
 
   output reg_pkg::reg_req_t heepatia_ctrl_req_o,
   input  reg_pkg::reg_rsp_t heepatia_ctrl_resp_i
+
+  // CGRA peripheral
+  output reg_pkg::reg_req_t cgra_periph_slave_req_o,
+  input  reg_pkg::reg_rsp_t cgra_periph_slave_resp_i,
 );
   import heepatia_pkg::*;
   import obi_pkg::*;
@@ -79,14 +81,11 @@ module heepatia_bus #(
   reg_rsp_t  [ExtPeriphNSlave-1:0] ext_periph_rsp;
 
   // CGRA
-  //TODO: syntax is based on heepocrates which should be modified
+  //TODO: is it correct, also considering the carus?
    //slave req
-  assign cgra_req_o = ext_slave_req[heepocrates_pkg::CGRA_IDX];
+  assign cgra_req_o = ext_slave_req[heepatia_pkg::CGRAIdx];
   //slave resp
-  assign ext_slave_rsp[heepocrates_pkg::CGRA_IDX] = cgra_resp_i;
-
-  assign cgra_periph_slave_req_o = ext_periph_req[heepocrates_pkg::CGRA_PERIPH_IDX]; 
-  assign ext_periph_rsp[heepocrates_pkg::CGRA_PERIPH_IDX] = cgra_periph_slave_resp_i;
+  assign ext_slave_rsp[heepatia_pkg::CGRAIdx] = cgra_resp_i;
 
   // ----------
   // COMPONENTS
@@ -135,6 +134,9 @@ module heepatia_bus #(
   assign ext_periph_rsp[FLLIdx]            = fll_resp_i;
   assign heepatia_ctrl_req_o               = ext_periph_req[HeeperatorCtrlIdx];
   assign ext_periph_rsp[HeeperatorCtrlIdx] = heepatia_ctrl_resp_i;
+  // cgra periph
+  assign cgra_periph_slave_req_o = ext_periph_req[CGRAPeriphIdx]; 
+  assign ext_periph_rsp[CGRAPeriphIdx] = cgra_periph_slave_resp_i;
 
   // External peripherals bus
   periph_bus #(
