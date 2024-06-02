@@ -92,6 +92,12 @@ def main():
         help="Number of banks of every NM-Carus instances",
     )
     parser.add_argument(
+        "--cgra_size",
+        type=int,
+        metavar="CGRA_SIZE",
+        help="Size of OE-CGRA",
+    )
+    parser.add_argument(
         "--corev_pulp", nargs="?", type=bool, help="CORE-V PULP extension"
     )
     parser.add_argument(

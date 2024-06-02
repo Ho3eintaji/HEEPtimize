@@ -16,8 +16,7 @@ module program_counter
   import cgra_pkg::*;
 #(
   parameter CNT_N_BITS = 4
-)
-(
+) (
   input  logic                  clk_i,
   input  logic                  rst_ni,
   input  logic                  restart_i,
@@ -31,8 +30,7 @@ module program_counter
 
   assign pc_o = br_req_i == 1'b0 ? pc_cnt : br_add_i;
 
-  always_ff @(posedge clk_i, negedge rst_ni)
-  begin
+  always_ff @(posedge clk_i, negedge rst_ni) begin
     if (rst_ni == 1'b0) begin
       pc_cnt <= '0;
     end else begin
@@ -45,7 +43,7 @@ module program_counter
           pc_cnt <= br_add_i + 1;
         end
       end
-  	end
+    end
   end
 
 endmodule

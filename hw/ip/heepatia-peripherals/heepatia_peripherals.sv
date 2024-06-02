@@ -65,11 +65,11 @@ module heepatia_peripherals #(
   // INTERNAL SIGNALS
   // ----------------
   // System clock
-  logic                   system_clk;
+  logic system_clk;
 
   // Near-memory computing devices
   logic [CarusNumRnd-1:0] carus_imc;  // computing mode trigger for NM-Carus
-  logic [   CarusNum-1:0] carus_intr;  // interrupts from NM-Carus
+  logic [CarusNum-1:0] carus_intr;  // interrupts from NM-Carus
 
   // CGRA master ports
   obi_req_t [ExtXbarNmasterRnd-1:0] cgra_masters_req;
@@ -82,13 +82,13 @@ module heepatia_peripherals #(
   // --------------
   // OUTPUT CONTROL
   // --------------
-  assign system_clk_o                                        = system_clk;
+  assign system_clk_o = system_clk;
   assign ext_int_vector_o[core_v_mini_mcu_pkg::NEXT_INT-1:1] = '0;
   // NOTE: all Carus interrupts are aggregated into a single external interrupt
   // line. The associated interrupt handling routine must determine which
   // instance triggered the interrupt by reading the corresponding status
   // registers.
-  assign ext_int_vector_o[0]                                 = |carus_intr;
+  assign ext_int_vector_o[0] = |carus_intr;
   // NOTE: the CGRA interrupt is directly connected to the external interrupt
   assign ext_int_vector_o[1]    = cgra_int; //TODO: is it correct? (in HEEPocrates it is in another format)
 
@@ -142,28 +142,28 @@ module heepatia_peripherals #(
   // Control and status registers
   // ----------------------------
   heepatia_ctrl_reg u_heepatia_ctrl_reg (
-    .clk_i      (system_clk),
-    .rst_ni     (rst_ni),
-    .req_i      (heepatia_ctrl_req_i),
-    .rsp_o      (heepatia_ctrl_rsp_o),
-    .carus_imc_o(carus_imc),
-    .cgra_enable_o(cgra_enable),
+    .clk_i           (system_clk),
+    .rst_ni          (rst_ni),
+    .req_i           (heepatia_ctrl_req_i),
+    .rsp_o           (heepatia_ctrl_rsp_o),
+    .carus_imc_o     (carus_imc),
+    .cgra_enable_o   (cgra_enable),
     .cgra_mem_sw_fb_i(heepatia_ctrl_cgra_mem_sw_fb_i)
   );
 
   cgra_top_wrapper cgra_top_wrapper_i (
-      .clk_i(system_clk),
-      .rst_ni,
-      .cgra_enable_i(cgra_enable),
-      .rst_logic_ni(cgra_logic_rst_n),
-      .masters_req_o(cgra_masters_req),
-      .masters_resp_i(cgra_masters_resp),
-      .reg_req_i(cgra_periph_slave_req_i),
-      .reg_rsp_o(cgra_periph_slave_resp_o),
-      .slave_req_i(cgra_req_i),
-      .slave_resp_o(cgra_resp_o),
-      .cmem_set_retentive_i(cgra_ram_banks_set_retentive_i), //TODO: should be hardweird
-      .cgra_int_o(cgra_int)
+    .clk_i               (system_clk),
+    .rst_ni,
+    .cgra_enable_i       (cgra_enable),
+    .rst_logic_ni        (cgra_logic_rst_n),
+    .masters_req_o       (cgra_masters_req),
+    .masters_resp_i      (cgra_masters_resp),
+    .reg_req_i           (cgra_periph_slave_req_i),
+    .reg_rsp_o           (cgra_periph_slave_resp_o),
+    .slave_req_i         (cgra_req_i),
+    .slave_resp_o        (cgra_resp_o),
+    .cmem_set_retentive_i(cgra_ram_banks_set_retentive_i),  //TODO: should be hardweird
+    .cgra_int_o          (cgra_int)
   );
-  
+
 endmodule

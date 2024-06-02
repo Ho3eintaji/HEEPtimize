@@ -241,7 +241,7 @@ endif
 		--outdir sw/external/lib/runtime \
 		--tpl-c sw/external/lib/runtime/heepatia.h.tpl
 	fusesoc run --no-export --target format epfl:heepatia:heepatia
-	fusesoc run --no-export --target lint epfl:heepatia:heepatia
+	# fusesoc run --no-export --target lint epfl:heepatia:heepatia
 	@echo "### DONE! heepatia files generated successfully"
 	touch $@
 

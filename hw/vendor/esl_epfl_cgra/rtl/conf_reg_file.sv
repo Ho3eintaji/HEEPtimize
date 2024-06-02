@@ -31,15 +31,14 @@ module conf_reg_file
   assign clk_en = we_i && ce_i;
 
   cgra_clock_gate u_clk_gate (
-    .clk_i     ( clk_i  ),
-    .test_en_i ( 1'b0   ),
-    .en_i      ( clk_en ),
-    .clk_o     ( clk_cg )
+    .clk_i    (clk_i),
+    .test_en_i(1'b0),
+    .en_i     (clk_en),
+    .clk_o    (clk_cg)
   );
 
   // Read instruction output register
-  always_ff @(posedge clk_i)
-  begin
+  always_ff @(posedge clk_i) begin
     if (rst_i == 1'b1) begin
       conf_o <= 32'h00000000;
     end else if (re_i && ce_i) begin
@@ -48,8 +47,7 @@ module conf_reg_file
   end
 
   // Write instruction to register file
-  always_ff @(posedge clk_cg)
-  begin
+  always_ff @(posedge clk_cg) begin
     conf_mem[global_pc_i] <= instr_i;
   end
 

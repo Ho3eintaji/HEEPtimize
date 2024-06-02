@@ -46,20 +46,12 @@ package heepatia_pkg;
 % endfor
 
   //CGRA memory map and idx
-  // localparam logic [31:0] CGRA_START_ADDRESS = core_v_mini_mcu_pkg::EXT_SLAVE_START_ADDRESS + 32'h${cgra_start_address};
-  // localparam logic [31:0] CGRA_SIZE = 32'h${cgra_size_address};
-  // localparam logic [31:0] CGRA_END_ADDRESS = CGRA_START_ADDRESS + CGRA_SIZE;
-  // localparam logic [31:0] CGRA_IDX = 32'd0;
   localparam int unsigned CGRAIdx = 32'd0; //instead of CGRA_IDX
   localparam logic [31:0] CGRAStartAddr = EXT_SLAVE_START_ADDRESS + 32'h${cgra_start_address};
   localparam logic [31:0] CGRAEndAddr = CGRAStartAddr + 32'h${cgra_size};
 
 
   // Near-memory computing IPs address map
-
-  // localparam addr_map_rule_t [EXT_XBAR_NSLAVE-1:0] EXT_XBAR_ADDR_RULES = '{
-  //     '{idx: CGRA_IDX, start_addr: CGRA_START_ADDRESS, end_addr: CGRA_END_ADDRESS}
-  // };
   localparam addr_map_rule_t [ExtXbarNSlave-1:0] ExtSlaveAddrRules = '{
   % for inst in range(carus_num-1):
     '{idx: Carus${inst}Idx, start_addr: Carus${inst}StartAddr, end_addr: Carus${inst}EndAddr}
@@ -69,16 +61,7 @@ package heepatia_pkg;
   };
   localparam int unsigned ExtSlaveDefaultIdx = 32'd0;
 
-
-
   
-  localparam addr_map_rule_t [ExtXbarNSlave-1:0] ExtXbarAddrRules = '{  //todo: should be checked!!
-    '{idx: CGRAIdx, start_addr: CGRAStartAddr, end_addr: CGRAEndAddr}
-  };
-
-  
-
-
   // --------------------
   // EXTERNAL PERIPHERALS
   // --------------------
@@ -99,11 +82,6 @@ package heepatia_pkg;
   localparam logic [31:0] HeeperatorCtrlStartAddr = EXT_PERIPHERAL_START_ADDRESS + 32'h${heepatia_ctrl_start_address};
   localparam logic [31:0] HeeperatorCtrlEndAddr = HeeperatorCtrlStartAddr + 32'h${heepatia_ctrl_size};
 
-  
-  // localparam logic [31:0] CGRA_PERIPH_START_ADDRESS = core_v_mini_mcu_pkg::EXT_PERIPH_START_ADDRESS + 32'h${cgra_periph_start_address};
-  // localparam logic [31:0] CGRA_PERIPH_SIZE = 32'h${cgra_periph_size_address};
-  // localparam logic [31:0] CGRA_PERIPH_END_ADDRESS = CGRA_PERIPH_START_ADDRESS + CGRA_PERIPH_SIZE;
-  // localparam logic [31:0] CGRA_PERIPH_IDX = 32'd0;
   localparam int unsigned CGRAPeriphIdx = 32'd0; //instead of CGRA_PERIPH_IDX
   localparam logic [31:0] CGRAPeriphStartAddr = EXT_PERIPHERAL_START_ADDRESS + 32'h${cgra_periph_start_address}; //instead of CGRA_PERIPH_START_ADDRESS
   localparam logic [31:0] CGRAPeriphEndAddr = CGRAPeriphStartAddr + 32'h${cgra_periph_size}; //instead of CGRA_PERIPH_END_ADDRESS

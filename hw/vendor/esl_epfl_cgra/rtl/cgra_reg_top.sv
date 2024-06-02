@@ -8,154 +8,154 @@
 `include "common_cells/assertions.svh"
 
 module cgra_reg_top #(
-    parameter type reg_req_t = logic,
-    parameter type reg_rsp_t = logic,
-    parameter int AW = 7
+  parameter type reg_req_t = logic,
+  parameter type reg_rsp_t = logic,
+  parameter int AW = 7
 ) (
-  input clk_i,
-  input rst_ni,
-  input  reg_req_t reg_req_i,
-  output reg_rsp_t reg_rsp_o,
+  input                              clk_i,
+  input                              rst_ni,
+  input  reg_req_t                   reg_req_i,
+  output reg_rsp_t                   reg_rsp_o,
   // To HW
-  output cgra_reg_pkg::cgra_reg2hw_t reg2hw, // Write
-  input  cgra_reg_pkg::cgra_hw2reg_t hw2reg, // Read
+  output cgra_reg_pkg::cgra_reg2hw_t reg2hw,     // Write
+  input  cgra_reg_pkg::cgra_hw2reg_t hw2reg,     // Read
 
 
   // Config
-  input devmode_i // If 1, explicit error return for unmapped register access
+  input devmode_i  // If 1, explicit error return for unmapped register access
 );
 
-  import cgra_reg_pkg::* ;
+  import cgra_reg_pkg::*;
 
   localparam int DW = 32;
-  localparam int DBW = DW/8;                    // Byte Width
+  localparam int DBW = DW / 8;  // Byte Width
 
   // register signals
   logic           reg_we;
   logic           reg_re;
-  logic [AW-1:0]  reg_addr;
-  logic [DW-1:0]  reg_wdata;
+  logic [ AW-1:0] reg_addr;
+  logic [ DW-1:0] reg_wdata;
   logic [DBW-1:0] reg_be;
-  logic [DW-1:0]  reg_rdata;
+  logic [ DW-1:0] reg_rdata;
   logic           reg_error;
 
-  logic          addrmiss, wr_err;
+  logic addrmiss, wr_err;
 
-  logic [DW-1:0] reg_rdata_next;
+  logic     [DW-1:0] reg_rdata_next;
 
   // Below register interface can be changed
-  reg_req_t  reg_intf_req;
-  reg_rsp_t  reg_intf_rsp;
+  reg_req_t          reg_intf_req;
+  reg_rsp_t          reg_intf_rsp;
 
 
-  assign reg_intf_req = reg_req_i;
-  assign reg_rsp_o = reg_intf_rsp;
+  assign reg_intf_req       = reg_req_i;
+  assign reg_rsp_o          = reg_intf_rsp;
 
 
-  assign reg_we = reg_intf_req.valid & reg_intf_req.write;
-  assign reg_re = reg_intf_req.valid & ~reg_intf_req.write;
-  assign reg_addr = reg_intf_req.addr;
-  assign reg_wdata = reg_intf_req.wdata;
-  assign reg_be = reg_intf_req.wstrb;
+  assign reg_we             = reg_intf_req.valid & reg_intf_req.write;
+  assign reg_re             = reg_intf_req.valid & ~reg_intf_req.write;
+  assign reg_addr           = reg_intf_req.addr;
+  assign reg_wdata          = reg_intf_req.wdata;
+  assign reg_be             = reg_intf_req.wstrb;
   assign reg_intf_rsp.rdata = reg_rdata;
   assign reg_intf_rsp.error = reg_error;
   assign reg_intf_rsp.ready = 1'b1;
 
-  assign reg_rdata = reg_rdata_next ;
-  assign reg_error = (devmode_i & addrmiss) | wr_err;
+  assign reg_rdata          = reg_rdata_next;
+  assign reg_error          = (devmode_i & addrmiss) | wr_err;
 
 
   // Define SW related signals
   // Format: <reg>_<field>_{wd|we|qs}
   //        or <reg>_{wd|we|qs} if field == 1 or 0
-  logic [3:0] col_status_qs;
+  logic [ 3:0] col_status_qs;
   logic [31:0] slot0_ker_id_qs;
   logic [31:0] slot0_ker_id_wd;
-  logic slot0_ker_id_we;
+  logic        slot0_ker_id_we;
   logic [31:0] slot1_ker_id_qs;
   logic [31:0] slot1_ker_id_wd;
-  logic slot1_ker_id_we;
+  logic        slot1_ker_id_we;
   logic [31:0] slot0_ptr_in_c0_qs;
   logic [31:0] slot0_ptr_in_c0_wd;
-  logic slot0_ptr_in_c0_we;
+  logic        slot0_ptr_in_c0_we;
   logic [31:0] slot0_ptr_out_c0_qs;
   logic [31:0] slot0_ptr_out_c0_wd;
-  logic slot0_ptr_out_c0_we;
+  logic        slot0_ptr_out_c0_we;
   logic [31:0] slot0_ptr_in_c1_qs;
   logic [31:0] slot0_ptr_in_c1_wd;
-  logic slot0_ptr_in_c1_we;
+  logic        slot0_ptr_in_c1_we;
   logic [31:0] slot0_ptr_out_c1_qs;
   logic [31:0] slot0_ptr_out_c1_wd;
-  logic slot0_ptr_out_c1_we;
+  logic        slot0_ptr_out_c1_we;
   logic [31:0] slot0_ptr_in_c2_qs;
   logic [31:0] slot0_ptr_in_c2_wd;
-  logic slot0_ptr_in_c2_we;
+  logic        slot0_ptr_in_c2_we;
   logic [31:0] slot0_ptr_out_c2_qs;
   logic [31:0] slot0_ptr_out_c2_wd;
-  logic slot0_ptr_out_c2_we;
+  logic        slot0_ptr_out_c2_we;
   logic [31:0] slot0_ptr_in_c3_qs;
   logic [31:0] slot0_ptr_in_c3_wd;
-  logic slot0_ptr_in_c3_we;
+  logic        slot0_ptr_in_c3_we;
   logic [31:0] slot0_ptr_out_c3_qs;
   logic [31:0] slot0_ptr_out_c3_wd;
-  logic slot0_ptr_out_c3_we;
+  logic        slot0_ptr_out_c3_we;
   logic [31:0] slot1_ptr_in_c0_qs;
   logic [31:0] slot1_ptr_in_c0_wd;
-  logic slot1_ptr_in_c0_we;
+  logic        slot1_ptr_in_c0_we;
   logic [31:0] slot1_ptr_out_c0_qs;
   logic [31:0] slot1_ptr_out_c0_wd;
-  logic slot1_ptr_out_c0_we;
+  logic        slot1_ptr_out_c0_we;
   logic [31:0] slot1_ptr_in_c1_qs;
   logic [31:0] slot1_ptr_in_c1_wd;
-  logic slot1_ptr_in_c1_we;
+  logic        slot1_ptr_in_c1_we;
   logic [31:0] slot1_ptr_out_c1_qs;
   logic [31:0] slot1_ptr_out_c1_wd;
-  logic slot1_ptr_out_c1_we;
+  logic        slot1_ptr_out_c1_we;
   logic [31:0] slot1_ptr_in_c2_qs;
   logic [31:0] slot1_ptr_in_c2_wd;
-  logic slot1_ptr_in_c2_we;
+  logic        slot1_ptr_in_c2_we;
   logic [31:0] slot1_ptr_out_c2_qs;
   logic [31:0] slot1_ptr_out_c2_wd;
-  logic slot1_ptr_out_c2_we;
+  logic        slot1_ptr_out_c2_we;
   logic [31:0] slot1_ptr_in_c3_qs;
   logic [31:0] slot1_ptr_in_c3_wd;
-  logic slot1_ptr_in_c3_we;
+  logic        slot1_ptr_in_c3_we;
   logic [31:0] slot1_ptr_out_c3_qs;
   logic [31:0] slot1_ptr_out_c3_wd;
-  logic slot1_ptr_out_c3_we;
+  logic        slot1_ptr_out_c3_we;
   logic [31:0] perf_cnt_enable_qs;
   logic [31:0] perf_cnt_enable_wd;
-  logic perf_cnt_enable_we;
+  logic        perf_cnt_enable_we;
   logic [31:0] perf_cnt_reset_qs;
   logic [31:0] perf_cnt_reset_wd;
-  logic perf_cnt_reset_we;
+  logic        perf_cnt_reset_we;
   logic [31:0] perf_cnt_total_kernels_qs;
   logic [31:0] perf_cnt_total_kernels_wd;
-  logic perf_cnt_total_kernels_we;
+  logic        perf_cnt_total_kernels_we;
   logic [31:0] perf_cnt_c0_active_cycles_qs;
   logic [31:0] perf_cnt_c0_active_cycles_wd;
-  logic perf_cnt_c0_active_cycles_we;
+  logic        perf_cnt_c0_active_cycles_we;
   logic [31:0] perf_cnt_c0_stall_cycles_qs;
   logic [31:0] perf_cnt_c0_stall_cycles_wd;
-  logic perf_cnt_c0_stall_cycles_we;
+  logic        perf_cnt_c0_stall_cycles_we;
   logic [31:0] perf_cnt_c1_active_cycles_qs;
   logic [31:0] perf_cnt_c1_active_cycles_wd;
-  logic perf_cnt_c1_active_cycles_we;
+  logic        perf_cnt_c1_active_cycles_we;
   logic [31:0] perf_cnt_c1_stall_cycles_qs;
   logic [31:0] perf_cnt_c1_stall_cycles_wd;
-  logic perf_cnt_c1_stall_cycles_we;
+  logic        perf_cnt_c1_stall_cycles_we;
   logic [31:0] perf_cnt_c2_active_cycles_qs;
   logic [31:0] perf_cnt_c2_active_cycles_wd;
-  logic perf_cnt_c2_active_cycles_we;
+  logic        perf_cnt_c2_active_cycles_we;
   logic [31:0] perf_cnt_c2_stall_cycles_qs;
   logic [31:0] perf_cnt_c2_stall_cycles_wd;
-  logic perf_cnt_c2_stall_cycles_we;
+  logic        perf_cnt_c2_stall_cycles_we;
   logic [31:0] perf_cnt_c3_active_cycles_qs;
   logic [31:0] perf_cnt_c3_active_cycles_wd;
-  logic perf_cnt_c3_active_cycles_we;
+  logic        perf_cnt_c3_active_cycles_we;
   logic [31:0] perf_cnt_c3_stall_cycles_qs;
   logic [31:0] perf_cnt_c3_stall_cycles_wd;
-  logic perf_cnt_c3_stall_cycles_we;
+  logic        perf_cnt_c3_stall_cycles_we;
   logic [31:0] reserved30_qs;
   logic [31:0] reserved31_qs;
 
@@ -167,22 +167,22 @@ module cgra_reg_top #(
     .SWACCESS("RO"),
     .RESVAL  (4'h0)
   ) u_col_status (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
-    .we     (1'b0),
-    .wd     ('0  ),
+    .we(1'b0),
+    .wd('0),
 
     // from internal hardware
-    .de     (hw2reg.col_status.de),
-    .d      (hw2reg.col_status.d ),
+    .de(hw2reg.col_status.de),
+    .d (hw2reg.col_status.d),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.col_status.q ),
+    .qe(),
+    .q (reg2hw.col_status.q),
 
     // to register interface (read)
-    .qs     (col_status_qs)
+    .qs(col_status_qs)
   );
 
 
@@ -193,23 +193,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_slot0_ker_id (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (slot0_ker_id_we),
-    .wd     (slot0_ker_id_wd),
+    .we(slot0_ker_id_we),
+    .wd(slot0_ker_id_wd),
 
     // from internal hardware
-    .de     (hw2reg.slot0_ker_id.de),
-    .d      (hw2reg.slot0_ker_id.d ),
+    .de(hw2reg.slot0_ker_id.de),
+    .d (hw2reg.slot0_ker_id.d),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.slot0_ker_id.q ),
+    .qe(),
+    .q (reg2hw.slot0_ker_id.q),
 
     // to register interface (read)
-    .qs     (slot0_ker_id_qs)
+    .qs(slot0_ker_id_qs)
   );
 
 
@@ -220,23 +220,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_slot1_ker_id (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (slot1_ker_id_we),
-    .wd     (slot1_ker_id_wd),
+    .we(slot1_ker_id_we),
+    .wd(slot1_ker_id_wd),
 
     // from internal hardware
-    .de     (hw2reg.slot1_ker_id.de),
-    .d      (hw2reg.slot1_ker_id.d ),
+    .de(hw2reg.slot1_ker_id.de),
+    .d (hw2reg.slot1_ker_id.d),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.slot1_ker_id.q ),
+    .qe(),
+    .q (reg2hw.slot1_ker_id.q),
 
     // to register interface (read)
-    .qs     (slot1_ker_id_qs)
+    .qs(slot1_ker_id_qs)
   );
 
 
@@ -247,23 +247,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_slot0_ptr_in_c0 (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (slot0_ptr_in_c0_we),
-    .wd     (slot0_ptr_in_c0_wd),
+    .we(slot0_ptr_in_c0_we),
+    .wd(slot0_ptr_in_c0_wd),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de(1'b0),
+    .d ('0),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.slot0_ptr_in_c0.q ),
+    .qe(),
+    .q (reg2hw.slot0_ptr_in_c0.q),
 
     // to register interface (read)
-    .qs     (slot0_ptr_in_c0_qs)
+    .qs(slot0_ptr_in_c0_qs)
   );
 
 
@@ -274,23 +274,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_slot0_ptr_out_c0 (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (slot0_ptr_out_c0_we),
-    .wd     (slot0_ptr_out_c0_wd),
+    .we(slot0_ptr_out_c0_we),
+    .wd(slot0_ptr_out_c0_wd),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de(1'b0),
+    .d ('0),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.slot0_ptr_out_c0.q ),
+    .qe(),
+    .q (reg2hw.slot0_ptr_out_c0.q),
 
     // to register interface (read)
-    .qs     (slot0_ptr_out_c0_qs)
+    .qs(slot0_ptr_out_c0_qs)
   );
 
 
@@ -301,23 +301,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_slot0_ptr_in_c1 (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (slot0_ptr_in_c1_we),
-    .wd     (slot0_ptr_in_c1_wd),
+    .we(slot0_ptr_in_c1_we),
+    .wd(slot0_ptr_in_c1_wd),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de(1'b0),
+    .d ('0),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.slot0_ptr_in_c1.q ),
+    .qe(),
+    .q (reg2hw.slot0_ptr_in_c1.q),
 
     // to register interface (read)
-    .qs     (slot0_ptr_in_c1_qs)
+    .qs(slot0_ptr_in_c1_qs)
   );
 
 
@@ -328,23 +328,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_slot0_ptr_out_c1 (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (slot0_ptr_out_c1_we),
-    .wd     (slot0_ptr_out_c1_wd),
+    .we(slot0_ptr_out_c1_we),
+    .wd(slot0_ptr_out_c1_wd),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de(1'b0),
+    .d ('0),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.slot0_ptr_out_c1.q ),
+    .qe(),
+    .q (reg2hw.slot0_ptr_out_c1.q),
 
     // to register interface (read)
-    .qs     (slot0_ptr_out_c1_qs)
+    .qs(slot0_ptr_out_c1_qs)
   );
 
 
@@ -355,23 +355,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_slot0_ptr_in_c2 (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (slot0_ptr_in_c2_we),
-    .wd     (slot0_ptr_in_c2_wd),
+    .we(slot0_ptr_in_c2_we),
+    .wd(slot0_ptr_in_c2_wd),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de(1'b0),
+    .d ('0),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.slot0_ptr_in_c2.q ),
+    .qe(),
+    .q (reg2hw.slot0_ptr_in_c2.q),
 
     // to register interface (read)
-    .qs     (slot0_ptr_in_c2_qs)
+    .qs(slot0_ptr_in_c2_qs)
   );
 
 
@@ -382,23 +382,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_slot0_ptr_out_c2 (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (slot0_ptr_out_c2_we),
-    .wd     (slot0_ptr_out_c2_wd),
+    .we(slot0_ptr_out_c2_we),
+    .wd(slot0_ptr_out_c2_wd),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de(1'b0),
+    .d ('0),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.slot0_ptr_out_c2.q ),
+    .qe(),
+    .q (reg2hw.slot0_ptr_out_c2.q),
 
     // to register interface (read)
-    .qs     (slot0_ptr_out_c2_qs)
+    .qs(slot0_ptr_out_c2_qs)
   );
 
 
@@ -409,23 +409,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_slot0_ptr_in_c3 (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (slot0_ptr_in_c3_we),
-    .wd     (slot0_ptr_in_c3_wd),
+    .we(slot0_ptr_in_c3_we),
+    .wd(slot0_ptr_in_c3_wd),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de(1'b0),
+    .d ('0),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.slot0_ptr_in_c3.q ),
+    .qe(),
+    .q (reg2hw.slot0_ptr_in_c3.q),
 
     // to register interface (read)
-    .qs     (slot0_ptr_in_c3_qs)
+    .qs(slot0_ptr_in_c3_qs)
   );
 
 
@@ -436,23 +436,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_slot0_ptr_out_c3 (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (slot0_ptr_out_c3_we),
-    .wd     (slot0_ptr_out_c3_wd),
+    .we(slot0_ptr_out_c3_we),
+    .wd(slot0_ptr_out_c3_wd),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de(1'b0),
+    .d ('0),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.slot0_ptr_out_c3.q ),
+    .qe(),
+    .q (reg2hw.slot0_ptr_out_c3.q),
 
     // to register interface (read)
-    .qs     (slot0_ptr_out_c3_qs)
+    .qs(slot0_ptr_out_c3_qs)
   );
 
 
@@ -463,23 +463,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_slot1_ptr_in_c0 (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (slot1_ptr_in_c0_we),
-    .wd     (slot1_ptr_in_c0_wd),
+    .we(slot1_ptr_in_c0_we),
+    .wd(slot1_ptr_in_c0_wd),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de(1'b0),
+    .d ('0),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.slot1_ptr_in_c0.q ),
+    .qe(),
+    .q (reg2hw.slot1_ptr_in_c0.q),
 
     // to register interface (read)
-    .qs     (slot1_ptr_in_c0_qs)
+    .qs(slot1_ptr_in_c0_qs)
   );
 
 
@@ -490,23 +490,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_slot1_ptr_out_c0 (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (slot1_ptr_out_c0_we),
-    .wd     (slot1_ptr_out_c0_wd),
+    .we(slot1_ptr_out_c0_we),
+    .wd(slot1_ptr_out_c0_wd),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de(1'b0),
+    .d ('0),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.slot1_ptr_out_c0.q ),
+    .qe(),
+    .q (reg2hw.slot1_ptr_out_c0.q),
 
     // to register interface (read)
-    .qs     (slot1_ptr_out_c0_qs)
+    .qs(slot1_ptr_out_c0_qs)
   );
 
 
@@ -517,23 +517,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_slot1_ptr_in_c1 (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (slot1_ptr_in_c1_we),
-    .wd     (slot1_ptr_in_c1_wd),
+    .we(slot1_ptr_in_c1_we),
+    .wd(slot1_ptr_in_c1_wd),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de(1'b0),
+    .d ('0),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.slot1_ptr_in_c1.q ),
+    .qe(),
+    .q (reg2hw.slot1_ptr_in_c1.q),
 
     // to register interface (read)
-    .qs     (slot1_ptr_in_c1_qs)
+    .qs(slot1_ptr_in_c1_qs)
   );
 
 
@@ -544,23 +544,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_slot1_ptr_out_c1 (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (slot1_ptr_out_c1_we),
-    .wd     (slot1_ptr_out_c1_wd),
+    .we(slot1_ptr_out_c1_we),
+    .wd(slot1_ptr_out_c1_wd),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de(1'b0),
+    .d ('0),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.slot1_ptr_out_c1.q ),
+    .qe(),
+    .q (reg2hw.slot1_ptr_out_c1.q),
 
     // to register interface (read)
-    .qs     (slot1_ptr_out_c1_qs)
+    .qs(slot1_ptr_out_c1_qs)
   );
 
 
@@ -571,23 +571,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_slot1_ptr_in_c2 (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (slot1_ptr_in_c2_we),
-    .wd     (slot1_ptr_in_c2_wd),
+    .we(slot1_ptr_in_c2_we),
+    .wd(slot1_ptr_in_c2_wd),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de(1'b0),
+    .d ('0),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.slot1_ptr_in_c2.q ),
+    .qe(),
+    .q (reg2hw.slot1_ptr_in_c2.q),
 
     // to register interface (read)
-    .qs     (slot1_ptr_in_c2_qs)
+    .qs(slot1_ptr_in_c2_qs)
   );
 
 
@@ -598,23 +598,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_slot1_ptr_out_c2 (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (slot1_ptr_out_c2_we),
-    .wd     (slot1_ptr_out_c2_wd),
+    .we(slot1_ptr_out_c2_we),
+    .wd(slot1_ptr_out_c2_wd),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de(1'b0),
+    .d ('0),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.slot1_ptr_out_c2.q ),
+    .qe(),
+    .q (reg2hw.slot1_ptr_out_c2.q),
 
     // to register interface (read)
-    .qs     (slot1_ptr_out_c2_qs)
+    .qs(slot1_ptr_out_c2_qs)
   );
 
 
@@ -625,23 +625,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_slot1_ptr_in_c3 (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (slot1_ptr_in_c3_we),
-    .wd     (slot1_ptr_in_c3_wd),
+    .we(slot1_ptr_in_c3_we),
+    .wd(slot1_ptr_in_c3_wd),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de(1'b0),
+    .d ('0),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.slot1_ptr_in_c3.q ),
+    .qe(),
+    .q (reg2hw.slot1_ptr_in_c3.q),
 
     // to register interface (read)
-    .qs     (slot1_ptr_in_c3_qs)
+    .qs(slot1_ptr_in_c3_qs)
   );
 
 
@@ -652,23 +652,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_slot1_ptr_out_c3 (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (slot1_ptr_out_c3_we),
-    .wd     (slot1_ptr_out_c3_wd),
+    .we(slot1_ptr_out_c3_we),
+    .wd(slot1_ptr_out_c3_wd),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de(1'b0),
+    .d ('0),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.slot1_ptr_out_c3.q ),
+    .qe(),
+    .q (reg2hw.slot1_ptr_out_c3.q),
 
     // to register interface (read)
-    .qs     (slot1_ptr_out_c3_qs)
+    .qs(slot1_ptr_out_c3_qs)
   );
 
 
@@ -679,23 +679,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_perf_cnt_enable (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (perf_cnt_enable_we),
-    .wd     (perf_cnt_enable_wd),
+    .we(perf_cnt_enable_we),
+    .wd(perf_cnt_enable_wd),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de(1'b0),
+    .d ('0),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.perf_cnt_enable.q ),
+    .qe(),
+    .q (reg2hw.perf_cnt_enable.q),
 
     // to register interface (read)
-    .qs     (perf_cnt_enable_qs)
+    .qs(perf_cnt_enable_qs)
   );
 
 
@@ -706,23 +706,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_perf_cnt_reset (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (perf_cnt_reset_we),
-    .wd     (perf_cnt_reset_wd),
+    .we(perf_cnt_reset_we),
+    .wd(perf_cnt_reset_wd),
 
     // from internal hardware
-    .de     (hw2reg.perf_cnt_reset.de),
-    .d      (hw2reg.perf_cnt_reset.d ),
+    .de(hw2reg.perf_cnt_reset.de),
+    .d (hw2reg.perf_cnt_reset.d),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.perf_cnt_reset.q ),
+    .qe(),
+    .q (reg2hw.perf_cnt_reset.q),
 
     // to register interface (read)
-    .qs     (perf_cnt_reset_qs)
+    .qs(perf_cnt_reset_qs)
   );
 
 
@@ -733,23 +733,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_perf_cnt_total_kernels (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (perf_cnt_total_kernels_we),
-    .wd     (perf_cnt_total_kernels_wd),
+    .we(perf_cnt_total_kernels_we),
+    .wd(perf_cnt_total_kernels_wd),
 
     // from internal hardware
-    .de     (hw2reg.perf_cnt_total_kernels.de),
-    .d      (hw2reg.perf_cnt_total_kernels.d ),
+    .de(hw2reg.perf_cnt_total_kernels.de),
+    .d (hw2reg.perf_cnt_total_kernels.d),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.perf_cnt_total_kernels.q ),
+    .qe(),
+    .q (reg2hw.perf_cnt_total_kernels.q),
 
     // to register interface (read)
-    .qs     (perf_cnt_total_kernels_qs)
+    .qs(perf_cnt_total_kernels_qs)
   );
 
 
@@ -760,23 +760,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_perf_cnt_c0_active_cycles (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (perf_cnt_c0_active_cycles_we),
-    .wd     (perf_cnt_c0_active_cycles_wd),
+    .we(perf_cnt_c0_active_cycles_we),
+    .wd(perf_cnt_c0_active_cycles_wd),
 
     // from internal hardware
-    .de     (hw2reg.perf_cnt_c0_active_cycles.de),
-    .d      (hw2reg.perf_cnt_c0_active_cycles.d ),
+    .de(hw2reg.perf_cnt_c0_active_cycles.de),
+    .d (hw2reg.perf_cnt_c0_active_cycles.d),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.perf_cnt_c0_active_cycles.q ),
+    .qe(),
+    .q (reg2hw.perf_cnt_c0_active_cycles.q),
 
     // to register interface (read)
-    .qs     (perf_cnt_c0_active_cycles_qs)
+    .qs(perf_cnt_c0_active_cycles_qs)
   );
 
 
@@ -787,23 +787,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_perf_cnt_c0_stall_cycles (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (perf_cnt_c0_stall_cycles_we),
-    .wd     (perf_cnt_c0_stall_cycles_wd),
+    .we(perf_cnt_c0_stall_cycles_we),
+    .wd(perf_cnt_c0_stall_cycles_wd),
 
     // from internal hardware
-    .de     (hw2reg.perf_cnt_c0_stall_cycles.de),
-    .d      (hw2reg.perf_cnt_c0_stall_cycles.d ),
+    .de(hw2reg.perf_cnt_c0_stall_cycles.de),
+    .d (hw2reg.perf_cnt_c0_stall_cycles.d),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.perf_cnt_c0_stall_cycles.q ),
+    .qe(),
+    .q (reg2hw.perf_cnt_c0_stall_cycles.q),
 
     // to register interface (read)
-    .qs     (perf_cnt_c0_stall_cycles_qs)
+    .qs(perf_cnt_c0_stall_cycles_qs)
   );
 
 
@@ -814,23 +814,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_perf_cnt_c1_active_cycles (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (perf_cnt_c1_active_cycles_we),
-    .wd     (perf_cnt_c1_active_cycles_wd),
+    .we(perf_cnt_c1_active_cycles_we),
+    .wd(perf_cnt_c1_active_cycles_wd),
 
     // from internal hardware
-    .de     (hw2reg.perf_cnt_c1_active_cycles.de),
-    .d      (hw2reg.perf_cnt_c1_active_cycles.d ),
+    .de(hw2reg.perf_cnt_c1_active_cycles.de),
+    .d (hw2reg.perf_cnt_c1_active_cycles.d),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.perf_cnt_c1_active_cycles.q ),
+    .qe(),
+    .q (reg2hw.perf_cnt_c1_active_cycles.q),
 
     // to register interface (read)
-    .qs     (perf_cnt_c1_active_cycles_qs)
+    .qs(perf_cnt_c1_active_cycles_qs)
   );
 
 
@@ -841,23 +841,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_perf_cnt_c1_stall_cycles (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (perf_cnt_c1_stall_cycles_we),
-    .wd     (perf_cnt_c1_stall_cycles_wd),
+    .we(perf_cnt_c1_stall_cycles_we),
+    .wd(perf_cnt_c1_stall_cycles_wd),
 
     // from internal hardware
-    .de     (hw2reg.perf_cnt_c1_stall_cycles.de),
-    .d      (hw2reg.perf_cnt_c1_stall_cycles.d ),
+    .de(hw2reg.perf_cnt_c1_stall_cycles.de),
+    .d (hw2reg.perf_cnt_c1_stall_cycles.d),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.perf_cnt_c1_stall_cycles.q ),
+    .qe(),
+    .q (reg2hw.perf_cnt_c1_stall_cycles.q),
 
     // to register interface (read)
-    .qs     (perf_cnt_c1_stall_cycles_qs)
+    .qs(perf_cnt_c1_stall_cycles_qs)
   );
 
 
@@ -868,23 +868,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_perf_cnt_c2_active_cycles (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (perf_cnt_c2_active_cycles_we),
-    .wd     (perf_cnt_c2_active_cycles_wd),
+    .we(perf_cnt_c2_active_cycles_we),
+    .wd(perf_cnt_c2_active_cycles_wd),
 
     // from internal hardware
-    .de     (hw2reg.perf_cnt_c2_active_cycles.de),
-    .d      (hw2reg.perf_cnt_c2_active_cycles.d ),
+    .de(hw2reg.perf_cnt_c2_active_cycles.de),
+    .d (hw2reg.perf_cnt_c2_active_cycles.d),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.perf_cnt_c2_active_cycles.q ),
+    .qe(),
+    .q (reg2hw.perf_cnt_c2_active_cycles.q),
 
     // to register interface (read)
-    .qs     (perf_cnt_c2_active_cycles_qs)
+    .qs(perf_cnt_c2_active_cycles_qs)
   );
 
 
@@ -895,23 +895,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_perf_cnt_c2_stall_cycles (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (perf_cnt_c2_stall_cycles_we),
-    .wd     (perf_cnt_c2_stall_cycles_wd),
+    .we(perf_cnt_c2_stall_cycles_we),
+    .wd(perf_cnt_c2_stall_cycles_wd),
 
     // from internal hardware
-    .de     (hw2reg.perf_cnt_c2_stall_cycles.de),
-    .d      (hw2reg.perf_cnt_c2_stall_cycles.d ),
+    .de(hw2reg.perf_cnt_c2_stall_cycles.de),
+    .d (hw2reg.perf_cnt_c2_stall_cycles.d),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.perf_cnt_c2_stall_cycles.q ),
+    .qe(),
+    .q (reg2hw.perf_cnt_c2_stall_cycles.q),
 
     // to register interface (read)
-    .qs     (perf_cnt_c2_stall_cycles_qs)
+    .qs(perf_cnt_c2_stall_cycles_qs)
   );
 
 
@@ -922,23 +922,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_perf_cnt_c3_active_cycles (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (perf_cnt_c3_active_cycles_we),
-    .wd     (perf_cnt_c3_active_cycles_wd),
+    .we(perf_cnt_c3_active_cycles_we),
+    .wd(perf_cnt_c3_active_cycles_wd),
 
     // from internal hardware
-    .de     (hw2reg.perf_cnt_c3_active_cycles.de),
-    .d      (hw2reg.perf_cnt_c3_active_cycles.d ),
+    .de(hw2reg.perf_cnt_c3_active_cycles.de),
+    .d (hw2reg.perf_cnt_c3_active_cycles.d),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.perf_cnt_c3_active_cycles.q ),
+    .qe(),
+    .q (reg2hw.perf_cnt_c3_active_cycles.q),
 
     // to register interface (read)
-    .qs     (perf_cnt_c3_active_cycles_qs)
+    .qs(perf_cnt_c3_active_cycles_qs)
   );
 
 
@@ -949,23 +949,23 @@ module cgra_reg_top #(
     .SWACCESS("RW"),
     .RESVAL  (32'h0)
   ) u_perf_cnt_c3_stall_cycles (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
     // from register interface
-    .we     (perf_cnt_c3_stall_cycles_we),
-    .wd     (perf_cnt_c3_stall_cycles_wd),
+    .we(perf_cnt_c3_stall_cycles_we),
+    .wd(perf_cnt_c3_stall_cycles_wd),
 
     // from internal hardware
-    .de     (hw2reg.perf_cnt_c3_stall_cycles.de),
-    .d      (hw2reg.perf_cnt_c3_stall_cycles.d ),
+    .de(hw2reg.perf_cnt_c3_stall_cycles.de),
+    .d (hw2reg.perf_cnt_c3_stall_cycles.d),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.perf_cnt_c3_stall_cycles.q ),
+    .qe(),
+    .q (reg2hw.perf_cnt_c3_stall_cycles.q),
 
     // to register interface (read)
-    .qs     (perf_cnt_c3_stall_cycles_qs)
+    .qs(perf_cnt_c3_stall_cycles_qs)
   );
 
 
@@ -976,22 +976,22 @@ module cgra_reg_top #(
     .SWACCESS("RO"),
     .RESVAL  (32'h0)
   ) u_reserved30 (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
-    .we     (1'b0),
-    .wd     ('0  ),
+    .we(1'b0),
+    .wd('0),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de(1'b0),
+    .d ('0),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.reserved30.q ),
+    .qe(),
+    .q (reg2hw.reserved30.q),
 
     // to register interface (read)
-    .qs     (reserved30_qs)
+    .qs(reserved30_qs)
   );
 
 
@@ -1002,22 +1002,22 @@ module cgra_reg_top #(
     .SWACCESS("RO"),
     .RESVAL  (32'h0)
   ) u_reserved31 (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    .clk_i (clk_i),
+    .rst_ni(rst_ni),
 
-    .we     (1'b0),
-    .wd     ('0  ),
+    .we(1'b0),
+    .wd('0),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de(1'b0),
+    .d ('0),
 
     // to internal hardware
-    .qe     (),
-    .q      (reg2hw.reserved31.q ),
+    .qe(),
+    .q (reg2hw.reserved31.q),
 
     // to register interface (read)
-    .qs     (reserved31_qs)
+    .qs(reserved31_qs)
   );
 
 
@@ -1025,17 +1025,17 @@ module cgra_reg_top #(
 
   logic [31:0] addr_hit;
   always_comb begin
-    addr_hit = '0;
-    addr_hit[ 0] = (reg_addr == CGRA_COL_STATUS_OFFSET);
-    addr_hit[ 1] = (reg_addr == CGRA_SLOT0_KER_ID_OFFSET);
-    addr_hit[ 2] = (reg_addr == CGRA_SLOT1_KER_ID_OFFSET);
-    addr_hit[ 3] = (reg_addr == CGRA_SLOT0_PTR_IN_C0_OFFSET);
-    addr_hit[ 4] = (reg_addr == CGRA_SLOT0_PTR_OUT_C0_OFFSET);
-    addr_hit[ 5] = (reg_addr == CGRA_SLOT0_PTR_IN_C1_OFFSET);
-    addr_hit[ 6] = (reg_addr == CGRA_SLOT0_PTR_OUT_C1_OFFSET);
-    addr_hit[ 7] = (reg_addr == CGRA_SLOT0_PTR_IN_C2_OFFSET);
-    addr_hit[ 8] = (reg_addr == CGRA_SLOT0_PTR_OUT_C2_OFFSET);
-    addr_hit[ 9] = (reg_addr == CGRA_SLOT0_PTR_IN_C3_OFFSET);
+    addr_hit     = '0;
+    addr_hit[0]  = (reg_addr == CGRA_COL_STATUS_OFFSET);
+    addr_hit[1]  = (reg_addr == CGRA_SLOT0_KER_ID_OFFSET);
+    addr_hit[2]  = (reg_addr == CGRA_SLOT1_KER_ID_OFFSET);
+    addr_hit[3]  = (reg_addr == CGRA_SLOT0_PTR_IN_C0_OFFSET);
+    addr_hit[4]  = (reg_addr == CGRA_SLOT0_PTR_OUT_C0_OFFSET);
+    addr_hit[5]  = (reg_addr == CGRA_SLOT0_PTR_IN_C1_OFFSET);
+    addr_hit[6]  = (reg_addr == CGRA_SLOT0_PTR_OUT_C1_OFFSET);
+    addr_hit[7]  = (reg_addr == CGRA_SLOT0_PTR_IN_C2_OFFSET);
+    addr_hit[8]  = (reg_addr == CGRA_SLOT0_PTR_OUT_C2_OFFSET);
+    addr_hit[9]  = (reg_addr == CGRA_SLOT0_PTR_IN_C3_OFFSET);
     addr_hit[10] = (reg_addr == CGRA_SLOT0_PTR_OUT_C3_OFFSET);
     addr_hit[11] = (reg_addr == CGRA_SLOT1_PTR_IN_C0_OFFSET);
     addr_hit[12] = (reg_addr == CGRA_SLOT1_PTR_OUT_C0_OFFSET);
@@ -1060,7 +1060,7 @@ module cgra_reg_top #(
     addr_hit[31] = (reg_addr == CGRA_RESERVED31_OFFSET);
   end
 
-  assign addrmiss = (reg_re || reg_we) ? ~|addr_hit : 1'b0 ;
+  assign addrmiss = (reg_re || reg_we) ? ~|addr_hit : 1'b0;
 
   // Check sub-word write is permitted
   always_comb begin
@@ -1099,92 +1099,92 @@ module cgra_reg_top #(
                (addr_hit[31] & (|(CGRA_PERMIT[31] & ~reg_be)))));
   end
 
-  assign slot0_ker_id_we = addr_hit[1] & reg_we & !reg_error;
-  assign slot0_ker_id_wd = reg_wdata[31:0];
+  assign slot0_ker_id_we              = addr_hit[1] & reg_we & !reg_error;
+  assign slot0_ker_id_wd              = reg_wdata[31:0];
 
-  assign slot1_ker_id_we = addr_hit[2] & reg_we & !reg_error;
-  assign slot1_ker_id_wd = reg_wdata[31:0];
+  assign slot1_ker_id_we              = addr_hit[2] & reg_we & !reg_error;
+  assign slot1_ker_id_wd              = reg_wdata[31:0];
 
-  assign slot0_ptr_in_c0_we = addr_hit[3] & reg_we & !reg_error;
-  assign slot0_ptr_in_c0_wd = reg_wdata[31:0];
+  assign slot0_ptr_in_c0_we           = addr_hit[3] & reg_we & !reg_error;
+  assign slot0_ptr_in_c0_wd           = reg_wdata[31:0];
 
-  assign slot0_ptr_out_c0_we = addr_hit[4] & reg_we & !reg_error;
-  assign slot0_ptr_out_c0_wd = reg_wdata[31:0];
+  assign slot0_ptr_out_c0_we          = addr_hit[4] & reg_we & !reg_error;
+  assign slot0_ptr_out_c0_wd          = reg_wdata[31:0];
 
-  assign slot0_ptr_in_c1_we = addr_hit[5] & reg_we & !reg_error;
-  assign slot0_ptr_in_c1_wd = reg_wdata[31:0];
+  assign slot0_ptr_in_c1_we           = addr_hit[5] & reg_we & !reg_error;
+  assign slot0_ptr_in_c1_wd           = reg_wdata[31:0];
 
-  assign slot0_ptr_out_c1_we = addr_hit[6] & reg_we & !reg_error;
-  assign slot0_ptr_out_c1_wd = reg_wdata[31:0];
+  assign slot0_ptr_out_c1_we          = addr_hit[6] & reg_we & !reg_error;
+  assign slot0_ptr_out_c1_wd          = reg_wdata[31:0];
 
-  assign slot0_ptr_in_c2_we = addr_hit[7] & reg_we & !reg_error;
-  assign slot0_ptr_in_c2_wd = reg_wdata[31:0];
+  assign slot0_ptr_in_c2_we           = addr_hit[7] & reg_we & !reg_error;
+  assign slot0_ptr_in_c2_wd           = reg_wdata[31:0];
 
-  assign slot0_ptr_out_c2_we = addr_hit[8] & reg_we & !reg_error;
-  assign slot0_ptr_out_c2_wd = reg_wdata[31:0];
+  assign slot0_ptr_out_c2_we          = addr_hit[8] & reg_we & !reg_error;
+  assign slot0_ptr_out_c2_wd          = reg_wdata[31:0];
 
-  assign slot0_ptr_in_c3_we = addr_hit[9] & reg_we & !reg_error;
-  assign slot0_ptr_in_c3_wd = reg_wdata[31:0];
+  assign slot0_ptr_in_c3_we           = addr_hit[9] & reg_we & !reg_error;
+  assign slot0_ptr_in_c3_wd           = reg_wdata[31:0];
 
-  assign slot0_ptr_out_c3_we = addr_hit[10] & reg_we & !reg_error;
-  assign slot0_ptr_out_c3_wd = reg_wdata[31:0];
+  assign slot0_ptr_out_c3_we          = addr_hit[10] & reg_we & !reg_error;
+  assign slot0_ptr_out_c3_wd          = reg_wdata[31:0];
 
-  assign slot1_ptr_in_c0_we = addr_hit[11] & reg_we & !reg_error;
-  assign slot1_ptr_in_c0_wd = reg_wdata[31:0];
+  assign slot1_ptr_in_c0_we           = addr_hit[11] & reg_we & !reg_error;
+  assign slot1_ptr_in_c0_wd           = reg_wdata[31:0];
 
-  assign slot1_ptr_out_c0_we = addr_hit[12] & reg_we & !reg_error;
-  assign slot1_ptr_out_c0_wd = reg_wdata[31:0];
+  assign slot1_ptr_out_c0_we          = addr_hit[12] & reg_we & !reg_error;
+  assign slot1_ptr_out_c0_wd          = reg_wdata[31:0];
 
-  assign slot1_ptr_in_c1_we = addr_hit[13] & reg_we & !reg_error;
-  assign slot1_ptr_in_c1_wd = reg_wdata[31:0];
+  assign slot1_ptr_in_c1_we           = addr_hit[13] & reg_we & !reg_error;
+  assign slot1_ptr_in_c1_wd           = reg_wdata[31:0];
 
-  assign slot1_ptr_out_c1_we = addr_hit[14] & reg_we & !reg_error;
-  assign slot1_ptr_out_c1_wd = reg_wdata[31:0];
+  assign slot1_ptr_out_c1_we          = addr_hit[14] & reg_we & !reg_error;
+  assign slot1_ptr_out_c1_wd          = reg_wdata[31:0];
 
-  assign slot1_ptr_in_c2_we = addr_hit[15] & reg_we & !reg_error;
-  assign slot1_ptr_in_c2_wd = reg_wdata[31:0];
+  assign slot1_ptr_in_c2_we           = addr_hit[15] & reg_we & !reg_error;
+  assign slot1_ptr_in_c2_wd           = reg_wdata[31:0];
 
-  assign slot1_ptr_out_c2_we = addr_hit[16] & reg_we & !reg_error;
-  assign slot1_ptr_out_c2_wd = reg_wdata[31:0];
+  assign slot1_ptr_out_c2_we          = addr_hit[16] & reg_we & !reg_error;
+  assign slot1_ptr_out_c2_wd          = reg_wdata[31:0];
 
-  assign slot1_ptr_in_c3_we = addr_hit[17] & reg_we & !reg_error;
-  assign slot1_ptr_in_c3_wd = reg_wdata[31:0];
+  assign slot1_ptr_in_c3_we           = addr_hit[17] & reg_we & !reg_error;
+  assign slot1_ptr_in_c3_wd           = reg_wdata[31:0];
 
-  assign slot1_ptr_out_c3_we = addr_hit[18] & reg_we & !reg_error;
-  assign slot1_ptr_out_c3_wd = reg_wdata[31:0];
+  assign slot1_ptr_out_c3_we          = addr_hit[18] & reg_we & !reg_error;
+  assign slot1_ptr_out_c3_wd          = reg_wdata[31:0];
 
-  assign perf_cnt_enable_we = addr_hit[19] & reg_we & !reg_error;
-  assign perf_cnt_enable_wd = reg_wdata[31:0];
+  assign perf_cnt_enable_we           = addr_hit[19] & reg_we & !reg_error;
+  assign perf_cnt_enable_wd           = reg_wdata[31:0];
 
-  assign perf_cnt_reset_we = addr_hit[20] & reg_we & !reg_error;
-  assign perf_cnt_reset_wd = reg_wdata[31:0];
+  assign perf_cnt_reset_we            = addr_hit[20] & reg_we & !reg_error;
+  assign perf_cnt_reset_wd            = reg_wdata[31:0];
 
-  assign perf_cnt_total_kernels_we = addr_hit[21] & reg_we & !reg_error;
-  assign perf_cnt_total_kernels_wd = reg_wdata[31:0];
+  assign perf_cnt_total_kernels_we    = addr_hit[21] & reg_we & !reg_error;
+  assign perf_cnt_total_kernels_wd    = reg_wdata[31:0];
 
   assign perf_cnt_c0_active_cycles_we = addr_hit[22] & reg_we & !reg_error;
   assign perf_cnt_c0_active_cycles_wd = reg_wdata[31:0];
 
-  assign perf_cnt_c0_stall_cycles_we = addr_hit[23] & reg_we & !reg_error;
-  assign perf_cnt_c0_stall_cycles_wd = reg_wdata[31:0];
+  assign perf_cnt_c0_stall_cycles_we  = addr_hit[23] & reg_we & !reg_error;
+  assign perf_cnt_c0_stall_cycles_wd  = reg_wdata[31:0];
 
   assign perf_cnt_c1_active_cycles_we = addr_hit[24] & reg_we & !reg_error;
   assign perf_cnt_c1_active_cycles_wd = reg_wdata[31:0];
 
-  assign perf_cnt_c1_stall_cycles_we = addr_hit[25] & reg_we & !reg_error;
-  assign perf_cnt_c1_stall_cycles_wd = reg_wdata[31:0];
+  assign perf_cnt_c1_stall_cycles_we  = addr_hit[25] & reg_we & !reg_error;
+  assign perf_cnt_c1_stall_cycles_wd  = reg_wdata[31:0];
 
   assign perf_cnt_c2_active_cycles_we = addr_hit[26] & reg_we & !reg_error;
   assign perf_cnt_c2_active_cycles_wd = reg_wdata[31:0];
 
-  assign perf_cnt_c2_stall_cycles_we = addr_hit[27] & reg_we & !reg_error;
-  assign perf_cnt_c2_stall_cycles_wd = reg_wdata[31:0];
+  assign perf_cnt_c2_stall_cycles_we  = addr_hit[27] & reg_we & !reg_error;
+  assign perf_cnt_c2_stall_cycles_wd  = reg_wdata[31:0];
 
   assign perf_cnt_c3_active_cycles_we = addr_hit[28] & reg_we & !reg_error;
   assign perf_cnt_c3_active_cycles_wd = reg_wdata[31:0];
 
-  assign perf_cnt_c3_stall_cycles_we = addr_hit[29] & reg_we & !reg_error;
-  assign perf_cnt_c3_stall_cycles_wd = reg_wdata[31:0];
+  assign perf_cnt_c3_stall_cycles_we  = addr_hit[29] & reg_we & !reg_error;
+  assign perf_cnt_c3_stall_cycles_wd  = reg_wdata[31:0];
 
   // Read data return
   always_comb begin
@@ -1331,7 +1331,7 @@ module cgra_reg_top #(
   logic unused_wdata;
   logic unused_be;
   assign unused_wdata = ^reg_wdata;
-  assign unused_be = ^reg_be;
+  assign unused_be    = ^reg_be;
 
   // Assertions for Register Interface
   `ASSERT(en2addrHit, (reg_we || reg_re) |-> $onehot0(addr_hit))

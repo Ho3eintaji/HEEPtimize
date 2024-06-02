@@ -13,7 +13,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 module reconfigurable_cell
-import cgra_pkg::*;
+  import cgra_pkg::*;
 (
   input  logic                         clk_i,
   input  logic                         rst_rc_i,
@@ -58,49 +58,47 @@ import cgra_pkg::*;
   assign ce_conf_s  = pc_en_i;
   assign ce_dp_s    = pc_en_i & conf_re_i;
 
-  conf_reg_file rc_conf_registers
-  (
-    .clk_i       ( clk_i        ),
-    .rst_i       ( rst_rc_i     ),
-    .ce_i        ( ce_conf_s    ),
-    .instr_i     ( conf_rdata_i ),
-    .global_pc_i ( global_pc_i  ),
-    .we_i        ( conf_we_i    ),
-    .re_i        ( conf_re_i    ),
-    .conf_o      ( conf_rdata_s )
+  conf_reg_file rc_conf_registers (
+    .clk_i      (clk_i),
+    .rst_i      (rst_rc_i),
+    .ce_i       (ce_conf_s),
+    .instr_i    (conf_rdata_i),
+    .global_pc_i(global_pc_i),
+    .we_i       (conf_we_i),
+    .re_i       (conf_re_i),
+    .conf_o     (conf_rdata_s)
   );
 
-  datapath rc_datapath
-  (
-    .clk_i         ( clk_i         ),
-    .rst_i         ( rst_rc_i      ),
-    .ce_i          ( ce_dp_s       ),
-    .conf_rdata_i  ( conf_rdata_s  ),
-    .data_rdata_i  ( data_rdata_i  ),
-    .data_rvalid_i ( data_rvalid_i ),
-    .own_res_i     ( own_res_i     ),
-    .left_res_i    ( left_res_i    ),
-    .right_res_i   ( right_res_i   ),
-    .top_res_i     ( top_res_i     ),
-    .bottom_res_i  ( bottom_res_i  ),
-    .own_flag_i    ( own_flag_i    ),
-    .left_flag_i   ( left_flag_i   ),
-    .right_flag_i  ( right_flag_i  ),
-    .top_flag_i    ( top_flag_i    ),
-    .bottom_flag_i ( bottom_flag_i ),
-    .conf_re_i     ( conf_re_i     ),
-    .result_o      ( result_o      ),
-    .flag_o        ( flag_o        ),
-    .br_req_o      ( br_req_o      ),
-    .br_add_o      ( br_add_o      ),
-    .data_req_o    ( data_req_o    ),
-    .data_wen_o    ( data_wen_o    ),
-    .data_ind_o    ( data_ind_o    ),
-    .data_add_o    ( data_add_o    ),
-    .data_wdata_o  ( data_wdata_o  ),
-    .dp_stall_o    ( dp_stall_s    ),
-    .rc_nop_o      ( rc_nop_o      ),
-    .exec_end_o    ( exec_end_o    )
+  datapath rc_datapath (
+    .clk_i        (clk_i),
+    .rst_i        (rst_rc_i),
+    .ce_i         (ce_dp_s),
+    .conf_rdata_i (conf_rdata_s),
+    .data_rdata_i (data_rdata_i),
+    .data_rvalid_i(data_rvalid_i),
+    .own_res_i    (own_res_i),
+    .left_res_i   (left_res_i),
+    .right_res_i  (right_res_i),
+    .top_res_i    (top_res_i),
+    .bottom_res_i (bottom_res_i),
+    .own_flag_i   (own_flag_i),
+    .left_flag_i  (left_flag_i),
+    .right_flag_i (right_flag_i),
+    .top_flag_i   (top_flag_i),
+    .bottom_flag_i(bottom_flag_i),
+    .conf_re_i    (conf_re_i),
+    .result_o     (result_o),
+    .flag_o       (flag_o),
+    .br_req_o     (br_req_o),
+    .br_add_o     (br_add_o),
+    .data_req_o   (data_req_o),
+    .data_wen_o   (data_wen_o),
+    .data_ind_o   (data_ind_o),
+    .data_add_o   (data_add_o),
+    .data_wdata_o (data_wdata_o),
+    .dp_stall_o   (dp_stall_s),
+    .rc_nop_o     (rc_nop_o),
+    .exec_end_o   (exec_end_o)
   );
 
 endmodule

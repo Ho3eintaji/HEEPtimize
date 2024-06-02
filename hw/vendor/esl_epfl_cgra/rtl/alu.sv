@@ -15,15 +15,15 @@
 module alu
   import cgra_pkg::*;
 (
-  input  logic [           DP_WIDTH-1:0] operand_a_i,
-  input  logic [           DP_WIDTH-1:0] operand_b_i,
-  input  logic [         ALU_N_FLAG-1:0] flag_i,
-  input  logic [  CGRA_ALU_OP_WIDTH-1:0] alu_op_i,
-  output logic [           DP_WIDTH-1:0] alu_res_o,
-  output logic [         ALU_N_FLAG-1:0] flag_o,
-  output logic                           br_req_o,
-  output logic [  RCS_NUM_CREG_LOG2-1:0] br_add_o,
-  output logic                           alu_stall_o
+  input  logic [         DP_WIDTH-1:0] operand_a_i,
+  input  logic [         DP_WIDTH-1:0] operand_b_i,
+  input  logic [       ALU_N_FLAG-1:0] flag_i,
+  input  logic [CGRA_ALU_OP_WIDTH-1:0] alu_op_i,
+  output logic [         DP_WIDTH-1:0] alu_res_o,
+  output logic [       ALU_N_FLAG-1:0] flag_o,
+  output logic                         br_req_o,
+  output logic [RCS_NUM_CREG_LOG2-1:0] br_add_o,
+  output logic                         alu_stall_o
 );
 
   import cgra_pkg::*;
@@ -34,8 +34,7 @@ module alu
   // bit reverse operand_a for left shifts and bit counting
   generate
     genvar k;
-    for(k = 0; k < 32; k++)
-    begin : g_revloop
+    for (k = 0; k < 32; k++) begin : g_revloop
       assign operand_a_rev[k] = operand_a_i[31-k];
     end
   endgenerate
@@ -49,33 +48,27 @@ module alu
   //                                 //
   /////////////////////////////////////
 
-  logic                adder_e;                // zeroing inputs if not used
-  logic                adder_op_b_negate;
-  logic [  DP_WIDTH:0] adder_in_a, adder_in_b;
+  logic adder_e;  // zeroing inputs if not used
+  logic adder_op_b_negate;
+  logic [DP_WIDTH:0] adder_in_a, adder_in_b;
   logic [DP_WIDTH+1:0] adder_result_full;
   logic [DP_WIDTH-1:0] adder_result;
 
   // logic                fxp_mult_e;      // rounding fxp_mult
-  logic [  DP_WIDTH:0] fxp_mult_scaled; // extra decimal bit for rounding
+  logic [  DP_WIDTH:0] fxp_mult_scaled;  // extra decimal bit for rounding
 
-  always_comb
-  begin
-    adder_e      = 1'b0;
+  always_comb begin
+    adder_e           = 1'b0;
     adder_op_b_negate = 1'b0;
     // fxp_mult_e        = 1'b0;
 
     unique case (alu_op_i)
-      CGRA_ALU_SSUB,
-      CGRA_ALU_BEQ,
-      CGRA_ALU_BNE,
-      CGRA_ALU_BLT,
-      CGRA_ALU_BGE: begin
-        adder_e      = 1'b1;
+      CGRA_ALU_SSUB, CGRA_ALU_BEQ, CGRA_ALU_BNE, CGRA_ALU_BLT, CGRA_ALU_BGE: begin
+        adder_e           = 1'b1;
         adder_op_b_negate = 1'b1;
       end
 
-      CGRA_ALU_SADD,
-      CGRA_ALU_JUMP: adder_e = 1'b1;
+      CGRA_ALU_SADD, CGRA_ALU_JUMP: adder_e = 1'b1;
 
       // // With rounding for CGRA_ALU_FXPMUL
       // CGRA_ALU_FXPMUL: begin
@@ -83,21 +76,21 @@ module alu
       //   fxp_mult_e   = 1'b1;
       // end
 
-      default: ; // default case to suppress unique warning
+      default: ;  // default case to suppress unique warning
     endcase
   end
 
   // prepare operand a
   // Without rounding for CGRA_ALU_FXPMUL
-  assign adder_in_a    = adder_e ? {operand_a_i,1'b1} : '0;
+  assign adder_in_a        = adder_e ? {operand_a_i, 1'b1} : '0;
   // // With rounding for CGRA_ALU_FXPMUL
   // assign adder_in_a    = fxp_mult_e ? fxp_mult_scaled : {operand_a_i,1'b1};
 
   // prepare operand b
-  assign operand_b_neg = adder_e ? {operand_b_i,1'b0} ^ {33{adder_op_b_negate}} : '0;
+  assign operand_b_neg     = adder_e ? {operand_b_i, 1'b0} ^ {33{adder_op_b_negate}} : '0;
 
   // Without rounding for CGRA_ALU_FXPMUL
-  assign adder_in_b    = operand_b_neg;
+  assign adder_in_b        = operand_b_neg;
   // // With rounding for CGRA_ALU_FXPMUL
   // assign adder_in_b    = fxp_mult_e ? 1 : operand_b_neg;
 
@@ -115,44 +108,43 @@ module alu
   //                                                            //
   ////////////////////////////////////////////////////////////////
 
-  logic                  mult_e;               // zeroing inputs if not used
-  logic                  fxp_mult_e;               // zeroing inputs if not used
-  logic [  DP_WIDTH-1:0] mult_in_a, mult_in_b;
+  logic mult_e;  // zeroing inputs if not used
+  logic fxp_mult_e;  // zeroing inputs if not used
+  logic [DP_WIDTH-1:0] mult_in_a, mult_in_b;
   logic [2*DP_WIDTH-1:0] mult_result_full;
   logic [  DP_WIDTH-1:0] mult_result;
   logic [  DP_WIDTH-1:0] fxp_mult_result;
 
-  logic [           DP_WIDTH-1:0] operand_a_mult;
-  logic [           DP_WIDTH-1:0] operand_b_mult;
+  logic [  DP_WIDTH-1:0] operand_a_mult;
+  logic [  DP_WIDTH-1:0] operand_b_mult;
 
   generate
-    for(genvar j=0; j<DP_WIDTH; j++) begin : mult_read_gen
+    for (genvar j = 0; j < DP_WIDTH; j++) begin : mult_read_gen
       read alu_mult_opa_i (
-        .d_i (operand_a_i[j]),
-        .d_o (operand_a_mult[j])
+        .d_i(operand_a_i[j]),
+        .d_o(operand_a_mult[j])
       );
       read alu_mult_opb_i (
-        .d_i (operand_b_i[j]),
-        .d_o (operand_b_mult[j])
+        .d_i(operand_b_i[j]),
+        .d_o(operand_b_mult[j])
       );
     end
   endgenerate
 
-  always_comb
-  begin
+  always_comb begin
     mult_e     = 1'b0;
     fxp_mult_e = 1'b0;
 
     unique case (alu_op_i)
-      CGRA_ALU_SMUL  : mult_e     = 1'b1;
+      CGRA_ALU_SMUL:   mult_e = 1'b1;
       CGRA_ALU_FXPMUL: fxp_mult_e = 1'b1;
 
-      default: ; // default case to suppress unique warning
+      default: ;  // default case to suppress unique warning
     endcase
   end
 
-  assign mult_in_a = (mult_e || fxp_mult_e) ? operand_a_mult : '0;
-  assign mult_in_b = (mult_e || fxp_mult_e) ? operand_b_mult : '0;
+  assign mult_in_a        = (mult_e || fxp_mult_e) ? operand_a_mult : '0;
+  assign mult_in_b        = (mult_e || fxp_mult_e) ? operand_b_mult : '0;
 
   // actual multiplier
   assign mult_result_full = $signed(mult_in_a) * $signed(mult_in_b);
@@ -178,13 +170,13 @@ module alu
   //                                    //
   ////////////////////////////////////////
 
-  logic                shift_e;            // zeroing inputs if not used
-  logic                shift_left;         // should we shift left
-  logic [DP_WIDTH-1:0] shift_amt;          // amount of shift, to the right
-  logic [DP_WIDTH-1:0] shift_op_a;         // input of the shifter
-  logic [DP_WIDTH  :0] shift_op_a_33b;     // For shift right arithmetic
-  logic [DP_WIDTH  :0] shift_right_result_signed;
-  logic [DP_WIDTH  :0] shift_right_result_33b;
+  logic                shift_e;  // zeroing inputs if not used
+  logic                shift_left;  // should we shift left
+  logic [DP_WIDTH-1:0] shift_amt;  // amount of shift, to the right
+  logic [DP_WIDTH-1:0] shift_op_a;  // input of the shifter
+  logic [DP_WIDTH : 0] shift_op_a_33b;  // For shift right arithmetic
+  logic [DP_WIDTH : 0] shift_right_result_signed;
+  logic [DP_WIDTH : 0] shift_right_result_33b;
   logic [DP_WIDTH-1:0] shift_result;
   logic [DP_WIDTH-1:0] shift_right_result;
   logic [DP_WIDTH-1:0] shift_left_result;
@@ -192,16 +184,13 @@ module alu
 
   assign shift_arithmetic = (alu_op_i == CGRA_ALU_SRA);
 
-  always_comb
-  begin
+  always_comb begin
     shift_e = 1'b0;
 
     unique case (alu_op_i)
-      CGRA_ALU_SLL,
-      CGRA_ALU_SRL,
-      CGRA_ALU_SRA: shift_e = 1'b1;
+      CGRA_ALU_SLL, CGRA_ALU_SRL, CGRA_ALU_SRA: shift_e = 1'b1;
 
-      default: ; // default case to suppress unique warning
+      default: ;  // default case to suppress unique warning
     endcase
   end
 
@@ -209,8 +198,7 @@ module alu
   assign shift_left = (alu_op_i == CGRA_ALU_SLL);
 
   // choose the bit reversed or the normal input for shift operand a
-  always_comb
-  begin
+  always_comb begin
     if (shift_e == 1'b1 && shift_left == 1'b0) begin
       shift_op_a = operand_a_i;
     end else if (shift_e == 1'b1 && shift_left == 1'b1) begin
@@ -219,18 +207,17 @@ module alu
       shift_op_a = '0;
     end
   end
-  
-  assign shift_op_a_33b = {shift_arithmetic & shift_op_a[DP_WIDTH-1], shift_op_a};
+
+  assign shift_op_a_33b            = {shift_arithmetic & shift_op_a[DP_WIDTH-1], shift_op_a};
 
   assign shift_right_result_signed = $signed(shift_op_a_33b) >>> shift_amt[DP_WIDTH_LOG2-1:0];
   assign shift_right_result_33b    = $unsigned(shift_right_result_signed);
   assign shift_right_result        = shift_right_result_33b[DP_WIDTH-1:0];
 
   // bit reverse the shift_right_result for left shifts
-  genvar       j;
+  genvar j;
   generate
-    for(j = 0; j < DP_WIDTH; j++)
-    begin : g_resrevloop
+    for (j = 0; j < DP_WIDTH; j++) begin : g_resrevloop
       assign shift_left_result[j] = shift_right_result[31-j];
     end
   endgenerate
@@ -255,27 +242,24 @@ module alu
   assign is_equal = (adder_result == '0);
 
   // Is greater equal
-  always_comb
-  begin
+  always_comb begin
     if ((operand_a_i[DP_WIDTH-1] ^ operand_b_i[DP_WIDTH-1]) == 0)
       is_greater_equal = (adder_result[DP_WIDTH-1] == 0);
-    else
-      is_greater_equal = ~operand_a_i[DP_WIDTH-1];
+    else is_greater_equal = ~operand_a_i[DP_WIDTH-1];
   end
 
   // generate comparison result
-  always_comb
-  begin
+  always_comb begin
     cmp_result_mux = 1'b0;
 
     unique case (alu_op_i)
-      CGRA_ALU_BEQ : cmp_result_mux = is_equal;
-      CGRA_ALU_BNE : cmp_result_mux = (~is_equal);
-      CGRA_ALU_BGE : cmp_result_mux = is_greater_equal;
-      CGRA_ALU_BLT : cmp_result_mux = (~is_greater_equal);
-      CGRA_ALU_JUMP: cmp_result_mux = 1'b1; // always jump
+      CGRA_ALU_BEQ:  cmp_result_mux = is_equal;
+      CGRA_ALU_BNE:  cmp_result_mux = (~is_equal);
+      CGRA_ALU_BGE:  cmp_result_mux = is_greater_equal;
+      CGRA_ALU_BLT:  cmp_result_mux = (~is_greater_equal);
+      CGRA_ALU_JUMP: cmp_result_mux = 1'b1;  // always jump
 
-      default: ; // default case to suppress unique warning
+      default: ;  // default case to suppress unique warning
     endcase
   end
 
@@ -298,31 +282,25 @@ module alu
   logic [DP_WIDTH-1:0] xor_res;
   logic [DP_WIDTH-1:0] bit_manip_in_a, bit_manip_in_b;
 
-  always_comb
-  begin
+  always_comb begin
     bit_manip_e = 1'b0;
 
     unique case (alu_op_i)
-      CGRA_ALU_LAND,
-      CGRA_ALU_LOR,
-      CGRA_ALU_LXOR,
-      CGRA_ALU_LNAND,
-      CGRA_ALU_LNOR,
-      CGRA_ALU_LNXOR: bit_manip_e = 1'b1;
+      CGRA_ALU_LAND, CGRA_ALU_LOR, CGRA_ALU_LXOR, CGRA_ALU_LNAND, CGRA_ALU_LNOR, CGRA_ALU_LNXOR:
+      bit_manip_e = 1'b1;
 
-      default: ; // default case to suppress unique warning
+      default: ;  // default case to suppress unique warning
     endcase
   end
 
   assign bit_manip_in_a = bit_manip_e ? operand_a_i : '0;
   assign bit_manip_in_b = bit_manip_e ? operand_b_i : '0;
 
-  assign and_res = bit_manip_in_a & bit_manip_in_b;
-  assign or_res  = bit_manip_in_a | bit_manip_in_b;
-  assign xor_res = bit_manip_in_a ^ bit_manip_in_b;
+  assign and_res        = bit_manip_in_a & bit_manip_in_b;
+  assign or_res         = bit_manip_in_a | bit_manip_in_b;
+  assign xor_res        = bit_manip_in_a ^ bit_manip_in_b;
 
-  always_comb
-  begin
+  always_comb begin
     bit_manip_res = '0;
 
     unique case (alu_op_i)
@@ -333,7 +311,7 @@ module alu
       CGRA_ALU_LNOR:  bit_manip_res = ~or_res;
       CGRA_ALU_LNXOR: bit_manip_res = ~xor_res;
 
-      default: ; // default case to suppress unique warning
+      default: ;  // default case to suppress unique warning
     endcase
   end
 
@@ -355,30 +333,27 @@ module alu
   assign sign_flag = flag_i[1] & ctrl_flow_e;
   assign zero_flag = flag_i[0] & ctrl_flow_e;
 
-  always_comb
-  begin
+  always_comb begin
     ctrl_flow_e = 1'b0;
 
     unique case (alu_op_i)
-      CGRA_ALU_BSFA,
-      CGRA_ALU_BZFA:ctrl_flow_e = 1'b1;
+      CGRA_ALU_BSFA, CGRA_ALU_BZFA: ctrl_flow_e = 1'b1;
 
-      default: ; // default case to suppress unique warning
+      default: ;  // default case to suppress unique warning
     endcase
   end
 
   assign ctrl_flow_in_a = ctrl_flow_e ? operand_a_i : '0;
   assign ctrl_flow_in_b = ctrl_flow_e ? operand_b_i : '0;
 
-  always_comb
-  begin
+  always_comb begin
     ctrl_flow_res = ctrl_flow_in_a;
 
     unique case (alu_op_i)
       CGRA_ALU_BSFA: ctrl_flow_res = sign_flag ? ctrl_flow_in_a : ctrl_flow_in_b;
       CGRA_ALU_BZFA: ctrl_flow_res = zero_flag ? ctrl_flow_in_a : ctrl_flow_in_b;
 
-      default: ; // default case to suppress unique warning
+      default: ;  // default case to suppress unique warning
     endcase
   end
 
@@ -391,45 +366,35 @@ module alu
   //                                                    //
   ////////////////////////////////////////////////////////
 
-  always_comb
-  begin
-    alu_res_o   = '0;
+  always_comb begin
+    alu_res_o = '0;
 
     unique case (alu_op_i)
       // Adder operations
-      CGRA_ALU_SADD, CGRA_ALU_SSUB,
-      CGRA_ALU_JUMP: alu_res_o = adder_result;
+      CGRA_ALU_SADD, CGRA_ALU_SSUB, CGRA_ALU_JUMP: alu_res_o = adder_result;
 
       // Multiplier operation
       CGRA_ALU_SMUL: alu_res_o = mult_result;
 
       // Shift operations
-      CGRA_ALU_SLL, CGRA_ALU_SRA,
-      CGRA_ALU_SRL: alu_res_o = shift_result;
+      CGRA_ALU_SLL, CGRA_ALU_SRA, CGRA_ALU_SRL: alu_res_o = shift_result;
 
       // Bit manip operations
-      CGRA_ALU_LAND,
-      CGRA_ALU_LOR,
-      CGRA_ALU_LXOR,
-      CGRA_ALU_LNAND,
-      CGRA_ALU_LNOR,
-      CGRA_ALU_LNXOR: alu_res_o = bit_manip_res;
+      CGRA_ALU_LAND, CGRA_ALU_LOR, CGRA_ALU_LXOR, CGRA_ALU_LNAND, CGRA_ALU_LNOR, CGRA_ALU_LNXOR:
+      alu_res_o = bit_manip_res;
 
       // Control flow operations
-      CGRA_ALU_BSFA,
-      CGRA_ALU_BZFA: alu_res_o = ctrl_flow_res;
+      CGRA_ALU_BSFA, CGRA_ALU_BZFA: alu_res_o = ctrl_flow_res;
       // CGRA_ALU_MV: alu_res_o = ctrl_flow_res;
 
       // FXP multiplication operation
       CGRA_ALU_FXPMUL: alu_res_o = fxp_mult_result;
 
       // Comparison operations
-      CGRA_ALU_BEQ,
-      CGRA_ALU_BNE,
-      CGRA_ALU_BGE,
-      CGRA_ALU_BLT: alu_res_o = {{(DP_WIDTH-1){1'b0}}, cmp_result};
+      CGRA_ALU_BEQ, CGRA_ALU_BNE, CGRA_ALU_BGE, CGRA_ALU_BLT:
+      alu_res_o = {{(DP_WIDTH - 1) {1'b0}}, cmp_result};
 
-      default: ; // default case to suppress unique warning
+      default: ;  // default case to suppress unique warning
     endcase
   end
 

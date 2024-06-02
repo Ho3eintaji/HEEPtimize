@@ -32,7 +32,7 @@ module heepatia_bus #(
   output obi_pkg::obi_resp_t heep_dma_write_ch0_resp_o,
 
   // X-HEEP slave ports (one per external master)
-  output obi_pkg::obi_req_t  [ExtXbarNmasterRnd-1:0] heep_slave_req_o,  
+  output obi_pkg::obi_req_t  [ExtXbarNmasterRnd-1:0] heep_slave_req_o,
   input  obi_pkg::obi_resp_t [ExtXbarNmasterRnd-1:0] heep_slave_resp_i,
 
   // NM-Carus slave ports
@@ -43,10 +43,15 @@ module heepatia_bus #(
   output obi_pkg::obi_req_t  cgra_req_o,
   input  obi_pkg::obi_resp_t cgra_resp_i,
 
-//todo: below ones are not going through heep anymore, but how should br managed?
-  // input  reg_req_t ext_peripheral_slave_req_i, //TODO: double check these two are defined are I have them wih different names? I think yes these are the same as heep_periph_req_i
-  // output reg_rsp_t ext_peripheral_slave_resp_o, //todo: they are not connected in heepatia (but connected in HEEPocrates) 
-
+  /*
+  * TODO: The below signals are not going through HEEP anymore.
+  * How should they be managed?
+  * Double-check if these are defined with different names?
+  * I think these are the same as heep_periph_req_i:
+  * input  reg_req_t ext_peripheral_slave_req_i
+  * output reg_rsp_t ext_peripheral_slave_resp_o
+  * They are not connected in heepatia (but connected in HEEPocrates)
+  */
 
   // X-HEEP peripheral master port
   input  reg_pkg::reg_req_t heep_periph_req_i,
@@ -57,11 +62,11 @@ module heepatia_bus #(
   input  reg_pkg::reg_rsp_t fll_resp_i,
 
   output reg_pkg::reg_req_t heepatia_ctrl_req_o,
-  input  reg_pkg::reg_rsp_t heepatia_ctrl_resp_i
+  input  reg_pkg::reg_rsp_t heepatia_ctrl_resp_i,
 
   // CGRA peripheral
   output reg_pkg::reg_req_t cgra_periph_slave_req_o,
-  input  reg_pkg::reg_rsp_t cgra_periph_slave_resp_i,
+  input  reg_pkg::reg_rsp_t cgra_periph_slave_resp_i
 );
   import heepatia_pkg::*;
   import obi_pkg::*;
@@ -82,8 +87,8 @@ module heepatia_bus #(
 
   // CGRA
   //TODO: is it correct, also considering the carus?
-   //slave req
-  assign cgra_req_o = ext_slave_req[heepatia_pkg::CGRAIdx];
+  //slave req
+  assign cgra_req_o                           = ext_slave_req[heepatia_pkg::CGRAIdx];
   //slave resp
   assign ext_slave_rsp[heepatia_pkg::CGRAIdx] = cgra_resp_i;
 
@@ -105,26 +110,26 @@ module heepatia_bus #(
     .EXT_XBAR_NMASTER(ExtXbarNMaster),
     .EXT_XBAR_NSLAVE (ExtXbarNSlave)
   ) u_ext_bus (
-    .clk_i                    (clk_i),
-    .rst_ni                   (rst_ni),
-    .addr_map_i               (ExtSlaveAddrRules),
-    .default_idx_i            (ExtSlaveDefaultIdx[IdxWidth-1:0]),
-    .heep_core_instr_req_i    (heep_core_instr_req_i),
-    .heep_core_instr_resp_o   (heep_core_instr_resp_o),
-    .heep_core_data_req_i     (heep_core_data_req_i),
-    .heep_core_data_resp_o    (heep_core_data_resp_o),
-    .heep_debug_master_req_i  (heep_debug_master_req_i),
-    .heep_debug_master_resp_o (heep_debug_master_resp_o),
-    .heep_dma_read_ch0_req_i  (heep_dma_read_ch0_req_i),
-    .heep_dma_read_ch0_resp_o (heep_dma_read_ch0_resp_o),
-    .heep_dma_write_ch0_req_i (heep_dma_write_ch0_req_i),
+    .clk_i(clk_i),
+    .rst_ni(rst_ni),
+    .addr_map_i(ExtSlaveAddrRules),
+    .default_idx_i(ExtSlaveDefaultIdx[IdxWidth-1:0]),
+    .heep_core_instr_req_i(heep_core_instr_req_i),
+    .heep_core_instr_resp_o(heep_core_instr_resp_o),
+    .heep_core_data_req_i(heep_core_data_req_i),
+    .heep_core_data_resp_o(heep_core_data_resp_o),
+    .heep_debug_master_req_i(heep_debug_master_req_i),
+    .heep_debug_master_resp_o(heep_debug_master_resp_o),
+    .heep_dma_read_ch0_req_i(heep_dma_read_ch0_req_i),
+    .heep_dma_read_ch0_resp_o(heep_dma_read_ch0_resp_o),
+    .heep_dma_write_ch0_req_i(heep_dma_write_ch0_req_i),
     .heep_dma_write_ch0_resp_o(heep_dma_write_ch0_resp_o),
-    .ext_master_req_i         ('0),                                // no external masters //TODO: now we have masters!
-    .ext_master_resp_o        (),                                  // no external masters
-    .heep_slave_req_o         (heep_slave_req_o),
-    .heep_slave_resp_i        (heep_slave_resp_i),
-    .ext_slave_req_o          (ext_slave_req),
-    .ext_slave_resp_i         (ext_slave_rsp)
+    .ext_master_req_i('0),  // no external masters //TODO: now we have masters!
+    .ext_master_resp_o(),  // no external masters
+    .heep_slave_req_o(heep_slave_req_o),
+    .heep_slave_resp_i(heep_slave_resp_i),
+    .ext_slave_req_o(ext_slave_req),
+    .ext_slave_resp_i(ext_slave_rsp)
   );
 
   // External peripherals bus
@@ -135,8 +140,8 @@ module heepatia_bus #(
   assign heepatia_ctrl_req_o               = ext_periph_req[HeeperatorCtrlIdx];
   assign ext_periph_rsp[HeeperatorCtrlIdx] = heepatia_ctrl_resp_i;
   // cgra periph
-  assign cgra_periph_slave_req_o = ext_periph_req[CGRAPeriphIdx]; 
-  assign ext_periph_rsp[CGRAPeriphIdx] = cgra_periph_slave_resp_i;
+  assign cgra_periph_slave_req_o           = ext_periph_req[CGRAPeriphIdx];
+  assign ext_periph_rsp[CGRAPeriphIdx]     = cgra_periph_slave_resp_i;
 
   // External peripherals bus
   periph_bus #(

@@ -20,7 +20,8 @@ ${pad.x_heep_system_interface}
 
   // PARAMETERS
   localparam int unsigned ExtXbarNmasterRnd = (heepatia_pkg::ExtXbarNMaster > 0) ? heepatia_pkg::ExtXbarNMaster : 32'd1;
-  localparam int unsigned ExtDomainsRnd = core_v_mini_mcu_pkg::EXTERNAL_DOMAINS == 0 ? 32'd1 : core_v_mini_mcu_pkg::EXTERNAL_DOMAINS;
+  localparam int unsigned ExtDomainsRnd = core_v_mini_mcu_pkg::EXTERNAL_DOMAINS == 0 ? 32'd1 
+                                            : core_v_mini_mcu_pkg::EXTERNAL_DOMAINS;
 
   // INTERNAL SIGNALS
   // ----------------
@@ -259,9 +260,7 @@ ${pad.core_v_mini_mcu_bonding}
   assign carus_rst_n  = external_subsystem_rst_n[0];
   assign carus_set_retentive_n  = external_ram_banks_set_retentive_n[0];
   assign cgra_set_retenive_n = external_ram_banks_set_retentive_n[1]; //todo: double check
-  heepatia_peripherals #(
-    localparam int unsigned ExtXbarNmasterRnd = (heepatia_pkg::ExtXbarNMaster > 0) ? heepatia_pkg::ExtXbarNMaster : 32'd1 //TODO: is syntax correct?
-    ) u_heepatia_peripherals(
+  heepatia_peripherals u_heepatia_peripherals(
     .ref_clk_i             (ref_clk_in_x),
     .rst_ni                (rst_nin_sync),
     .system_clk_o          (system_clk),
@@ -282,12 +281,18 @@ ${pad.core_v_mini_mcu_bonding}
     .cgra_periph_slave_req_i(cgra_periph_slave_req),
     .cgra_periph_slave_resp_o(cgra_periph_slave_resp),
 
-    // todo: below parts Im not sure
+    /* todo: below parts Im not sure
+    .heepatia_ctrl_cgra_mem_sw_fb_i(cgra_mem_sw_fb_sync)
+    check below how it is connected in heepocrates!
+    these two im not sure, 
+    in heppocrates: .ext_xbar_master_req_o(heep_ext_master_req),
+    in heppocrates: .ext_xbar_master_resp_i(heep_ext_master_resp),
+    */
     .cgra_ram_banks_set_retentive_i(cgra_set_retenive_n),
-    .cgra_logic_rst_n(cgra_logic_rst_n)
-    .heepatia_ctrl_cgra_mem_sw_fb_i(), //.heepatia_ctrl_cgra_mem_sw_fb_i(cgra_mem_sw_fb_sync), //todo: check below how it is connected in heepocrates!
-    .heep_slave_req_o(heep_slave_req),     // TODO: these two im not sure, in heppocrates: .ext_xbar_master_req_o(heep_ext_master_req),
-    .heep_slave_resp_i(heep_slave_resp)    // TODO: these two im not sure, in heppocrates: .ext_xbar_master_resp_i(heep_ext_master_resp),
+    .cgra_logic_rst_n(cgra_logic_rst_n),
+    .heepatia_ctrl_cgra_mem_sw_fb_i(), 
+    .heep_slave_req_o(heep_slave_req),     
+    .heep_slave_resp_i(heep_slave_resp)    
   );
   //CGRA 4 Power Switches
   // logic [3:0] cgra_mem_sw_fb_sync;
@@ -460,49 +465,6 @@ ${pad_mux_process}
 
 `endif
 
-//   //CGRA SRAM SWITCH CELLs
 
-//   logic cgra_mem_sw0_ctrl;
-
-// % for cgra_switch in range(4):
-//   logic cgra_mem_sw${cgra_switch}_fb;
-//   logic cgra_mem_sw${cgra_switch}_fb_sync;
-//   logic cgra_mem_sw${cgra_switch}_ack;
-// % endfor
-
-//   assign cgra_mem_sw_fb_sync = {cgra_mem_sw3_fb_sync, cgra_mem_sw2_fb_sync, cgra_mem_sw1_fb_sync, cgra_mem_sw0_fb_sync};
-
-//   // connection with core-v-mini-mcu's power manager
-//   assign cgra_mem_sw0_ctrl                = ~cgra_memory_powergate_switch;
-//   assign cgra_memory_powergate_switch_ack = ~cgra_mem_sw3_ack;
-
-
-// % for cgra_switch in range(4):
-//   switch_cell_mem cgra_mem_sw${cgra_switch}_i (
-// `ifdef USE_PG_PIN
-//       .VIN,
-//       .VOUT,
-//       .VSS,
-// `endif
-// % if cgra_switch == 0:
-//     .VCTRL(cgra_mem_sw${cgra_switch}_ctrl), // Switch Signal Input
-// %else:
-//     .VCTRL(cgra_mem_sw${cgra_switch-1}_ack), // Switch Signal Input
-// %endif
-//     .VCTRLFBn(), // Negated Schmitt Trigger Output
-//     .VCTRLFB(cgra_mem_sw${cgra_switch}_fb), // Schmitt Trigger Output
-//     .VCTRL_BUF(cgra_mem_sw${cgra_switch}_ack) //ACK signal Output
-//   );
-
-//   sync #(
-//     .ResetValue(1'b1)
-//   ) sync_cgra_mem_sw${cgra_switch}_fb_i (
-//       .clk_i(system_clk),
-//       .rst_ni(rst_nin_sync),
-//       .serial_i(cgra_mem_sw${cgra_switch}_fb),
-//       .serial_o(cgra_mem_sw${cgra_switch}_fb_sync)
-//   );
-
-// % endfor
 
 endmodule // heepatia_top
