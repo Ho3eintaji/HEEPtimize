@@ -20,8 +20,8 @@ module heepatia_peripherals #(
   input  logic bypass_fll_i,
 
   // Masters (only used for cgra)
-  output obi_req_t  [ExtXbarNmasterRnd-1:0] heep_slave_req_o,
-  input  obi_resp_t [ExtXbarNmasterRnd-1:0] heep_slave_resp_i,
+  output obi_pkg::obi_req_t  [ExtXbarNmasterRnd-1:0] heep_slave_req_o,
+  input  obi_pkg::obi_resp_t [ExtXbarNmasterRnd-1:0] heep_slave_resp_i,
 
   // Slaves
   input  logic                                 carus_rst_ni,
@@ -36,11 +36,11 @@ module heepatia_peripherals #(
   output reg_pkg::reg_rsp_t heepatia_ctrl_rsp_o,
 
   // Slaves (cgra)
-  input  obi_req_t  cgra_req_i,
-  output obi_resp_t cgra_resp_o,
+  input  obi_pkg::obi_req_t  cgra_req_i,
+  output obi_pkg::obi_resp_t cgra_resp_o,
 
-  input  reg_req_t cgra_periph_slave_req_i,
-  output reg_rsp_t cgra_periph_slave_resp_o,
+  input  reg_pkg::reg_req_t cgra_periph_slave_req_i,
+  output reg_pkg::reg_rsp_t cgra_periph_slave_resp_o,
 
   input logic cgra_ram_banks_set_retentive_i,
 
@@ -72,8 +72,8 @@ module heepatia_peripherals #(
   logic [CarusNum-1:0] carus_intr;  // interrupts from NM-Carus
 
   // CGRA master ports
-  obi_req_t [ExtXbarNmasterRnd-1:0] cgra_masters_req;
-  obi_resp_t [ExtXbarNmasterRnd-1:0] cgra_masters_resp;
+  obi_pkg::obi_req_t [ExtXbarNmasterRnd-1:0] cgra_masters_req;
+  obi_pkg::obi_resp_t [ExtXbarNmasterRnd-1:0] cgra_masters_resp;
 
   // CGRA enable and interrupt
   logic cgra_int;

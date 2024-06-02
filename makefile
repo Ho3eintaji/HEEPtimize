@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 #
 # File: makefile
-# Author: Michele Caon, Luigi Giuffrida
+# Author: Michele Caon, Luigi Giuffrida, Hossein Taji
 # Date: 29/04/2024
 # Description: Top-level makefile for heepatia
 
@@ -26,7 +26,7 @@ X_HEEP_CFG_FPGA    	?= $(ROOT_DIR)/config/mcu-gen-system-fpga.hjson
 PAD_CFG				?= $(ROOT_DIR)/config/heep-pads.hjson
 PAD_CFG_FPGA	    ?= $(ROOT_DIR)/config/heep-pads-fpga.hjson
 EXT_PAD_CFG			?= $(ROOT_DIR)/config/heepatia-pads.hjson
-EXTERNAL_DOMAINS	:= 1 # NM-Carus
+EXTERNAL_DOMAINS	:= 2 # NM-Carus + OE-CGRA
 MCU_GEN_OPTS		:= \
 	--config $(X_HEEP_CFG) \
 	--cfg_peripherals $(MCU_CFG_PERIPHERALS) \

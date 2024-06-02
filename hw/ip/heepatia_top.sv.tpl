@@ -96,6 +96,8 @@ ${pad.x_heep_system_interface}
   logic carus_rst_n;
   logic carus_set_retentive_n;
 
+  logic cgra_set_retentive_n;
+
   // cgra reset
   logic  cgra_logic_rst_n;
 
@@ -259,7 +261,7 @@ ${pad.core_v_mini_mcu_bonding}
   // --------------------
   assign carus_rst_n  = external_subsystem_rst_n[0];
   assign carus_set_retentive_n  = external_ram_banks_set_retentive_n[0];
-  assign cgra_set_retenive_n = external_ram_banks_set_retentive_n[1]; //todo: double check
+  assign cgra_set_retentive_n = external_ram_banks_set_retentive_n[1]; //todo: double check
   heepatia_peripherals u_heepatia_peripherals(
     .ref_clk_i             (ref_clk_in_x),
     .rst_ni                (rst_nin_sync),
@@ -288,7 +290,7 @@ ${pad.core_v_mini_mcu_bonding}
     in heppocrates: .ext_xbar_master_req_o(heep_ext_master_req),
     in heppocrates: .ext_xbar_master_resp_i(heep_ext_master_resp),
     */
-    .cgra_ram_banks_set_retentive_i(cgra_set_retenive_n),
+    .cgra_ram_banks_set_retentive_i(cgra_set_retentive_n),
     .cgra_logic_rst_n(cgra_logic_rst_n),
     .heepatia_ctrl_cgra_mem_sw_fb_i(), 
     .heep_slave_req_o(heep_slave_req),     
