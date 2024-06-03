@@ -31,31 +31,31 @@ module tb_system #(
   // INTERNAL SIGNALS
   // ----------------
   // JTAG
-  wire        jtag_tck = '0;
-  wire        jtag_tms = '0;
-  wire        jtag_trst_n = '0;
-  wire        jtag_tdi = '0;
-  wire        jtag_tdo = '0;
+  wire jtag_tck = '0;
+  wire jtag_tms = '0;
+  wire jtag_trst_n = '0;
+  wire jtag_tdi = '0;
+  wire jtag_tdo = '0;
 
   // UART
-  wire        heepatia_uart_tx;
-  wire        heepatia_uart_rx;
+  wire                          heepatia_uart_tx;
+  wire                          heepatia_uart_rx;
 
   // GPIO
-  wire [31:0] gpio;
+  wire                   [31:0] gpio;
 
   // SPI flash
-  wire        spi_flash_sck;
-  wire [ 1:0] spi_flash_csb;
-  wire [ 3:0] spi_flash_sd_io;
+  wire                          spi_flash_sck;
+  wire                   [ 1:0] spi_flash_csb;
+  wire                   [ 3:0] spi_flash_sd_io;
 
   // SPI
-  wire        spi_sck;
-  wire [ 1:0] spi_csb;
-  wire [ 3:0] spi_sd_io;
+  wire                          spi_sck;
+  wire                   [ 1:0] spi_csb;
+  wire                   [ 3:0] spi_sd_io;
 
   // GPIO
-  wire        clk_div;
+  wire                          clk_div;
 
   // UART DPI emulator
   uartdpi #(
