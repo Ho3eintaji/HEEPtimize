@@ -14,6 +14,7 @@ build/
 *.do
 *.cache
 *.jou
+nohup.out
 
 #generated files
 tb/tb_util.svh
