@@ -19,21 +19,35 @@
     // Slaves memory map
     // ext_xbar_masters: 0,
     ext_xbar_masters: 4,    // HT: increased for oecgra
+    
     ext_xbar_slaves: {
         nslaves: 2, // HT: carus+oecgra
 
+        oecgra: {
+            offset: "0x00000000",
+            length: "0x00008000",
+        },
+
         carus: {
-            offset:    "0x00000000",
+            offset:    "0x00008000",
             length:    "0x00008000",
             num:       1,
             num_banks: 4, // bank address width is log2(length/num_banks)
-        },
-        
-        cgra: {
-            offset: "0x00008000",
-            length: "0x00100000",
-        }
+        }, 
     },
+
+    oecgra_bus_slaves: {
+        oecgra_context_mem: {
+            offset:    "0x00000000",
+            length:    "0x00004000",
+        },
+        oecgra_config_regs: {
+            offset:    "0x00004000",
+            length:    "0x00004000",
+        },
+    },
+
+
 
     // External peripherals
     ext_periph: {
@@ -45,10 +59,5 @@
             offset: "0x00001000",
             length: "0x00001000",
         },
-        cgra_periph: {  // HT
-            offset:  "0x00002000",
-            length:  "0x00001000",
-        },
-        
     }
 }

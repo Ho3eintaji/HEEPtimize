@@ -26,19 +26,27 @@ extern "C" {
 // NM-Carus
 #define CARUS_NUM ${carus_num}
 %for inst in range(carus_num):
-#define CARUS${inst}_START_ADDRESS (EXT_SLAVE_START_ADDRESS + 0x${carus_start_address + inst * carus_size})
-#define CARUS${inst}_SIZE 0x${carus_size}
-#define CARUS${inst}_END_ADDRESS (CARUS${inst}_START_ADDRESS + CARUS_SIZE)
+%if inst == 0:
+#define CARUS${inst}_START_ADDRESS (EXT_SLAVE_START_ADDRESS + 0x${carus_start_address[inst]})
+%else:
+#define CARUS${inst}_START_ADDRESS (CARUS${inst-1}_END_ADDRESS)
+%endif
+#define CARUS${inst}_SIZE 0x${carus_size[inst]}
+#define CARUS${inst}_END_ADDRESS (CARUS${inst}_START_ADDRESS + CARUS${inst}_SIZE)
 %endfor
 
-// CGRA
-#define CGRA_START_ADDRESS (EXT_SLAVE_START_ADDRESS + 0x${cgra_start_address})
-#define CGRA_SIZE 0x${cgra_size}
-#define CGRA_END_ADDRESS (CGRA_START_ADDRESS + CGRA_SIZE)
+// OECGRA
+#define OECGRA_START_ADDRESS (EXT_SLAVE_START_ADDRESS + 0x${oecgra_start_address})
+#define OECGRA_SIZE 0x${oecgra_size}
+#define OECGRA_END_ADDRESS (OECGRA_START_ADDRESS + OECGRA_SIZE)
 
-#define CGRA_PERIPH_START_ADDRESS (EXT_PERIPHERAL_START_ADDRESS + 0x${cgra_periph_start_address})
-#define CGRA_PERIPH_SIZE 0x${cgra_periph_size}
-#define CGRA_PERIPH_END_ADDRESS (CGRA_PERIPH_START_ADDRESS + CGRA_PERIPH_SIZE)
+#define OECGRA_CONTEXT_MEM_START_ADDRESS (EXT_SLAVE_START_ADDRESS + 0x${oecgra_context_mem_start_address})
+#define OECGRA_CONTEXT_MEM_SIZE 0x${oecgra_size}
+#define OECGRA_CONTEXT_MEM_END_ADDRESS (OECGRA_CONTEXT_MEM_START_ADDRESS + OECGRA_CONTEXT_MEM_SIZE)
+
+#define OECGRA_CONFIG_REGS_START_ADDRESS (EXT_SLAVE_START_ADDRESS + 0x${oecgra_config_regs_start_address})
+#define OECGRA_CONFIG_REGS_SIZE 0x${oecgra_config_regs_size}
+#define OECGRA_CONFIG_REGS_END_ADDRESS (OECGRA_CONFIG_REGS_START_ADDRESS + OECGRA_CONFIG_REGS_SIZE)
 
 // FLL
 #define FLL_START_ADDRESS (EXT_PERIPHERAL_START_ADDRESS + 0x${fll_start_address})

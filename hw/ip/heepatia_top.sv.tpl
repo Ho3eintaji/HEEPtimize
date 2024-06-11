@@ -22,6 +22,7 @@ ${pad.x_heep_system_interface}
   localparam int unsigned ExtXbarNmasterRnd = (heepatia_pkg::ExtXbarNMaster > 0) ? heepatia_pkg::ExtXbarNMaster : 32'd1;
   localparam int unsigned ExtDomainsRnd = core_v_mini_mcu_pkg::EXTERNAL_DOMAINS == 0 ? 32'd1 
                                             : core_v_mini_mcu_pkg::EXTERNAL_DOMAINS;
+  localparam int unsigned CarusNumRnd = (heepatia_pkg::CarusNum > 32'd1) ? heepatia_pkg::CarusNum : 32'd1;
 
   // INTERNAL SIGNALS
   // ----------------
@@ -45,10 +46,16 @@ ${pad.x_heep_system_interface}
   obi_resp_t heep_dma_read_ch0_rsp;
   obi_req_t  heep_dma_write_ch0_req;
   obi_resp_t heep_dma_write_ch0_rsp;
+  obi_req_t  heep_dma_addr_ch0_req;
+  obi_resp_t heep_dma_addr_ch0_rsp;
 
   // X-HEEP slave ports
   obi_req_t  [ExtXbarNmasterRnd-1:0] heep_slave_req;
   obi_resp_t [ExtXbarNmasterRnd-1:0] heep_slave_rsp;
+
+  // External master ports
+  obi_req_t  [ExtXbarNmasterRnd-1:0] heepatia_master_req;
+  obi_resp_t [ExtXbarNmasterRnd-1:0] heepatia_master_resp;
 
   // X-HEEP external peripheral master ports
   reg_req_t heep_peripheral_req;
@@ -58,20 +65,19 @@ ${pad.x_heep_system_interface}
   logic [core_v_mini_mcu_pkg::NEXT_INT-1:0] ext_int_vector;
 
   // OBI external slaves
-  obi_req_t  carus_req; // request to NM-Carus
-  obi_resp_t carus_rsp; // response from NM-Carus
-  // CGRA
-  obi_req_t  cgra_req; // request to CGRA
-  obi_resp_t cgra_resp; // response from CGRA
+  obi_req_t  [CarusNumRnd - 1:0]carus_req; // request to NM-Carus
+  obi_resp_t [CarusNumRnd - 1:0]carus_rsp; // response from NM-Carus
+  obi_req_t  oecgra_context_mem_slave_req;
+  obi_resp_t oecgra_context_mem_slave_rsp;
 
   // External peripherals
   reg_req_t fll_req; // request to FLL subsystem
   reg_rsp_t fll_rsp; // response from FLL subsystem
   reg_req_t heepatia_ctrl_req; // request to heepatia controller
   reg_rsp_t heepatia_ctrl_rsp; // response from heepatia controller
-  // CGRA peripherals
-  reg_req_t cgra_periph_slave_req; // request to CGRA peripherals
-  reg_rsp_t cgra_periph_slave_resp; // response from CGRA peripherals
+
+  reg_req_t oecgra_config_regs_slave_req;
+  reg_rsp_t oecgra_config_regs_slave_rsp;
 
   // Pad controller
   reg_req_t pad_req;
@@ -93,13 +99,19 @@ ${pad.x_heep_system_interface}
 
   // External domains reset
   logic [ExtDomainsRnd-1:0] external_subsystem_rst_n;
+
+  // External domains clock-gating
+  logic [ExtDomainsRnd-1:0] external_subsystem_clkgate_en_n;
+
+  // NM-Carus signals
   logic carus_rst_n;
   logic carus_set_retentive_n;
+  logic carus_clkgate_n;
 
-  logic cgra_set_retentive_n;
-
-  // cgra reset
-  logic  cgra_logic_rst_n;
+  // OECGRA signals
+  logic oecgra_rst_n;
+  logic oecgra_set_retentive_n;
+  logic oecgra_clkgate_n;
 
   assign cgra_logic_rst_n = external_subsystem_rst_n[0];
 
@@ -222,8 +234,8 @@ ${pad.core_v_mini_mcu_bonding}
     .ext_dma_read_ch0_resp_i (heep_dma_read_ch0_rsp),
     .ext_dma_write_ch0_req_o (heep_dma_write_ch0_req),
     .ext_dma_write_ch0_resp_i (heep_dma_write_ch0_rsp),
-    .ext_dma_addr_ch0_req_o (),
-    .ext_dma_addr_ch0_resp_i ('0),
+    .ext_dma_addr_ch0_req_o (heep_dma_addr_ch0_req),
+    .ext_dma_addr_ch0_resp_i (heep_dma_addr_ch0_rsp),
 
     // External peripherals slave ports
     .ext_peripheral_slave_req_o  (heep_peripheral_req),
@@ -246,7 +258,7 @@ ${pad.core_v_mini_mcu_bonding}
     // Control signals for external peripherals
     .external_subsystem_rst_no (external_subsystem_rst_n),
     .external_ram_banks_set_retentive_no (external_ram_banks_set_retentive_n),
-    .external_subsystem_clkgate_en_no (), // TODO: add clock gating for external subsystems
+    .external_subsystem_clkgate_en_no (external_subsystem_clkgate_en_n),
 
     // External interrupts
     .intr_vector_ext_i (ext_int_vector),
@@ -257,82 +269,77 @@ ${pad.core_v_mini_mcu_bonding}
     .exit_value_o (exit_value)
   );
 
+  assign carus_rst_n            = external_subsystem_rst_n[0];
+  assign carus_set_retentive_n  = external_ram_banks_set_retentive_n[0];
+  assign carus_clkgate_n        = external_subsystem_clkgate_en_n[0];
+  assign oecgra_rst_n            = external_subsystem_rst_n[1];
+  assign oecgra_set_retentive_n  = external_ram_banks_set_retentive_n[1];
+  assign oecgra_clkgate_n        = external_subsystem_clkgate_en_n[1];
+
   // External peripherals
   // --------------------
-  assign carus_rst_n  = external_subsystem_rst_n[0];
-  assign carus_set_retentive_n  = external_ram_banks_set_retentive_n[0];
-  assign cgra_set_retentive_n = external_ram_banks_set_retentive_n[1]; //todo: double check
+
   heepatia_peripherals u_heepatia_peripherals(
-    .ref_clk_i             (ref_clk_in_x),
-    .rst_ni                (rst_nin_sync),
-    .system_clk_o          (system_clk),
-    .bypass_fll_i          (bypass_fll_in_x),
-    .carus_rst_ni          (carus_rst_n),
-    .carus_set_retentive_ni(carus_set_retentive_n),
-    .carus_req_i           (carus_req),
-    .carus_rsp_o           (carus_rsp),
-    .fll_req_i             (fll_req),
-    .fll_rsp_o             (fll_rsp),
-    .heepatia_ctrl_req_i (heepatia_ctrl_req),
-    .heepatia_ctrl_rsp_o (heepatia_ctrl_rsp),
-    .ext_int_vector_o      (ext_int_vector),
-
-    // CGRA part
-    .cgra_req_i(cgra_req),
-    .cgra_resp_o(cgra_resp),
-    .cgra_periph_slave_req_i(cgra_periph_slave_req),
-    .cgra_periph_slave_resp_o(cgra_periph_slave_resp),
-
-    /* todo: below parts Im not sure
-    .heepatia_ctrl_cgra_mem_sw_fb_i(cgra_mem_sw_fb_sync)
-    check below how it is connected in heepocrates!
-    these two im not sure, 
-    in heppocrates: .ext_xbar_master_req_o(heep_ext_master_req),
-    in heppocrates: .ext_xbar_master_resp_i(heep_ext_master_resp),
-    */
-    .cgra_ram_banks_set_retentive_i(cgra_set_retentive_n),
-    .cgra_logic_rst_n(cgra_logic_rst_n),
-    .heepatia_ctrl_cgra_mem_sw_fb_i(), 
-    .heep_slave_req_o(heep_slave_req),     
-    .heep_slave_resp_i(heep_slave_resp)    
+    .ref_clk_i                        (ref_clk_in_x),
+    .rst_ni                           (rst_nin_sync),
+    .system_clk_o                     (system_clk),
+    .bypass_fll_i                     (bypass_fll_in_x),
+    .carus_rst_ni                     (carus_rst_n),
+    .carus_set_retentive_ni           (carus_set_retentive_n),
+    .carus_req_i                      (carus_req),
+    .carus_rsp_o                      (carus_rsp),
+    .oecgra_rst_ni                     (oecgra_rst_n),
+    .oecgra_enable_i                   (oecgra_clkgate_n),
+    .oecgra_master_req_o               (heepatia_master_req[OecgraMasterIdx]),
+    .oecgra_master_resp_i              (heepatia_master_resp[OecgraMasterIdx]),
+    .oecgra_config_regs_slave_req_i    (oecgra_config_regs_slave_req),
+    .oecgra_config_regs_slave_rsp_o    (oecgra_config_regs_slave_rsp),
+    .oecgra_context_mem_slave_req_i    (oecgra_context_mem_slave_req),
+    .oecgra_context_mem_slave_rsp_o    (oecgra_context_mem_slave_rsp),
+    .oecgra_context_mem_set_retentive_i(~oecgra_set_retentive_n),
+    .fll_req_i                        (fll_req),
+    .fll_rsp_o                        (fll_rsp),
+    .heepatia_ctrl_req_i              (heepatia_ctrl_req),
+    .heepatia_ctrl_rsp_o              (heepatia_ctrl_rsp),
+    .heepatia_coprosit_ctrl_req_i     (heepatia_coprosit_ctrl_req),
+    .heepatia_coprosit_ctrl_rsp_o     (heepatia_coprosit_ctrl_rsp),
+    .ext_int_vector_o                 (ext_int_vector)
   );
-  //CGRA 4 Power Switches
-  // logic [3:0] cgra_mem_sw_fb_sync;
-  // assign cgra_mem_sw_fb_sync = {cgra_mem_sw3_fb_sync, cgra_mem_sw2_fb_sync, cgra_mem_sw1_fb_sync, cgra_mem_sw0_fb_sync};
-
 
   // External peripherals bus
   // ------------------------
-  // External subsystem bus
-  heepatia_bus u_heepatia_bus (
-    .clk_i                    (system_clk),
-    .rst_ni                   (rst_nin_sync),
-    .heep_core_instr_req_i    (heep_core_instr_req),
-    .heep_core_instr_resp_o   (heep_core_instr_rsp),
-    .heep_core_data_req_i     (heep_core_data_req),
-    .heep_core_data_resp_o    (heep_core_data_rsp),
-    .heep_debug_master_req_i  (heep_debug_master_req),
-    .heep_debug_master_resp_o (heep_debug_master_rsp),
-    .heep_dma_read_ch0_req_i  (heep_dma_read_ch0_req),
-    .heep_dma_read_ch0_resp_o (heep_dma_read_ch0_rsp),
-    .heep_dma_write_ch0_req_i (heep_dma_write_ch0_req),
-    .heep_dma_write_ch0_resp_o(heep_dma_write_ch0_rsp),
-    .heep_slave_req_o         (heep_slave_req),
-    .heep_slave_resp_i        (heep_slave_rsp),
-    .carus_req_o              (carus_req),
-    .carus_resp_i             (carus_rsp),
-    .heep_periph_req_i        (heep_peripheral_req),
-    .heep_periph_resp_o       (heep_peripheral_rsp),
-    .fll_req_o                (fll_req),
-    .fll_resp_i               (fll_rsp),
-    .heepatia_ctrl_req_o    (heepatia_ctrl_req),
-    .heepatia_ctrl_resp_i   (heepatia_ctrl_rsp),
 
-    // CGRA
-    .cgra_req_o(cgra_req),
-    .cgra_resp_i(cgra_resp),
-    .cgra_periph_slave_req_o(cgra_periph_slave_req),
-    .cgra_periph_slave_resp_i(cgra_periph_slave_resp)
+  heepatia_bus u_heepatia_bus (
+    .clk_i                        (system_clk),
+    .rst_ni                       (rst_nin_sync),
+    .heep_core_instr_req_i        (heep_core_instr_req),
+    .heep_core_instr_resp_o       (heep_core_instr_rsp),
+    .heep_core_data_req_i         (heep_core_data_req),
+    .heep_core_data_resp_o        (heep_core_data_rsp),
+    .heep_debug_master_req_i      (heep_debug_master_req),
+    .heep_debug_master_resp_o     (heep_debug_master_rsp),
+    .heep_dma_read_ch0_req_i      (heep_dma_read_ch0_req),
+    .heep_dma_read_ch0_resp_o     (heep_dma_read_ch0_rsp),
+    .heep_dma_write_ch0_req_i     (heep_dma_write_ch0_req),
+    .heep_dma_write_ch0_resp_o    (heep_dma_write_ch0_rsp),
+    .heep_dma_addr_ch0_req_i      (heep_dma_addr_ch0_req),
+    .heep_dma_addr_ch0_resp_o     (heep_dma_addr_ch0_rsp),
+    .heepatia_master_req_i        (heepatia_master_req),
+    .heepatia_master_resp_o       (heepatia_master_resp),
+    .heep_slave_req_o             (heep_slave_req),
+    .heep_slave_resp_i            (heep_slave_rsp),
+    .carus_req_o                  (carus_req),
+    .carus_resp_i                 (carus_rsp),
+    .oecgra_context_mem_slave_req_o(oecgra_context_mem_slave_req),
+    .oecgra_context_mem_slave_rsp_i(oecgra_context_mem_slave_rsp),
+    .oecgra_config_regs_slave_req_o(oecgra_config_regs_slave_req),
+    .oecgra_config_regs_slave_rsp_i(oecgra_config_regs_slave_rsp),
+    .heep_periph_req_i            (heep_peripheral_req),
+    .heep_periph_resp_o           (heep_peripheral_rsp),
+    .fll_req_o                    (fll_req),
+    .fll_resp_i                   (fll_rsp),
+    .heepatia_ctrl_req_o          (heepatia_ctrl_req),
+    .heepatia_ctrl_resp_i         (heepatia_ctrl_rsp)
   );
 
   // Pad ring

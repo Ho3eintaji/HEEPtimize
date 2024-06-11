@@ -8,7 +8,10 @@
 // Description: Waivers for heepatia bus
 
 `verilator_config
+
+lint_off -rule UNUSED -file "*/heepatia-bus/heepatia_bus.sv" -match "Signal is not used: 'oecgra_context_mem_slave_rsp_i'"
+lint_off -rule UNUSED -file "*/heepatia-bus/heepatia_bus.sv" -match "Signal is not used: 'oecgra_config_regs_slave_rsp_i'"
 lint_off -rule UNUSED -file "*/heepatia-bus/ext_xbar.sv" -match "Signal is not*used: 'neck_req'"
 lint_off -rule UNUSED -file "*/heepatia-bus/ext_xbar.sv" -match "Signal is not*used: 'neck_resp'"
 lint_off -rule UNUSED -file "*/heepatia-bus/ext_bus.sv" -match "Signal is not used: 'fwd_xbar_*'"
-lint_off -rule UNOPTFLAT -file "*/carus_obi_to_reg.sv" -match "Signal unoptimizable: Feedback to clock or circular logic:*"
+lint_off -rule UNOPTFLAT -file "*/hw/vendor/nm-carus/*" -match "Signal unoptimizable: Feedback to clock or circular logic:*"

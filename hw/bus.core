@@ -22,6 +22,7 @@ filesets:
     - ip/heepatia-bus/ext_xbar.sv 
     - ip/heepatia-bus/heepatia_bus.sv 
     - ip/heepatia-bus/periph_bus.sv
+    - ip/heepatia-bus/oecgra_bus.sv
     file_type: systemVerilogSource
 
   # Vendored IPs

@@ -152,16 +152,15 @@ void dma_copy_32b(uint32_t *dst, uint32_t *src, uint32_t size)
     return;
 }
 
-void dma_fill(uint32_t *dst, uint32_t value, uint32_t size)
+void dma_fill(uint32_t *dst, uint32_t *value, uint32_t size)
 {
 
     dma *peri = dma_peri;
 
-    uint8_t dataSize_b = DMA_DATA_TYPE_2_SIZE(DMA_DATA_TYPE_WORD);
     /*
      * SET THE POINTERS
      */
-    peri->SRC_PTR = &value;
+    peri->SRC_PTR = value;
     peri->DST_PTR = dst;
 
     /*
@@ -195,7 +194,7 @@ void dma_fill(uint32_t *dst, uint32_t value, uint32_t size)
     peri->INTERRUPT_EN = 0x1;
 
     /* Load the size and start the transaction. */
-    peri->SIZE = dataSize_b * 1 * size;
+    peri->SIZE = size * sizeof(uint32_t);
 
     while (!dma_is_ready())
     {

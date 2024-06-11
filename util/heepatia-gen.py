@@ -12,12 +12,13 @@
 # Based on heepocrates_gen.py (https://eslgit.epfl.ch/heep/HEEPpocrates/-/blob/main/util/heepocrates_gen.py), which is based on occamygen.py from ETH Zurich (https://github.com/pulp-platform/snitch/blob/master/util/occamygen.py)
 
 import argparse
-import hjson
-import math
-import sys
 import pathlib
 import re
+import sys
 import logging
+import math
+
+import hjson
 from jsonref import JsonRef
 from mako.template import Template
 
@@ -25,8 +26,18 @@ from mako.template import Template
 re_trailws = re.compile(r"[ \t\r]+$", re.MULTILINE)
 
 
-# Convert integer to hex string
 def int2hexstr(n, nbits) -> str:
+    """
+    Converts an integer to a hexadecimal string representation.
+
+    Args:
+        n (int): The integer to be converted.
+        nbits (int): The number of bits to represent the hexadecimal string.
+
+    Returns:
+        str: The hexadecimal string representation of the integer.
+
+    """
     return hex(n)[2:].zfill(nbits // 4).upper()
 
 
@@ -81,7 +92,7 @@ def main():
     )
     parser.add_argument(
         "--carus_size",
-        type=int,
+        type=str,
         metavar="CARUS_SIZE",
         help="Size of every NM-Carus instances",
     )
@@ -90,12 +101,6 @@ def main():
         type=int,
         metavar="CARUS_NUM_BANKS",
         help="Number of banks of every NM-Carus instances",
-    )
-    parser.add_argument(
-        "--cgra_size",
-        type=int,
-        metavar="CGRA_SIZE",
-        help="Size of OE-CGRA",
     )
     parser.add_argument(
         "--corev_pulp", nargs="?", type=bool, help="CORE-V PULP extension"
@@ -131,11 +136,13 @@ def main():
     if args.corev_pulp != None:
         cpu_features["corev_pulp"] = args.corev_pulp
 
-    # Bus configuration
-    xbar_nmasters = int(cfg["ext_xbar_masters"])
-    # xbar_nslaves = carus_num 
-    xbar_nslaves = int(cfg["ext_xbar_slaves"]["nslaves"])
-    periph_nslaves = len(cfg["ext_periph"])
+    # OECGRA
+    oecgra_start_address = int(cfg["ext_xbar_slaves"]["oecgra"]["offset"], 16)
+    oecgra_start_address_hex = int2hexstr(oecgra_start_address, 32)
+    oecgra_size = int(cfg["ext_xbar_slaves"]["oecgra"]["length"], 16)
+    oecgra_size_hex = int2hexstr(oecgra_size, 32)
+
+    xbar_nslaves = 1
 
     # NM-Carus instance number
     carus_num = int(cfg["ext_xbar_slaves"]["carus"]["num"])
@@ -144,40 +151,90 @@ def main():
     if carus_num < 0 or carus_num > 16:
         exit(f"NM-Carus instances number must be <16: {carus_num}")
 
-    carus_num_banks = int(cfg["ext_xbar_slaves"]["carus"]["num_banks"])
+    carus_num_banks = cfg["ext_xbar_slaves"]["carus"]["num_banks"]
     if args.carus_num_banks is not None:
         carus_num_banks = args.carus_num_banks
-    if carus_num_banks < 0 or carus_num_banks > 16:
-        exit(f"NM-Carus number of banks must be <16: {carus_num_banks}")
+    for i in range(carus_num):
+        if isinstance(carus_num_banks, list):
+            if carus_num_banks[i] < 0 or carus_num_banks[i] > 16:
+                exit(
+                    f"NM-Carus number of banks must be <16: isntance {i} - {carus_num_banks[i]}"
+                )
+        else:
+            if carus_num_banks < 0 or carus_num_banks > 16:
+                exit(
+                    f"NM-Carus number of banks must be <16: isntance {i} - {carus_num_banks}"
+                )
 
-    carus_size = int(cfg["ext_xbar_slaves"]["carus"]["length"], 16)
+    # Check if carus_num_banks is a list
+    if isinstance(carus_num_banks, list):
+        print(
+            "A list is provided for carus_num_banks,",
+            "every instance will have its own number of banks",
+        )
+        carus_num_banks = [int(x) for x in carus_num_banks]
+    else:
+        carus_num_banks = int(carus_num_banks)
+
+    carus_size = cfg["ext_xbar_slaves"]["carus"]["length"]
     if args.carus_size is not None:
-        carus_size = args.carus_size
-    if carus_size < 0 or carus_size > 2**32:
-        exit(f"NM-Carus size must be <2^32: {carus_size}")
+        carus_size = int(args.carus_size, 16)
+    if isinstance(carus_size, list):
+        print(
+            "A list is provided for carus_size,",
+            "every instance will have its own size",
+        )
+        carus_size = [int(x, 16) for x in carus_size]
+    else:
+        carus_size = int(carus_size, 16)
+    for i in range(carus_num):
+        if isinstance(carus_size, list):
+            if carus_size[i] < 0 or carus_size[i] > 2**32:
+                exit(f"NM-Carus size must be <2^32: instance {i} - {carus_size[i]}")
+        else:
+            if carus_size < 0 or carus_size > 2**32:
+                exit(f"NM-Carus size must be <2^32: instance {i} - {carus_size}")
 
-    # oecgra size (HT)
-    cgra_size = int(cfg["ext_xbar_slaves"]["cgra"]["length"], 16)
-    if args.cgra_size is not None:
-        cgra_size = args.cgra_size
+    # Bus configuration
+    xbar_nmasters = int(cfg["ext_xbar_masters"])
+    xbar_nslaves = xbar_nslaves + carus_num
+    periph_nslaves = len(cfg["ext_periph"])
 
+    carus_start_address = []
+    carus_start_address_hex = []
+    carus_size_hex = []
     # Slaves map
+    if carus_num == 1:
+        carus_start_address.append(int(cfg["ext_xbar_slaves"]["carus"]["offset"], 16))
+        carus_start_address_hex.append(int2hexstr(carus_start_address[0], 32))
+        carus_size_hex.append(int2hexstr(carus_size[0], 32))
+    else:
+        for i in range(carus_num):
+            carus_size_hex.append(int2hexstr(carus_size[i], 32))
+            if i == 0:
+                carus_start_address.append(
+                    int(cfg["ext_xbar_slaves"]["carus"]["offset"], 16)
+                )
+            else:
+                carus_start_address.append(
+                    int(
+                        cfg["ext_xbar_slaves"]["carus"]["offset"],
+                        16,
+                    )
+                    + carus_size[i - 1]
+                )
+            carus_start_address_hex.append(int2hexstr(carus_start_address[i], 32))
 
-    # carus
-    carus_start_address = int(cfg["ext_xbar_slaves"]["carus"]["offset"], 16)
-    carus_start_address_hex = int2hexstr(carus_start_address, 32)
-    carus_size_hex = int2hexstr(carus_size, 32)
+    # OECGRA bus
+    oecgra_context_mem_start_address = int(cfg["oecgra_bus_slaves"]["oecgra_context_mem"]["offset"], 16)
+    oecgra_context_mem_start_address_hex = int2hexstr(oecgra_context_mem_start_address, 32)
+    oecgra_context_mem_size = int(cfg["oecgra_bus_slaves"]["oecgra_context_mem"]["length"], 16)
+    oecgra_context_mem_size_hex = int2hexstr(oecgra_context_mem_size, 32)
 
-    # cgra
-    cgra_start_address = int(cfg["ext_xbar_slaves"]["cgra"]["offset"], 16)
-    cgra_start_address_hex = int2hexstr(cgra_start_address, 32)
-    cgra_size_hex = int2hexstr(cgra_size, 32)
-
-    # cgra_periph
-    cgra_periph_start_address = int(cfg["ext_periph"]["cgra_periph"]["offset"], 16)
-    cgra_periph_start_address_hex = int2hexstr(cgra_periph_start_address, 32)
-    cgra_periph_size = int(cfg["ext_periph"]["cgra_periph"]["length"], 16)
-    cgra_periph_size_hex = int2hexstr(cgra_periph_size, 32)
+    oecgra_config_regs_start_address = int(cfg["oecgra_bus_slaves"]["oecgra_config_regs"]["offset"], 16)
+    oecgra_config_regs_start_address_hex = int2hexstr(oecgra_config_regs_start_address, 32)
+    oecgra_config_regs_size = int(cfg["oecgra_bus_slaves"]["oecgra_config_regs"]["length"], 16)
+    oecgra_config_regs_size_hex = int2hexstr(oecgra_config_regs_size, 32)
 
     # Peripherals map
     fll_start_address = int(cfg["ext_periph"]["fll"]["offset"], 16)
@@ -191,15 +248,18 @@ def main():
     heepatia_ctrl_size_hex = int2hexstr(heepatia_ctrl_size, 32)
 
     # Dependent parameters
-    if not math.log2(carus_size).is_integer():
-        exit(f"Carus size must be a power of 2: {carus_size}")
-    if not math.log2(carus_num_banks).is_integer():
-        exit(f"Carus number of banks must be a power of 2: {carus_num_banks}")
-    if carus_size % carus_num_banks != 0:
-        exit(
-            f"Carus size must be a multiple of the number of banks: {carus_size} % {carus_num_banks} != 0"
-        )
-    carus_bank_addr_width = int(math.ceil(math.log2(carus_size // carus_num_banks)))
+    carus_bank_addr_width = []
+    for a_size, a_num_banks in zip(carus_size, carus_num_banks):
+        if not math.log2(a_size).is_integer():
+            sys.exit(f"Carus size must be a power of 2: {a_size}")
+        if not math.log2(a_num_banks).is_integer():
+            sys.exit(f"Carus number of banks must be a power of 2: {a_num_banks}")
+        if a_size % a_num_banks != 0:
+            sys.exit(
+                "Carus size must be a multiple of the number of banks: ",
+                f"{a_size} % {a_num_banks} != 0",
+            )
+        carus_bank_addr_width.append(int(math.ceil(math.log2(a_size // a_num_banks))))
 
     # Explicit arguments
     kwargs = {
@@ -210,18 +270,22 @@ def main():
         "xbar_nmasters": xbar_nmasters,
         "xbar_nslaves": xbar_nslaves,
         "periph_nslaves": periph_nslaves,
+        "oecgra_start_address": oecgra_start_address_hex,
+        "oecgra_size": oecgra_size_hex,
         "carus_num": carus_num,
         "carus_num_banks": carus_num_banks,
         "carus_bank_addr_width": carus_bank_addr_width,
         "carus_start_address": carus_start_address_hex,
         "carus_size": carus_size_hex,
         "carus_mem_name": "xilinx_mem_gen_carus",
-        "carus_tile_size": carus_size // carus_num_banks // 4,
-        "carus_vlen_max": carus_size // 32,
-        "cgra_start_address": cgra_start_address_hex,
-        "cgra_size": cgra_size_hex,
-        "cgra_periph_start_address": cgra_periph_start_address_hex,
-        "cgra_periph_size": cgra_periph_size_hex,
+        "carus_tile_size": [
+            cs // cn // 4 for cs, cn in zip(carus_size, carus_num_banks)
+        ],
+        "carus_vlen_max": [cs // 32 for cs in carus_size],
+        "oecgra_context_mem_start_address": oecgra_context_mem_start_address_hex,
+        "oecgra_context_mem_size": oecgra_context_mem_size_hex,
+        "oecgra_config_regs_start_address": oecgra_config_regs_start_address_hex,
+        "oecgra_config_regs_size": oecgra_config_regs_size_hex,
         "fll_start_address": fll_start_address_hex,
         "fll_size": fll_size_hex,
         "heepatia_ctrl_start_address": heepatia_ctrl_start_address_hex,

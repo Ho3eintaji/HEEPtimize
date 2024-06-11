@@ -31,6 +31,13 @@ module heepatia_bus #(
   input  obi_pkg::obi_req_t  heep_dma_write_ch0_req_i,
   output obi_pkg::obi_resp_t heep_dma_write_ch0_resp_o,
 
+  input  obi_pkg::obi_req_t  heep_dma_addr_ch0_req_i,
+  output obi_pkg::obi_resp_t heep_dma_addr_ch0_resp_o,
+
+  // External master ports
+  input  obi_pkg::obi_req_t  [ExtXbarNmasterRnd-1:0] heepatia_master_req_i,
+  output obi_pkg::obi_resp_t [ExtXbarNmasterRnd-1:0] heepatia_master_resp_o,
+
   // X-HEEP slave ports (one per external master)
   output obi_pkg::obi_req_t  [ExtXbarNmasterRnd-1:0] heep_slave_req_o,
   input  obi_pkg::obi_resp_t [ExtXbarNmasterRnd-1:0] heep_slave_resp_i,
@@ -39,19 +46,13 @@ module heepatia_bus #(
   output obi_pkg::obi_req_t  [CarusNumRnd-1:0] carus_req_o,
   input  obi_pkg::obi_resp_t [CarusNumRnd-1:0] carus_resp_i,
 
-  // CGRA slave ports
-  output obi_pkg::obi_req_t  cgra_req_o,
-  input  obi_pkg::obi_resp_t cgra_resp_i,
+  // OECGRA context memory slave ports
+  output obi_pkg::obi_req_t  oecgra_context_mem_slave_req_o, //cgra_req_o
+  input  obi_pkg::obi_resp_t oecgra_context_mem_slave_rsp_i, //cgra_resp_i
 
-  /*
-  * TODO: The below signals are not going through HEEP anymore.
-  * How should they be managed?
-  * Double-check if these are defined with different names?
-  * I think these are the same as heep_periph_req_i:
-  * input  reg_req_t ext_peripheral_slave_req_i
-  * output reg_rsp_t ext_peripheral_slave_resp_o
-  * They are not connected in heepatia (but connected in HEEPocrates)
-  */
+  // OECGRA configuration registers slave ports
+  output reg_pkg::reg_req_t oecgra_config_regs_slave_req_o, //cgra_periph_slave_req_o,
+  input  reg_pkg::reg_rsp_t oecgra_config_regs_slave_rsp_i, //cgra_periph_slave_resp_i
 
   // X-HEEP peripheral master port
   input  reg_pkg::reg_req_t heep_periph_req_i,
@@ -62,11 +63,8 @@ module heepatia_bus #(
   input  reg_pkg::reg_rsp_t fll_resp_i,
 
   output reg_pkg::reg_req_t heepatia_ctrl_req_o,
-  input  reg_pkg::reg_rsp_t heepatia_ctrl_resp_i,
+  input  reg_pkg::reg_rsp_t heepatia_ctrl_resp_i
 
-  // CGRA peripheral
-  output reg_pkg::reg_req_t cgra_periph_slave_req_o,
-  input  reg_pkg::reg_rsp_t cgra_periph_slave_resp_i
 );
   import heepatia_pkg::*;
   import obi_pkg::*;
@@ -85,20 +83,20 @@ module heepatia_bus #(
   reg_req_t  [ExtPeriphNSlave-1:0] ext_periph_req;
   reg_rsp_t  [ExtPeriphNSlave-1:0] ext_periph_rsp;
 
-  // CGRA
-  //TODO: is it correct, also considering the carus?
-  //slave req
-  assign cgra_req_o                           = ext_slave_req[heepatia_pkg::CGRAIdx];
-  //slave resp
-  assign ext_slave_rsp[heepatia_pkg::CGRAIdx] = cgra_resp_i;
+  // // CGRA
+  // //TODO: is it correct, also considering the carus?
+  // //slave req
+  // assign cgra_req_o                           = ext_slave_req[heepatia_pkg::CGRAIdx];
+  // //slave resp
+  // assign ext_slave_rsp[heepatia_pkg::CGRAIdx] = cgra_resp_i;
 
   // ----------
   // COMPONENTS
   // ----------
   generate
     for (genvar i = 0; i < CarusNumRnd; i++) begin : gen_carus_req
-      assign carus_req_o[i]   = ext_slave_req[i];
-      assign ext_slave_rsp[i] = carus_resp_i[i];
+      assign carus_req_o[i]   = ext_slave_req[i+1];
+      assign ext_slave_rsp[i+1] = carus_resp_i[i];
     end
   endgenerate
   // External slave bus
@@ -124,8 +122,10 @@ module heepatia_bus #(
     .heep_dma_read_ch0_resp_o(heep_dma_read_ch0_resp_o),
     .heep_dma_write_ch0_req_i(heep_dma_write_ch0_req_i),
     .heep_dma_write_ch0_resp_o(heep_dma_write_ch0_resp_o),
-    .ext_master_req_i('0),  // no external masters //TODO: now we have masters!
-    .ext_master_resp_o(),  // no external masters
+    .heep_dma_addr_ch0_req_i  (heep_dma_addr_ch0_req_i),
+    .heep_dma_addr_ch0_resp_o (heep_dma_addr_ch0_resp_o),
+    .ext_master_req_i         (heepatia_master_req_i),
+    .ext_master_resp_o        (heepatia_master_resp_o),
     .heep_slave_req_o(heep_slave_req_o),
     .heep_slave_resp_i(heep_slave_resp_i),
     .ext_slave_req_o(ext_slave_req),
@@ -137,11 +137,11 @@ module heepatia_bus #(
   // External peripherals mapping
   assign fll_req_o                         = ext_periph_req[FLLIdx];
   assign ext_periph_rsp[FLLIdx]            = fll_resp_i;
-  assign heepatia_ctrl_req_o               = ext_periph_req[HeeperatorCtrlIdx];
-  assign ext_periph_rsp[HeeperatorCtrlIdx] = heepatia_ctrl_resp_i;
+  assign heepatia_ctrl_req_o               = ext_periph_req[HeepatiaCtrlIdx];
+  assign ext_periph_rsp[HeepatiaCtrlIdx] = heepatia_ctrl_resp_i;
   // cgra periph
-  assign cgra_periph_slave_req_o           = ext_periph_req[CGRAPeriphIdx];
-  assign ext_periph_rsp[CGRAPeriphIdx]     = cgra_periph_slave_resp_i;
+  // assign cgra_periph_slave_req_o           = ext_periph_req[CGRAPeriphIdx];
+  // assign ext_periph_rsp[CGRAPeriphIdx]     = cgra_periph_slave_resp_i;
 
   // External peripherals bus
   periph_bus #(
@@ -155,4 +155,25 @@ module heepatia_bus #(
     .slave_req_o (ext_periph_req),
     .slave_rsp_i (ext_periph_rsp)
   );
+
+  `ifndef REMOVE_OECGRA
+
+  // OECGRA bus
+  oecgra_bus #() oecgra_bus_i (
+      .clk_i                  (clk_i),
+      .rst_ni                 (rst_ni),
+      .oecgra_req_i            (ext_slave_req[OecgraIdx]),
+      .oecgra_rsp_o            (ext_slave_rsp[OecgraIdx]),
+      .oecgra_context_mem_req_o(oecgra_context_mem_slave_req_o),
+      .oecgra_context_mem_rsp_i(oecgra_context_mem_slave_rsp_i),
+      .oecgra_config_regs_req_o(oecgra_config_regs_slave_req_o),
+      .oecgra_config_regs_rsp_i(oecgra_config_regs_slave_rsp_i)
+  );
+
+  `else
+
+    assign oecgra_context_mem_slave_req_o = '0;
+    assign oecgra_config_regs_slave_req_o = '0;
+
+  `endif
 endmodule

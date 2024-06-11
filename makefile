@@ -26,7 +26,7 @@ X_HEEP_CFG_FPGA    	?= $(ROOT_DIR)/config/mcu-gen-system-fpga.hjson
 PAD_CFG				?= $(ROOT_DIR)/config/heep-pads.hjson
 PAD_CFG_FPGA	    ?= $(ROOT_DIR)/config/heep-pads-fpga.hjson
 EXT_PAD_CFG			?= $(ROOT_DIR)/config/heepatia-pads.hjson
-EXTERNAL_DOMAINS	:= 2 # NM-Carus + OE-CGRA
+EXTERNAL_DOMAINS	:= 2 # NM-Carus + OECGRA
 MCU_GEN_OPTS		:= \
 	--config $(X_HEEP_CFG) \
 	--cfg_peripherals $(MCU_CFG_PERIPHERALS) \

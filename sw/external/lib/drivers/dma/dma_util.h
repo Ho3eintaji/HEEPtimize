@@ -58,11 +58,11 @@ int dma_copy(const uint8_t *dst, const uint8_t *src, const size_t bytes, const d
  * @brief Fill a memory region with a 32-bit value
  * 
  * @param dst Destination address
- * @param value Value to fill the memory with
+ * @param value Pointer to the value to fill the memory with
  * @param size Number of words (not bytes) to fill
  * @return int 0 if success, -1 if error
  */
-void dma_fill(uint32_t *dst, uint32_t value, uint32_t size);
+void dma_fill(uint32_t *dst, uint32_t *value, uint32_t size);
 
 /**
  * @brief Copy data from source address to destination address (16-bit aligned) [BROKEN until siigned DMA works]

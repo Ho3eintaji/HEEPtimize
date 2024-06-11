@@ -40,6 +40,9 @@ module ext_bus #(
   input  obi_pkg::obi_req_t  heep_dma_write_ch0_req_i,
   output obi_pkg::obi_resp_t heep_dma_write_ch0_resp_o,
 
+  input  obi_pkg::obi_req_t  heep_dma_addr_ch0_req_i,
+  output obi_pkg::obi_resp_t heep_dma_addr_ch0_resp_o,
+
   // External master ports
   input  obi_pkg::obi_req_t  [ExtXbarNmasterRnd-1:0] ext_master_req_i,
   output obi_pkg::obi_resp_t [ExtXbarNmasterRnd-1:0] ext_master_resp_o,
@@ -79,13 +82,14 @@ module ext_bus #(
   assign master_req[core_v_mini_mcu_pkg::DEBUG_MASTER_IDX]  = heep_debug_master_req_i;
   assign master_req[core_v_mini_mcu_pkg::DMA_READ_CH0_IDX]  = heep_dma_read_ch0_req_i;
   assign master_req[core_v_mini_mcu_pkg::DMA_WRITE_CH0_IDX] = heep_dma_write_ch0_req_i;
+  assign master_req[core_v_mini_mcu_pkg::DMA_ADDR_CH0_IDX]  = heep_dma_addr_ch0_req_i;
+
   generate
     if (EXT_XBAR_NMASTER == 32'd0) begin : gen_no_ext_master_req
       assign fwd_xbar_req[0] = '0;
     end else begin : gen_ext_master_req
       for (genvar i = 0; i < EXT_XBAR_NMASTER; i++) begin : gen_ext_master_req_map
-        assign master_req[core_v_mini_mcu_pkg::SYSTEM_XBAR_NMASTER+i] =
-          fwd_xbar_req[i][core_v_mini_mcu_pkg::DEMUX_XBAR_EXT_SLAVE_IDX];
+         assign master_req[core_v_mini_mcu_pkg::SYSTEM_XBAR_NMASTER+i] = fwd_xbar_req[i][core_v_mini_mcu_pkg::DEMUX_XBAR_EXT_SLAVE_IDX];
       end
     end
   endgenerate
@@ -96,6 +100,7 @@ module ext_bus #(
   assign heep_debug_master_resp_o  = master_resp[core_v_mini_mcu_pkg::DEBUG_MASTER_IDX];
   assign heep_dma_read_ch0_resp_o  = master_resp[core_v_mini_mcu_pkg::DMA_READ_CH0_IDX];
   assign heep_dma_write_ch0_resp_o = master_resp[core_v_mini_mcu_pkg::DMA_WRITE_CH0_IDX];
+  assign heep_dma_addr_ch0_resp_o  = master_resp[core_v_mini_mcu_pkg::DMA_ADDR_CH0_IDX];
 
 
   // X-HEEP slave requests

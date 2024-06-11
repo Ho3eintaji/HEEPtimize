@@ -22,11 +22,6 @@ module heepatia_ctrl_reg #(
   // Hardware interface
   output logic [CarusNumRnd-1:0] carus_imc_o,
 
-  // for CGRA
-  input  logic [3:0] cgra_mem_sw_fb_i, //TODO: what should I add as the control logic for this?!!
-  output logic cgra_enable_o
-
-
 );
   import reg_pkg::*;
 
@@ -42,9 +37,10 @@ module heepatia_ctrl_reg #(
   // To near-memory computing IPs
   assign carus_imc_o = {
 % if carus_num > 1:
-  % for inst in reversed(range(1, carus_num)):
+  % for inst in range(carus_num-1, 0, -1):
       reg2hw.op_mode.carus_imc_${inst}.q,
   % endfor
+  reg2hw.op_mode.carus_imc_${0}.q
 %else:
     reg2hw.op_mode.q
 %endif

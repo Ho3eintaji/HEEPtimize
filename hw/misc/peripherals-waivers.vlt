@@ -8,10 +8,22 @@
 // Description: Waivers for heepatia peripherals
 
 `verilator_config
+
+lint_off -rule UNUSED -file "*heepatia_peripherals.sv" -match "Signal is not used: 'oecgra_rst_ni'"
+lint_off -rule UNUSED -file "*heepatia_peripherals.sv" -match "Signal is not used: 'oecgra_enable_i'"
+lint_off -rule UNUSED -file "*heepatia_peripherals.sv" -match "Signal is not used: 'oecgra_master_resp_i'"
+lint_off -rule UNUSED -file "*heepatia_peripherals.sv" -match "Signal is not used: 'oecgra_context_mem_slave_req_i'"
+lint_off -rule UNUSED -file "*heepatia_peripherals.sv" -match "Signal is not used: 'oecgra_config_regs_slave_req_i'"
+lint_off -rule UNUSED -file "*heepatia_peripherals.sv" -match "Signal is not used: 'oecgra_context_mem_set_retentive_i'"
 lint_off -rule UNUSED -file "*heepatia-peripherals/fll_subsystem.sv" -match "Bits of signal are not used: 'fll_slave_req_i'[67:64]"
 lint_off -rule UNUSED -file "*pulp_platform_apb_fll_if/src/apb_fll_if.sv" -match "Bits of signal are not used: 'PADDR'[11:7,1:0]"
 lint_off -rule UNUSED -file "*simulation/fll_wrapper.sv" -match "Bits of signal are not used: 'wdata_i'[31:2]"
 lint_off -rule UNUSED -file "*simulation/fll_wrapper.sv" -match "Signal is not used: '*'"
+
+lint_off -rule UNDRIVEN -file "*heepatia_peripherals.sv" -match "Signal is not driven: 'oecgra_master_req_o'"
+lint_off -rule UNDRIVEN -file "*heepatia_peripherals.sv" -match "Signal is not driven: 'oecgra_context_mem_slave_rsp_o'"
+lint_off -rule UNDRIVEN -file "*heepatia_peripherals.sv" -match "Signal is not driven: 'oecgra_config_regs_slave_rsp_o'"
+lint_off -rule UNDRIVEN -file "*heepatia_peripherals.sv" -match "Signal is not driven: 'oecgra_int'"
 
 lint_off -rule CASEINCOMPLETE -file "*pulp_platform_apb_fll_if/src/apb_fll_if.sv" -match "Case values incompletely covered *"
 

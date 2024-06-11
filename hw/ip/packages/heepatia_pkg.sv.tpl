@@ -31,35 +31,64 @@ package heepatia_pkg;
   localparam int unsigned LogExtXbarNMaster = ExtXbarNMaster > 32'd1 ? $clog2(ExtXbarNMaster) : 32'd1;
   localparam int unsigned LogExtXbarNSlave = ExtXbarNSlave > 32'd1 ? $clog2(ExtXbarNSlave) : 32'd1;
 
+  localparam int unsigned OecgraMasterIdx   = 32'd2;
+
   // Memory map
   // ----------
+
+  // OECGRA
+  localparam int unsigned OecgraIdx = 32'd0;
+  localparam logic [31:0] OecgraStartAddr = EXT_SLAVE_START_ADDRESS + 32'h${oecgra_start_address};
+  localparam logic [31:0] OecgraEndAddr = OecgraStartAddr + 32'h${oecgra_size};
+
 
   // NM-Carus
   localparam int unsigned CarusNum = 32'd${carus_num};
   localparam int unsigned LogCarusNum = CarusNum > 32'd1 ? $clog2(CarusNum) : 32'd1;
-  localparam int unsigned CarusNumBanks = 32'd${carus_num_banks};
-  localparam int unsigned CarusBankAddrWidth = 32'd${carus_bank_addr_width};
 % for inst in range(carus_num):
-  localparam int unsigned Carus${inst}Idx = 32'd${inst};
-  localparam logic [31:0] Carus${inst}StartAddr = EXT_SLAVE_START_ADDRESS + 32'h${carus_start_address};
-  localparam logic [31:0] Carus${inst}EndAddr = Carus${inst}StartAddr + 32'h${carus_size};
+  localparam int unsigned Carus${inst}NumBanks = 32'd${carus_num_banks[inst]};
+  localparam int unsigned Carus${inst}BankAddrWidth = 32'd${carus_bank_addr_width[inst]};
+  localparam int unsigned Carus${inst}Idx = 32'd${inst + 1};
+% if inst == 0:
+  localparam logic [31:0] Carus${inst}StartAddr = EXT_SLAVE_START_ADDRESS + 32'h${carus_start_address[inst]};
+% else:
+  localparam logic [31:0] Carus${inst}StartAddr = Carus${inst - 1}EndAddr;
+% endif
+  localparam logic [31:0] Carus${inst}EndAddr = Carus${inst}StartAddr + 32'h${carus_size[inst]};
 % endfor
 
-  //CGRA memory map and idx
-  localparam int unsigned CGRAIdx = 32'd0; //instead of CGRA_IDX
-  localparam logic [31:0] CGRAStartAddr = EXT_SLAVE_START_ADDRESS + 32'h${cgra_start_address};
-  localparam logic [31:0] CGRAEndAddr = CGRAStartAddr + 32'h${cgra_size};
+  localparam int unsigned InstancesNumBanks[CarusNum] = '{${', '.join([str(carus_num_banks[inst]) for inst in range(carus_num)])}};
+  localparam int unsigned InstancesBankAddrWidth[CarusNum] = '{${', '.join([str(carus_bank_addr_width[inst]) for inst in range(carus_num)])}};
 
-
-  // Near-memory computing IPs address map
+  // External slaves address map
   localparam addr_map_rule_t [ExtXbarNSlave-1:0] ExtSlaveAddrRules = '{
-  % for inst in range(carus_num-1):
-    '{idx: Carus${inst}Idx, start_addr: Carus${inst}StartAddr, end_addr: Carus${inst}EndAddr}
+    '{idx: OecgraIdx, start_addr: OecgraStartAddr, end_addr: OecgraEndAddr},
+  % for inst in range(carus_num-1, 0, -1):
+    '{idx: Carus${inst}Idx, start_addr: Carus${inst}StartAddr, end_addr: Carus${inst}EndAddr},
   % endfor
-    '{idx: Carus${carus_num-1}Idx, start_addr: Carus${carus_num-1}StartAddr, end_addr: Carus${carus_num-1}EndAddr},
-    '{idx: CGRAIdx, start_addr: CGRAStartAddr, end_addr: CGRAEndAddr}   //todo: double check
+    '{idx: Carus${0}Idx, start_addr: Carus${0}StartAddr, end_addr: Carus${0}EndAddr}
   };
   localparam int unsigned ExtSlaveDefaultIdx = 32'd0;
+
+  // ------------------
+  // EXTERNAL OECGRA BUS
+  // ------------------
+
+  // OECGRA context memory
+  localparam int unsigned OecgraContextMemIdx = 32'd0;
+  localparam logic [31:0] OecgraContextMemStartAddr = EXT_SLAVE_START_ADDRESS + 32'h${oecgra_context_mem_start_address};
+  localparam logic [31:0] OecgraContextMemEndAddr = OecgraContextMemStartAddr + 32'h${oecgra_context_mem_size};
+
+  // OECGRA configuration registers
+  localparam int unsigned OecgraConfigRegsIdx = 32'd1;
+  localparam logic [31:0] OecgraConfigRegsStartAddr = EXT_SLAVE_START_ADDRESS + 32'h${oecgra_config_regs_start_address};
+  localparam logic [31:0] OecgraConfigRegsEndAddr = OecgraConfigRegsStartAddr + 32'h${oecgra_config_regs_size};
+
+  // OECGRA slaves address map
+  localparam addr_map_rule_t [1:0] OecgraSlaveAddrRules = '{
+    '{idx: OecgraContextMemIdx, start_addr: OecgraContextMemStartAddr, end_addr: OecgraContextMemEndAddr},
+    '{idx: OecgraConfigRegsIdx, start_addr: OecgraConfigRegsStartAddr, end_addr: OecgraConfigRegsEndAddr}
+  };
 
   
   // --------------------
@@ -77,19 +106,14 @@ package heepatia_pkg;
   localparam logic [31:0] FLLStartAddr = EXT_PERIPHERAL_START_ADDRESS + 32'h${fll_start_address};
   localparam logic [31:0] FLLEndAddr = FLLStartAddr + 32'h${fll_size};
 
-  // heepatia external subsystem control
-  localparam int unsigned HeeperatorCtrlIdx = 32'd1;
-  localparam logic [31:0] HeeperatorCtrlStartAddr = EXT_PERIPHERAL_START_ADDRESS + 32'h${heepatia_ctrl_start_address};
-  localparam logic [31:0] HeeperatorCtrlEndAddr = HeeperatorCtrlStartAddr + 32'h${heepatia_ctrl_size};
-
-  localparam int unsigned CGRAPeriphIdx = 32'd0; //instead of CGRA_PERIPH_IDX
-  localparam logic [31:0] CGRAPeriphStartAddr = EXT_PERIPHERAL_START_ADDRESS + 32'h${cgra_periph_start_address}; //instead of CGRA_PERIPH_START_ADDRESS
-  localparam logic [31:0] CGRAPeriphEndAddr = CGRAPeriphStartAddr + 32'h${cgra_periph_size}; //instead of CGRA_PERIPH_END_ADDRESS
+ // heepatia external subsystem control
+  localparam int unsigned HeepatiaCtrlIdx = 32'd1;
+  localparam logic [31:0] HeepatiaCtrlStartAddr = EXT_PERIPHERAL_START_ADDRESS + 32'h${heepatia_ctrl_start_address};
+  localparam logic [31:0] HeepatiaCtrlEndAddr = HeepatiaCtrlStartAddr + 32'h${heepatia_ctrl_size};
 
   // External peripherals address map
   localparam addr_map_rule_t [ExtPeriphNSlave-1:0] ExtPeriphAddrRules = '{
     '{idx: FLLIdx, start_addr: FLLStartAddr, end_addr: FLLEndAddr},
-    '{idx: HeeperatorCtrlIdx, start_addr: HeeperatorCtrlStartAddr, end_addr: HeeperatorCtrlEndAddr},
-    '{idx: CGRAPeriphIdx, start_addr: CGRAPeriphStartAddr, end_addr: CGRAPeriphEndAddr} //todo: double check
+    '{idx: HeepatiaCtrlIdx, start_addr: HeepatiaCtrlStartAddr, end_addr: HeepatiaCtrlEndAddr}
   };
 endpackage

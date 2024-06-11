@@ -16,7 +16,7 @@ PATH="/softs/mentor/qsta/2020.4/bin/:$PATH"
 export RISCV=/shares/eslfiler1/apps/linux/Development/rv32imc
 
 # Xilinx Vivado
-export XILINX_VIVADO="/softs/xilinx/vivado/2020.2_lin64/"
+export XILINX_VIVADO="/softs/xilinx/vivado/2023.1_lin64/"
 export XILINXD_LICENSE_FILE=2100@ielsrv01.epfl.ch
 PATH="$XILINX_VIVADO/bin:/edadk_repo/softs/xilinx/DocNav:$PATH"
 

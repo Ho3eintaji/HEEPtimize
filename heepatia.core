@@ -21,6 +21,7 @@ filesets:
     - epfl:heepatia:bus
     - epfl:heepatia:peripherals
     - epfl:heepatia:pad-ring
+    - epfl:carus:nm-carus
     - eslepfl::cgra
     files:
     - hw/ip/heepatia_top.sv
@@ -42,6 +43,11 @@ filesets:
   nm_carus_sim:
     depend:
     - epfl:carus:nm-carus
+  
+  # OECGRA
+  oecgra_sim:
+    depend:
+    - eslepfl::cgra
 
   nm_carus_postsynthesis-netlist:
     depend:
