@@ -20,7 +20,7 @@ module heepatia_ctrl_reg #(
   output reg_pkg::reg_rsp_t rsp_o,
 
   // Hardware interface
-  output logic [CarusNumRnd-1:0] carus_imc_o,
+  output logic [CarusNumRnd-1:0] carus_imc_o
 
 );
   import reg_pkg::*;

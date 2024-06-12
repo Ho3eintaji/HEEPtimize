@@ -89,7 +89,7 @@ module ext_bus #(
       assign fwd_xbar_req[0] = '0;
     end else begin : gen_ext_master_req
       for (genvar i = 0; i < EXT_XBAR_NMASTER; i++) begin : gen_ext_master_req_map
-         assign master_req[core_v_mini_mcu_pkg::SYSTEM_XBAR_NMASTER+i] = fwd_xbar_req[i][core_v_mini_mcu_pkg::DEMUX_XBAR_EXT_SLAVE_IDX];
+        assign master_req[core_v_mini_mcu_pkg::SYSTEM_XBAR_NMASTER+i] = fwd_xbar_req[i][core_v_mini_mcu_pkg::DEMUX_XBAR_EXT_SLAVE_IDX];
       end
     end
   endgenerate

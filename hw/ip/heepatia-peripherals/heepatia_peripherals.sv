@@ -56,26 +56,26 @@ module heepatia_peripherals #(
   // INTERNAL SIGNALS
   // ----------------
   // System clock
-  logic system_clk;
+  logic                   system_clk;
 
   // Near-memory computing devices
   logic [CarusNumRnd-1:0] carus_imc;  // computing mode trigger for NM-Carus
-  logic [CarusNum-1:0] carus_intr;  // interrupts from NM-Carus
+  logic [   CarusNum-1:0] carus_intr;  // interrupts from NM-Carus
 
- // OECGRA interrupt
+  // OECGRA interrupt
   logic                   oecgra_int;
 
   // --------------
   // OUTPUT CONTROL
   // --------------
-  assign system_clk_o = system_clk;
+  assign system_clk_o                                        = system_clk;
   assign ext_int_vector_o[core_v_mini_mcu_pkg::NEXT_INT-1:2] = '0;
   // NOTE: all Carus interrupts are aggregated into a single external interrupt
   // line. The associated interrupt handling routine must determine which
   // instance triggered the interrupt by reading the corresponding status
   // registers.
-  assign ext_int_vector_o[0] = |carus_intr;
-  assign ext_int_vector_o[1]    = oecgra_int; 
+  assign ext_int_vector_o[0]                                 = |carus_intr;
+  assign ext_int_vector_o[1]                                 = oecgra_int;
 
   // ----------
   // COMPONENTS
@@ -86,8 +86,8 @@ module heepatia_peripherals #(
   generate
     for (genvar i = 0; unsigned'(i) < CarusNum; i++) begin : gen_carus
       nm_carus_wrapper #(
-        .NUM_BANKS      (heepatia_pkg::CarusNumBanks),
-        .BANK_ADDR_WIDTH(heepatia_pkg::CarusBankAddrWidth)
+        .NUM_BANKS      (heepatia_pkg::InstancesNumBanks[i]),
+        .BANK_ADDR_WIDTH(heepatia_pkg::InstancesBankAddrWidth[i])
       ) u_nm_carus_wrapper (
         .clk_i           (system_clk),
         .rst_ni          (carus_rst_ni),
@@ -104,18 +104,19 @@ module heepatia_peripherals #(
 
   // OECGRA //todo: double check the top wrapper!
   // -----
-  oecgra_top_wrapper oecgra_i (
-      .clk_i               (system_clk),
-      .rst_ni              (oecgra_rst_ni),
-      .oecgra_enable_i      (oecgra_enable_i),
-      .masters_req_o       (oecgra_master_req_o),
-      .masters_resp_i      (oecgra_master_resp_i),
-      .reg_req_i           (oecgra_config_regs_slave_req_i),
-      .reg_rsp_o           (oecgra_config_regs_slave_rsp_o),
-      .slave_req_i         (oecgra_context_mem_slave_req_i),
-      .slave_resp_o        (oecgra_context_mem_slave_rsp_o),
-      .cmem_set_retentive_i(oecgra_context_mem_set_retentive_i),
-      .oecgra_int_o         (oecgra_int)
+  cgra_top_wrapper oecgra_i (
+    .clk_i               (system_clk),
+    .rst_ni              (oecgra_rst_ni),
+    .rst_logic_ni        (oecgra_rst_ni),
+    .cgra_enable_i       (oecgra_enable_i),
+    .masters_req_o       (oecgra_master_req_o),
+    .masters_resp_i      (oecgra_master_resp_i),
+    .reg_req_i           (oecgra_config_regs_slave_req_i),
+    .reg_rsp_o           (oecgra_config_regs_slave_rsp_o),
+    .slave_req_i         (oecgra_context_mem_slave_req_i),
+    .slave_resp_o        (oecgra_context_mem_slave_rsp_o),
+    .cmem_set_retentive_i(oecgra_context_mem_set_retentive_i),
+    .cgra_int_o          (oecgra_int)
   );
 
 `endif
@@ -142,13 +143,11 @@ module heepatia_peripherals #(
   // Control and status registers
   // ----------------------------
   heepatia_ctrl_reg u_heepatia_ctrl_reg (
-    .clk_i           (system_clk),
-    .rst_ni          (rst_ni),
-    .req_i           (heepatia_ctrl_req_i),
-    .rsp_o           (heepatia_ctrl_rsp_o),
-    .carus_imc_o     (carus_imc),
-    .cgra_enable_o   (cgra_enable),
-    .cgra_mem_sw_fb_i(heepatia_ctrl_cgra_mem_sw_fb_i)
+    .clk_i      (system_clk),
+    .rst_ni     (rst_ni),
+    .req_i      (heepatia_ctrl_req_i),
+    .rsp_o      (heepatia_ctrl_rsp_o),
+    .carus_imc_o(carus_imc)
   );
 
 endmodule

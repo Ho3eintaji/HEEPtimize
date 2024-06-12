@@ -301,8 +301,6 @@ ${pad.core_v_mini_mcu_bonding}
     .fll_rsp_o                        (fll_rsp),
     .heepatia_ctrl_req_i              (heepatia_ctrl_req),
     .heepatia_ctrl_rsp_o              (heepatia_ctrl_rsp),
-    .heepatia_coprosit_ctrl_req_i     (heepatia_coprosit_ctrl_req),
-    .heepatia_coprosit_ctrl_rsp_o     (heepatia_coprosit_ctrl_rsp),
     .ext_int_vector_o                 (ext_int_vector)
   );
 

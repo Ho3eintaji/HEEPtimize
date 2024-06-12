@@ -30,7 +30,6 @@ filesets:
     - esl_epfl_cgra/rtl/context_memory_decoder.sv
     - esl_epfl_cgra/rtl/cgra_top.sv
     - esl_epfl_cgra/rtl/context_memory.sv
-    - esl_epfl_cgra/wrapper/cgra_top_wrapper.sv
     file_type: systemVerilogSource
 
 

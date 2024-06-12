@@ -44,10 +44,6 @@ filesets:
     depend:
     - epfl:carus:nm-carus
   
-  # OECGRA
-  oecgra_sim:
-    depend:
-    - eslepfl::cgra
 
   nm_carus_postsynthesis-netlist:
     depend:

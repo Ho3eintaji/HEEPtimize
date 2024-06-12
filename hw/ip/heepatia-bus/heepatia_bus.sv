@@ -47,12 +47,12 @@ module heepatia_bus #(
   input  obi_pkg::obi_resp_t [CarusNumRnd-1:0] carus_resp_i,
 
   // OECGRA context memory slave ports
-  output obi_pkg::obi_req_t  oecgra_context_mem_slave_req_o, //cgra_req_o
-  input  obi_pkg::obi_resp_t oecgra_context_mem_slave_rsp_i, //cgra_resp_i
+  output obi_pkg::obi_req_t  oecgra_context_mem_slave_req_o,  //cgra_req_o
+  input  obi_pkg::obi_resp_t oecgra_context_mem_slave_rsp_i,  //cgra_resp_i
 
   // OECGRA configuration registers slave ports
-  output reg_pkg::reg_req_t oecgra_config_regs_slave_req_o, //cgra_periph_slave_req_o,
-  input  reg_pkg::reg_rsp_t oecgra_config_regs_slave_rsp_i, //cgra_periph_slave_resp_i
+  output reg_pkg::reg_req_t oecgra_config_regs_slave_req_o,  //cgra_periph_slave_req_o,
+  input  reg_pkg::reg_rsp_t oecgra_config_regs_slave_rsp_i,  //cgra_periph_slave_resp_i
 
   // X-HEEP peripheral master port
   input  reg_pkg::reg_req_t heep_periph_req_i,
@@ -95,7 +95,7 @@ module heepatia_bus #(
   // ----------
   generate
     for (genvar i = 0; i < CarusNumRnd; i++) begin : gen_carus_req
-      assign carus_req_o[i]   = ext_slave_req[i+1];
+      assign carus_req_o[i]     = ext_slave_req[i+1];
       assign ext_slave_rsp[i+1] = carus_resp_i[i];
     end
   endgenerate
@@ -108,36 +108,36 @@ module heepatia_bus #(
     .EXT_XBAR_NMASTER(ExtXbarNMaster),
     .EXT_XBAR_NSLAVE (ExtXbarNSlave)
   ) u_ext_bus (
-    .clk_i(clk_i),
-    .rst_ni(rst_ni),
-    .addr_map_i(ExtSlaveAddrRules),
-    .default_idx_i(ExtSlaveDefaultIdx[IdxWidth-1:0]),
-    .heep_core_instr_req_i(heep_core_instr_req_i),
-    .heep_core_instr_resp_o(heep_core_instr_resp_o),
-    .heep_core_data_req_i(heep_core_data_req_i),
-    .heep_core_data_resp_o(heep_core_data_resp_o),
-    .heep_debug_master_req_i(heep_debug_master_req_i),
-    .heep_debug_master_resp_o(heep_debug_master_resp_o),
-    .heep_dma_read_ch0_req_i(heep_dma_read_ch0_req_i),
-    .heep_dma_read_ch0_resp_o(heep_dma_read_ch0_resp_o),
-    .heep_dma_write_ch0_req_i(heep_dma_write_ch0_req_i),
+    .clk_i                    (clk_i),
+    .rst_ni                   (rst_ni),
+    .addr_map_i               (ExtSlaveAddrRules),
+    .default_idx_i            (ExtSlaveDefaultIdx[IdxWidth-1:0]),
+    .heep_core_instr_req_i    (heep_core_instr_req_i),
+    .heep_core_instr_resp_o   (heep_core_instr_resp_o),
+    .heep_core_data_req_i     (heep_core_data_req_i),
+    .heep_core_data_resp_o    (heep_core_data_resp_o),
+    .heep_debug_master_req_i  (heep_debug_master_req_i),
+    .heep_debug_master_resp_o (heep_debug_master_resp_o),
+    .heep_dma_read_ch0_req_i  (heep_dma_read_ch0_req_i),
+    .heep_dma_read_ch0_resp_o (heep_dma_read_ch0_resp_o),
+    .heep_dma_write_ch0_req_i (heep_dma_write_ch0_req_i),
     .heep_dma_write_ch0_resp_o(heep_dma_write_ch0_resp_o),
     .heep_dma_addr_ch0_req_i  (heep_dma_addr_ch0_req_i),
     .heep_dma_addr_ch0_resp_o (heep_dma_addr_ch0_resp_o),
     .ext_master_req_i         (heepatia_master_req_i),
     .ext_master_resp_o        (heepatia_master_resp_o),
-    .heep_slave_req_o(heep_slave_req_o),
-    .heep_slave_resp_i(heep_slave_resp_i),
-    .ext_slave_req_o(ext_slave_req),
-    .ext_slave_resp_i(ext_slave_rsp)
+    .heep_slave_req_o         (heep_slave_req_o),
+    .heep_slave_resp_i        (heep_slave_resp_i),
+    .ext_slave_req_o          (ext_slave_req),
+    .ext_slave_resp_i         (ext_slave_rsp)
   );
 
   // External peripherals bus
   // ------------------------
   // External peripherals mapping
-  assign fll_req_o                         = ext_periph_req[FLLIdx];
-  assign ext_periph_rsp[FLLIdx]            = fll_resp_i;
-  assign heepatia_ctrl_req_o               = ext_periph_req[HeepatiaCtrlIdx];
+  assign fll_req_o                       = ext_periph_req[FLLIdx];
+  assign ext_periph_rsp[FLLIdx]          = fll_resp_i;
+  assign heepatia_ctrl_req_o             = ext_periph_req[HeepatiaCtrlIdx];
   assign ext_periph_rsp[HeepatiaCtrlIdx] = heepatia_ctrl_resp_i;
   // cgra periph
   // assign cgra_periph_slave_req_o           = ext_periph_req[CGRAPeriphIdx];
@@ -156,24 +156,24 @@ module heepatia_bus #(
     .slave_rsp_i (ext_periph_rsp)
   );
 
-  `ifndef REMOVE_OECGRA
+`ifndef REMOVE_OECGRA
 
   // OECGRA bus
   oecgra_bus #() oecgra_bus_i (
-      .clk_i                  (clk_i),
-      .rst_ni                 (rst_ni),
-      .oecgra_req_i            (ext_slave_req[OecgraIdx]),
-      .oecgra_rsp_o            (ext_slave_rsp[OecgraIdx]),
-      .oecgra_context_mem_req_o(oecgra_context_mem_slave_req_o),
-      .oecgra_context_mem_rsp_i(oecgra_context_mem_slave_rsp_i),
-      .oecgra_config_regs_req_o(oecgra_config_regs_slave_req_o),
-      .oecgra_config_regs_rsp_i(oecgra_config_regs_slave_rsp_i)
+    .clk_i                   (clk_i),
+    .rst_ni                  (rst_ni),
+    .oecgra_req_i            (ext_slave_req[OecgraIdx]),
+    .oecgra_rsp_o            (ext_slave_rsp[OecgraIdx]),
+    .oecgra_context_mem_req_o(oecgra_context_mem_slave_req_o),
+    .oecgra_context_mem_rsp_i(oecgra_context_mem_slave_rsp_i),
+    .oecgra_config_regs_req_o(oecgra_config_regs_slave_req_o),
+    .oecgra_config_regs_rsp_i(oecgra_config_regs_slave_rsp_i)
   );
 
-  `else
+`else
 
-    assign oecgra_context_mem_slave_req_o = '0;
-    assign oecgra_config_regs_slave_req_o = '0;
+  assign oecgra_context_mem_slave_req_o = '0;
+  assign oecgra_config_regs_slave_req_o = '0;
 
-  `endif
+`endif
 endmodule

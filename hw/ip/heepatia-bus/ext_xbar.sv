@@ -85,7 +85,9 @@ module ext_xbar #(
       // Unroll OBI structs
       for (genvar i = 0; i < XBAR_NMASTER; i++) begin : gen_unroll_master
         assign master_req_req[i] = master_req_i[i].req;
-        assign master_req_out_data[i] = {master_req_i[i].we, master_req_i[i].be, master_req_i[i].addr, master_req_i[i].wdata};
+        assign master_req_out_data[i] = {
+          master_req_i[i].we, master_req_i[i].be, master_req_i[i].addr, master_req_i[i].wdata
+        };
         assign master_resp_o[i].gnt = master_resp_gnt[i];
         assign master_resp_o[i].rdata = master_resp_rdata[i];
         assign master_resp_o[i].rvalid = master_resp_rvalid[i];
