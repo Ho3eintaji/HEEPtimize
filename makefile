@@ -15,6 +15,19 @@
 ROOT_DIR			:= $(realpath .)
 BUILD_DIR 			:= build
 
+# FUSESOC and Python values (default)
+ifndef CONDA_DEFAULT_ENV
+$(info USING VENV)
+FUSESOC = ./.venv/bin/fusesoc
+PYTHON  = ./.venv/bin/python
+else
+$(info USING MINICONDA $(CONDA_DEFAULT_ENV))
+FUSESOC := $(shell which fusesoc)
+PYTHON  := $(shell which python)
+endif
+
+FORMAT ?= true
+
 # NMC slaves number
 CARUS_NUM			?= 1
 
@@ -73,6 +86,8 @@ FUSESOC_FLAGS		?=
 FUSESOC_ARGS		?=
 
 # QuestaSim
+FLL_FOLDER_PATH := $(ROOT_DIR)/hw/asic/fll/rtl
+ACCESSIBLE := $(shell if [ -d "$(FLL_FOLDER_PATH)" ] && [ -r "$(FLL_FOLDER_PATH)" ]; then echo true; else echo false; fi)
 FUSESOC_BUILD_DIR			= $(shell find $(BUILD_DIR) -type d -name 'epfl_heepatia_heepatia_*' 2>/dev/null | sort | head -n 1)
 QUESTA_SIM_DIR				= $(FUSESOC_BUILD_DIR)/sim-modelsim
 QUESTA_SIM_POSTSYNTH_DIR 	= $(FUSESOC_BUILD_DIR)/sim_postsynthesis-modelsim
@@ -309,9 +324,17 @@ verilator-waves: $(BUILD_DIR)/sim-common/waves.fst | .check-gtkwave
 # Build simulation model and launch simulation
 .PHONY: questasim-build
 questasim-build: $(HEEPATIA_GEN_LOCK) $(DPI_LIBS)
-	fusesoc run --no-export --target sim --tool modelsim --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
+ifeq ($(ACCESSIBLE), true)
+	@echo "### Building simulation model with FLL..."
+	$(FUSESOC) run --no-export --target sim --tool modelsim --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		$(FUSESOC_ARGS)
 	cd $(QUESTA_SIM_DIR) ; make opt
+else
+	@echo "### Building simulation model with FLL behavioural model..."
+	$(FUSESOC) run --no-export --target sim-nofll --tool modelsim --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
+		$(FUSESOC_ARGS)
+	cd $(QUESTA_SIM_DIR) ; make opt
+endif
 
 # Build simulation model and launch simulation
 .PHONY: questasim-sim

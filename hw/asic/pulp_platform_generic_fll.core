@@ -1,0 +1,35 @@
+CAPI=2:
+
+# Copyright 2024 EPFL and Politecnico di Torino.
+# Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+#
+# File: pulp_platform_generic_fll
+# Author: Luigi Giiuffrida
+# Date: 12/06/2024
+# Description: Generic FLL digital FLL model
+
+name: "pulp-platform:fll:generic"
+description: "Generic digital FLL model"
+
+filesets:
+  rtl:
+    files:
+    - fll/generic_FLL/fe/rtl/FLLPkg.vhd
+    - fll/generic_FLL/fe/rtl/FLL_clk_divider.vhd
+    - fll/generic_FLL/fe/rtl/FLL_clk_period_quantizer.vhd
+    - fll/generic_FLL/fe/rtl/FLL_digital.vhd
+    - fll/generic_FLL/fe/rtl/FLL_dither_pattern_gen.vhd
+    - fll/generic_FLL/fe/rtl/FLL_glitchfree_clkdiv.vhd
+    - fll/generic_FLL/fe/rtl/FLL_glitchfree_clkmux.vhd
+    - fll/generic_FLL/fe/rtl/FLL_loop_filter.vhd
+    - fll/generic_FLL/fe/rtl/FLL_reg.vhd
+    - fll/generic_FLL/fe/rtl/FLL_settling_monitor.vhd
+    - fll/generic_FLL/fe/rtl/FLL_synchroedge.vhd
+    - fll/generic_FLL/fe/rtl/FLL_zerodelta.vhd
+    file_type: vhdlSource
+
+targets:
+  default:
+    filesets:
+    - target_sim-nofll? (rtl)

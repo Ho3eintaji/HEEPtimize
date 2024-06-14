@@ -70,6 +70,13 @@ filesets:
     files:
     - hw/simulation/switch_cell_mem.sv
     file_type: systemVerilogSource
+  
+  rtl-sim-no-fll:
+    depend:
+    - pulp-platform:fll:generic
+    files:
+    - hw/simulation/switch_cell_mem.sv
+    file_type: systemVerilogSource
 
   # X-HEEP RTL (separated to avoid Verible errors)
   rtl-x-heep:
@@ -273,6 +280,75 @@ targets:
     toplevel: [xilinx_heepatia_top_wrapper]
 
   # RTL simulation
+  sim-nofll:
+    <<: *default
+    description: Simulate the design using Verilator
+    default_tool: verilator
+    filesets_append:
+    - rtl-sim-no-fll
+    - tb-system
+    - tb-system-vendor
+    - nm_carus_sim
+    - "!tool_verilator ? (tb-others)"
+    - "!tool_verilator ? (tb-others-vendor)"
+    - tool_verilator ? (tb-verilator)
+    - tool_verilator ? (verilator-waivers)
+    - tool_modelsim? (pre_build_uartdpi)
+    toplevel:
+    - tool_verilator ? (tb_system)
+    - "!tool_verilator ? (tb_top)"
+    hooks:
+      pre_build:
+      - tool_modelsim? (pre_build_uartdpi)
+      - tool_modelsim? (pre_patch_modelsim_Makefile)
+      pre_run:
+      - prepare_dirs
+      post_run:
+      - copy_waves
+      - copy_uart
+    parameters_append:
+    - boot_mode
+    - firmware
+    - max_cycles
+    - "!tool_verilator ? (verbose)"
+    - "!tool_verilator ? (vcd_mode)"
+    - "!tool_verilator ? (bypass_fll_opt)"
+    - tool_verilator ? (log_level)
+    - tool_verilator ? (trace)
+    - tool_verilator ? (no_err)
+    - RTL_SIMULATION=true
+    tools:
+      modelsim:
+        vlog_options:
+        - -override_timescale 1ns/1ps
+        - -suppress vlog-2577
+        - -suppress vlog-2583
+        - -pedanticerrors
+        - -define MODELSIM
+        vsim_options:
+        - -suppress 3111 # suppress error on passing string variables to $fdumpvars, that is apparently supported instead
+        - -sv_lib ../../sw/sim/uartdpi
+        - -voptargs=+acc=npr
+        - "-64"
+      verilator:
+        mode: cc
+        verilator_options:
+        - '--cc'
+        - '--assert'
+        - '--trace'
+        - '--trace-fst'
+        - '--trace-structs'
+        - '--trace-max-array 128'
+        - '--x-assign unique'
+        - '--x-initial unique'
+        #- '--threads 2' # only use with Verilator v5.XXX
+        - '--exe'
+        - 'heepatia_tb.cpp'
+        - '-Wall'
+        - '-Wpedantic'
+        - '-LDFLAGS "-pthread -lutil -lelf"'
+        # - '-CFLAGS "-Wall -g"'
+
   sim: &sim
     <<: *default
     description: Simulate the design using Verilator
