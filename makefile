@@ -89,7 +89,11 @@ FUSESOC_ARGS		?=
 FLL_FOLDER_PATH := $(ROOT_DIR)/hw/asic/fll/rtl
 ACCESSIBLE := $(shell if [ -d "$(FLL_FOLDER_PATH)" ] && [ -r "$(FLL_FOLDER_PATH)" ]; then echo true; else echo false; fi)
 FUSESOC_BUILD_DIR			= $(shell find $(BUILD_DIR) -type d -name 'epfl_heepatia_heepatia_*' 2>/dev/null | sort | head -n 1)
-QUESTA_SIM_DIR				= $(FUSESOC_BUILD_DIR)/sim-modelsim
+ifeq ($(ACCESSIBLE), true)
+	QUESTA_SIM_DIR=$(FUSESOC_BUILD_DIR)/sim-modelsim
+else
+	QUESTA_SIM_DIR=$(FUSESOC_BUILD_DIR)/sim-nofll-modelsim
+endif
 QUESTA_SIM_POSTSYNTH_DIR 	= $(FUSESOC_BUILD_DIR)/sim_postsynthesis-modelsim
 QUESTA_SIM_POSTLAYOUT_DIR 	= $(FUSESOC_BUILD_DIR)/sim_postlayout-modelsim
 
