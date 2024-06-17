@@ -122,7 +122,9 @@ module cgra_top_wrapper
   assign cgra_int_o             = |cgra_evt;
 
   // No actual need to read this memory so only cgra_ram0 is connected for read
+  /* verilator lint_off IMPLICIT */
   assign cm_rdata_o             = rcs_cmem_rdata_s[0];
+  /* verilator lint_on IMPLICIT */
 
   logic clk_mem_cg, clk_mem_en;
   logic clk_logic_cg;

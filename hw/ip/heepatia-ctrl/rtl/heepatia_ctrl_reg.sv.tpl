@@ -9,8 +9,7 @@
 
 module heepatia_ctrl_reg #(
   // Dependent parameters: do not override!
-  localparam int unsigned CarusNumRnd = (heepatia_pkg::CarusNum > 32'd1) ? heepatia_pkg::CarusNum : 32'd1,
-  localparam int unsigned ExtXbarNmasterRnd = (heepatia_pkg::ExtXbarNMaster > 0) ? heepatia_pkg::ExtXbarNMaster : 32'd1
+  localparam int unsigned CarusNumRnd = (heepatia_pkg::CarusNum > 32'd1) ? heepatia_pkg::CarusNum : 32'd1
 ) (
   input logic clk_i,
   input logic rst_ni,

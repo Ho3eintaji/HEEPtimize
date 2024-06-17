@@ -21,3 +21,5 @@ lint_off -rule UNUSED -file "*heepatia_top.sv" -match "Signal is not used: 'caru
 lint_off -rule UNDRIVEN -file "*heepatia_top.sv" -match "Signal is not driven: '*_powergate_*'"
 lint_off -rule UNDRIVEN -file "*heepatia_top.sv" -match "Signal is not driven: '*out_x'"
 lint_off -rule UNDRIVEN -file "*heepatia_top.sv" -match "Bits of signal are not driven: 'external_subsystem_powergate_switch_ack_n'[1]"
+
+lint_off -rule UNUSED   -file "*heepatia_top.sv" -match "Signal is not used: 'cgra_logic_rst_n'"

@@ -113,8 +113,6 @@ ${pad.x_heep_system_interface}
   logic oecgra_set_retentive_n;
   logic oecgra_clkgate_n;
 
-  assign cgra_logic_rst_n = external_subsystem_rst_n[0];
-
   // eXtension Interface
   if_xif #() ext_xif ();
 

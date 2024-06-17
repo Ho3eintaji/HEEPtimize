@@ -180,6 +180,7 @@ module cgra
   // Generate gnt mask
   generate  // generate is used to create separated statement blocks
     for (j = 0; j < N_COL; j++) begin : gnt_mask_gen
+
       always_ff @(posedge clk_i[j]) begin
         if (rst_col_i[j] == 1'b1 || rcs_pc_e_i[j] == 1'b1) begin // reset at start and every new instruction
           for (int k = 0; k < N_ROW; k++) begin

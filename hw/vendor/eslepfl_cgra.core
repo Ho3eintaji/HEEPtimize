@@ -55,6 +55,6 @@ targets:
     - files_rtl
     - files_wrap
     - tool_verilator? (files_verilator_waiver)
-    - target_sim? (config_generic) # Fusesoc flag for generic RTL simulation
-    - sim_generic? (files_rtl_generic)
+    # - target_sim? (config_generic) # Fusesoc flag for generic RTL simulation
+    # - sim_generic? (files_rtl_generic)
     - target_sim? (files_behav_rtl)
