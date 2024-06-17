@@ -9,7 +9,8 @@
 
 module heepatia_peripherals #(
   // Dependent parameters: do not override!
-  localparam int unsigned CarusNumRnd  = (heepatia_pkg::CarusNum > 32'd1) ? heepatia_pkg::CarusNum : 32'd1
+  localparam int unsigned CarusNumRnd  = (heepatia_pkg::CarusNum > 32'd1) ? heepatia_pkg::CarusNum : 32'd1,
+  localparam int unsigned ExtXbarNmasterRnd = (heepatia_pkg::ExtXbarNMaster > 0) ? heepatia_pkg::ExtXbarNMaster : 32'd1
 ) (
   input logic ref_clk_i,
   input logic rst_ni,
@@ -28,8 +29,8 @@ module heepatia_peripherals #(
   input logic oecgra_rst_ni,
   input logic oecgra_enable_i,
 
-  output obi_pkg::obi_req_t  oecgra_master_req_o,
-  input  obi_pkg::obi_resp_t oecgra_master_resp_i,
+  output obi_pkg::obi_req_t  [ExtXbarNmasterRnd-1:0] oecgra_master_req_o,
+  input  obi_pkg::obi_resp_t [ExtXbarNmasterRnd-1:0] oecgra_master_resp_i,
 
   input  obi_pkg::obi_req_t  oecgra_context_mem_slave_req_i,
   output obi_pkg::obi_resp_t oecgra_context_mem_slave_rsp_o,

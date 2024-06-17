@@ -288,8 +288,8 @@ ${pad.core_v_mini_mcu_bonding}
     .carus_rsp_o                      (carus_rsp),
     .oecgra_rst_ni                     (oecgra_rst_n),
     .oecgra_enable_i                   (oecgra_clkgate_n),
-    .oecgra_master_req_o               (heepatia_master_req[OecgraMasterIdx]),
-    .oecgra_master_resp_i              (heepatia_master_resp[OecgraMasterIdx]),
+    .oecgra_master_req_o               (heepatia_master_req), //todo: double check
+    .oecgra_master_resp_i              (heepatia_master_resp),
     .oecgra_config_regs_slave_req_i    (oecgra_config_regs_slave_req),
     .oecgra_config_regs_slave_rsp_o    (oecgra_config_regs_slave_rsp),
     .oecgra_context_mem_slave_req_i    (oecgra_context_mem_slave_req),
