@@ -36,15 +36,15 @@ extern "C" {
 %endfor
 
 // OECGRA
-#define OECGRA_START_ADDRESS (EXT_SLAVE_START_ADDRESS + 0x${oecgra_start_address})
+#define OECGRA_START_ADDRESS (EXT_SLAVE_START_ADDRESS + 0x${oecgra_start_address}) //Previously CGRA_START_ADDRESS
 #define OECGRA_SIZE 0x${oecgra_size}
 #define OECGRA_END_ADDRESS (OECGRA_START_ADDRESS + OECGRA_SIZE)
 
-#define OECGRA_CONTEXT_MEM_START_ADDRESS (EXT_SLAVE_START_ADDRESS + 0x${oecgra_context_mem_start_address})
-#define OECGRA_CONTEXT_MEM_SIZE 0x${oecgra_size}
+#define OECGRA_CONTEXT_MEM_START_ADDRESS (EXT_SLAVE_START_ADDRESS + 0x${oecgra_context_mem_start_address}) 
+#define OECGRA_CONTEXT_MEM_SIZE 0x${oecgra_context_mem_size}
 #define OECGRA_CONTEXT_MEM_END_ADDRESS (OECGRA_CONTEXT_MEM_START_ADDRESS + OECGRA_CONTEXT_MEM_SIZE)
 
-#define OECGRA_CONFIG_REGS_START_ADDRESS (EXT_SLAVE_START_ADDRESS + 0x${oecgra_config_regs_start_address})
+#define OECGRA_CONFIG_REGS_START_ADDRESS (EXT_SLAVE_START_ADDRESS + 0x${oecgra_config_regs_start_address}) // previously was CGRA_PERIPH_START_ADDRESS which one it is
 #define OECGRA_CONFIG_REGS_SIZE 0x${oecgra_config_regs_size}
 #define OECGRA_CONFIG_REGS_END_ADDRESS (OECGRA_CONFIG_REGS_START_ADDRESS + OECGRA_CONFIG_REGS_SIZE)
 

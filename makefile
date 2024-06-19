@@ -218,9 +218,6 @@ else ifeq ($(TARGET), pynq-z2)
 	python3 util/heepatia-gen.py $(HEEPATIA_GEN_OPTS) \
 		--outdir hw/fpga/xilinx/scripts/ \
 		--tpl-sv hw/fpga/xilinx/scripts/generate_sram_carus.tcl.tpl
-	python3 util/heepatia-gen.py $(HEEPATIA_GEN_OPTS) \
-		--outdir sw/external/lib/drivers/carus/ \
-		--tpl-c sw/external/lib/drivers/carus/carus.h.tpl
 else ifeq ($(TARGET), zcu104)
 	@echo "### Generating heepatia top and padrings for zcu104..."
 	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS_FPGA) \
@@ -238,9 +235,6 @@ else ifeq ($(TARGET), zcu104)
 	python3 util/heepatia-gen.py $(HEEPATIA_GEN_OPTS) \
 		--outdir hw/fpga/xilinx/scripts/ \
 		--tpl-sv hw/fpga/xilinx/scripts/generate_sram_carus.tcl.tpl
-	python3 util/heepatia-gen.py $(HEEPATIA_GEN_OPTS) \
-		--outdir sw/external/lib/drivers/carus/ \
-		--tpl-c sw/external/lib/drivers/carus/carus.h.tpl
 else
 	$(error ### ERROR: Unsupported target implementation: $(TARGET))
 endif
@@ -259,6 +253,9 @@ endif
 	python3 util/heepatia-gen.py $(HEEPATIA_GEN_OPTS) \
 		--outdir sw/external/lib/runtime \
 		--tpl-c sw/external/lib/runtime/heepatia.h.tpl
+	python3 util/heepatia-gen.py $(HEEPATIA_GEN_OPTS) \
+		--outdir sw/external/lib/drivers/carus/ \
+		--tpl-c sw/external/lib/drivers/carus/carus.h.tpl
 	fusesoc run --no-export --target format epfl:heepatia:heepatia
 	# fusesoc run --no-export --target lint epfl:heepatia:heepatia
 	@echo "### DONE! heepatia files generated successfully"

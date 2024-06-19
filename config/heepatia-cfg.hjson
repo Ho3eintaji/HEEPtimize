@@ -29,7 +29,7 @@
         },
 
         carus: {
-            offset:    "0x00008000",
+            offset:     "0x00008000",
             length:    ["0x00008000"],
             num:       1,
             num_banks: [4], // bank address width is log2(length/num_banks)
@@ -39,11 +39,11 @@
     oecgra_bus_slaves: {
         oecgra_context_mem: {
             offset:    "0x00000000",
-            length:    "0x00004000",
+            length:    "0x00004000", # 16 KiB: actuall size should be around 2 KiB: "512+16" words
         },
         oecgra_config_regs: {
             offset:    "0x00004000",
-            length:    "0x00004000",
+            length:    "0x00004000", # 16 KiB: but actual size it seems it is 128 bytes (anyway we can put it overkilled)
         },
     },
 
