@@ -271,6 +271,7 @@ targets:
     parameters:
     - SYNTHESIS=true
     - FPGA_ZCU104=true
+    - REMOVE_OECGRA=false
     - FPGA=true
     tools:
       vivado:
@@ -658,3 +659,9 @@ parameters:
     datatype: bool
     paramtype: vlogdefine
     default: false
+  REMOVE_OECGRA:
+    datatype: bool
+    paramtype: vlogdefine
+    default: false
+
+  
