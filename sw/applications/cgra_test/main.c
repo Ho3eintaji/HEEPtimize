@@ -34,13 +34,18 @@ int32_t stimuli[CGRA_N_ROWS][INPUT_LENGTH] = {
 
 int32_t exp_rc_c0[CGRA_N_ROWS][OUTPUT_LENGTH] = {0};
 
-/*
+
 // Interrupt controller variables
+
+/*
 dif_plic_params_t rv_plic_params;
 dif_plic_t rv_plic;
 dif_plic_result_t plic_res;
 dif_plic_irq_id_t intr_num;
 */
+
+plic_result_t plic_res;
+
 
 /*
 void handler_irq_external(void) {
@@ -51,6 +56,10 @@ void handler_irq_external(void) {
     }
 }
 */
+static void handler_irq_cgra( uint32_t int_id )
+{
+  cgra_intr_flag = 1;
+}
 
 int main(void) {
 
@@ -60,30 +69,33 @@ int main(void) {
 
   //todo: check the plic for cgra interrupt. In the hw it is connected to external interrupt. Check also the interupt ID for cgra
 
-  /*
-    // Init the PLIC
-  rv_plic_params.base_addr = mmio_region_from_addr((uintptr_t)PLIC_START_ADDRESS);
-  plic_res = dif_plic_init(rv_plic_params, &rv_plic);
 
-  if (plic_res != kDifPlicOk) {
+
+  // Init the PLIC
+  // rv_plic_params.base_addr = mmio_region_from_addr((uintptr_t)PLIC_START_ADDRESS);
+  // plic_res = dif_plic_init(rv_plic_params, &rv_plic);
+  plic_res = plic_Init();
+  if (plic_res != kPlicOk) {
     printf("PLIC init failed\n;");
     return EXIT_FAILURE;
   }
 
   // Set CGRA priority to 1 (target threshold is by default 0) to trigger an interrupt to the target (the processor)
-  plic_res = dif_plic_irq_set_priority(&rv_plic, CGRA_INTR, 1);
-  if (plic_res != kDifPlicOk) {
+  
+  // plic_res = dif_plic_irq_set_priority(&rv_plic, CGRA_INTR, 1);
+  plic_res = plic_irq_set_priority(CGRA_INTR, 1);
+  if (plic_res != kPlicOk) {
     printf("Set CGRA interrupt priority to 1 failed\n;");
     return EXIT_FAILURE;
   }
-
-  plic_res = dif_plic_irq_set_enabled(&rv_plic, CGRA_INTR, 0, kDifPlicToggleEnabled);
-  if (plic_res != kDifPlicOk) {
+  // plic_res = dif_plic_irq_set_enabled(&rv_plic, CGRA_INTR, 0, kDifPlicToggleEnabled);
+  plic_res = plic_irq_set_enabled(CGRA_INTR, kPlicToggleEnabled);
+  if (plic_res != kPlicOk) {
     printf("Enable CGRA interrupt failed\n;");
     return EXIT_FAILURE;
   }
 
-
+  plic_assign_external_irq_handler(CGRA_INTR, &handler_irq_cgra);
 
 
   // Enable interrupt on processor side
@@ -94,15 +106,14 @@ int main(void) {
   CSR_SET_BITS(CSR_REG_MIE, mask);
   cgra_intr_flag = 0;
 
-    */
+
+
 
    //todo: below part I think I dont need it
    /*
-
   heepocrates_ctrl_t heepocrates_ctrl;
   heepocrates_ctrl.base_addr = mmio_region_from_addr((uintptr_t)HEEPOCRATES_CTRL_START_ADDRESS);
   heepocrates_ctrl_cgra_disable(&heepocrates_ctrl, 0);
-
   */
 
   cgra_t cgra;
@@ -167,29 +178,20 @@ int main(void) {
 
   printf("Run while loop for ever on CGRA with %d\% PE utilization...\n", cgra_pe_utilization);
 
-  return EXIT_SUCCESS;
 
-
-
-  /*
+  // return EXIT_SUCCESS;
 
   // Backup code that should never be executed
   // Wait CGRA is done
-  cgra_intr_flag=0;
+  cgra_intr_flag=1;
   while(cgra_intr_flag==0) {
     wait_for_interrupt();
-  }
-  // Complete the interrupt
-  plic_res = dif_plic_irq_complete(&rv_plic, 0, &intr_num);
-  if (plic_res != kDifPlicOk || intr_num != CGRA_INTR) {
-    printf("CGRA interrupt complete failed\n");
-    return EXIT_FAILURE;
   }
 
   printf("ERROR: CGRA while1 loop exited for unknown reason\n");
 
   // This point should never be reached
   return EXIT_FAILURE;
+  // return EXIT_SUCCESS;
 
-  */
 }

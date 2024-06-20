@@ -23,7 +23,7 @@
 #include "mmio.h"
 #include "core_v_mini_mcu.h"
 
-#define CGRA_INTR EXT_INTR_0
+#define CGRA_INTR EXT_INTR_1 // It has changed from 0 to 1
 
 #define CGRA_KMEM_SIZE 16
 #define CGRA_IMEM_SIZE 512
