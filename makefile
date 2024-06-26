@@ -215,9 +215,6 @@ else ifeq ($(TARGET), pynq-z2)
 		--outdir $(ROOT_DIR)/tb/ \
 		--external_pads $(EXT_PAD_CFG) \
 		--tpl-sv $(ROOT_DIR)/tb/tb_util.svh.tpl
-	python3 util/heepatia-gen.py $(HEEPATIA_GEN_OPTS) \
-		--outdir hw/fpga/xilinx/scripts/ \
-		--tpl-sv hw/fpga/xilinx/scripts/generate_sram_carus.tcl.tpl
 else ifeq ($(TARGET), zcu104)
 	@echo "### Generating heepatia top and padrings for zcu104..."
 	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS_FPGA) \
@@ -232,9 +229,6 @@ else ifeq ($(TARGET), zcu104)
 		--outdir $(ROOT_DIR)/tb/ \
 		--external_pads $(EXT_PAD_CFG) \
 		--tpl-sv $(ROOT_DIR)/tb/tb_util.svh.tpl
-	python3 util/heepatia-gen.py $(HEEPATIA_GEN_OPTS) \
-		--outdir hw/fpga/xilinx/scripts/ \
-		--tpl-sv hw/fpga/xilinx/scripts/generate_sram_carus.tcl.tpl
 else
 	$(error ### ERROR: Unsupported target implementation: $(TARGET))
 endif
@@ -588,7 +582,6 @@ clean:
 	$(RM) hw/ip/heepatia-ctrl/rtl/heepatia_ctrl_reg_top.sv
 	$(RM) hw/ip/heepatia-ctrl/rtl/heepatia_ctrl_reg_pkg.sv
 	$(RM) hw/ip/heepatia-ctrl/rtl/heepatia_ctrl_reg.sv
-	$(RM) hw/fpga/xilinx/scripts/generate_sram_carus.tcl
 	$(RM) sw/external/lib/drivers/carus/carus.h
 	$(RM) sw/device/include/heepatia.h
 	$(RM) sw/device/include/heepatia_ctrl_reg.h

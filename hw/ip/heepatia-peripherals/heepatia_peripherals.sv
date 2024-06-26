@@ -101,7 +101,7 @@ module heepatia_peripherals #(
     end
   endgenerate
 
-`ifndef REMOVE_OECGRA
+  // `ifndef REMOVE_OECGRA
 
   // OECGRA //todo: double check the top wrapper!
   // -----
@@ -120,7 +120,7 @@ module heepatia_peripherals #(
     .cgra_int_o          (oecgra_int)
   );
 
-`endif
+  // `endif
 
 `ifndef FPGA
 

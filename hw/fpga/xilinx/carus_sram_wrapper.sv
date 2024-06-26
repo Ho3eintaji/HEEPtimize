@@ -30,7 +30,7 @@ module carus_sram_wrapper #(
 
  generate
   if (NUM_WORDS == 128) begin
-    xilinx_emem_gen_carus tc_ram_i (
+    xilinx_emem_gen_carus xilinx_sram_i (
       .clka (clk_i),
       .ena  (req_i),
       .wea  ({4{req_i & we_i}} & be_i),
@@ -39,8 +39,58 @@ module carus_sram_wrapper #(
       // output ports
       .douta(rdata_o)
     );
-  end else begin
-    xilinx_mem_gen_carus tc_ram_i (
+  end else if (NUM_WORDS == 512) begin
+    xilinx_mem_gen_carus_2k xilinx_sram_i (
+      .clka (clk_i),
+      .ena  (req_i),
+      .wea  ({4{req_i & we_i}} & be_i),
+      .addra(addr_i),
+      .dina (wdata_i),
+      // output ports
+      .douta(rdata_o)
+    );
+  end else if (NUM_WORDS == 1024) begin
+    xilinx_mem_gen_carus_4k xilinx_sram_i (
+      .clka (clk_i),
+      .ena  (req_i),
+      .wea  ({4{req_i & we_i}} & be_i),
+      .addra(addr_i),
+      .dina (wdata_i),
+      // output ports
+      .douta(rdata_o)
+    );
+  end else if (NUM_WORDS == 2048) begin
+    xilinx_mem_gen_carus_8k xilinx_sram_i (
+      .clka (clk_i),
+      .ena  (req_i),
+      .wea  ({4{req_i & we_i}} & be_i),
+      .addra(addr_i),
+      .dina (wdata_i),
+      // output ports
+      .douta(rdata_o)
+    );
+  end else if (NUM_WORDS == 4096) begin
+    xilinx_mem_gen_carus_16k xilinx_sram_i (
+      .clka (clk_i),
+      .ena  (req_i),
+      .wea  ({4{req_i & we_i}} & be_i),
+      .addra(addr_i),
+      .dina (wdata_i),
+      // output ports
+      .douta(rdata_o)
+    );
+  end else if (NUM_WORDS == 8192) begin
+    xilinx_mem_gen_carus_32k xilinx_sram_i (
+      .clka (clk_i),
+      .ena  (req_i),
+      .wea  ({4{req_i & we_i}} & be_i),
+      .addra(addr_i),
+      .dina (wdata_i),
+      // output ports
+      .douta(rdata_o)
+    );
+  end else if (NUM_WORDS == 16384) begin
+    xilinx_mem_gen_carus_64k xilinx_sram_i (
       .clka (clk_i),
       .ena  (req_i),
       .wea  ({4{req_i & we_i}} & be_i),

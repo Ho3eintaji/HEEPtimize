@@ -32,6 +32,8 @@ filesets:
     files:
     - hw/fpga/xilinx/carus_sram_wrapper.sv
     - hw/fpga/xilinx/carus_clk_gate_wrapper.sv
+    - hw/fpga/xilinx/cgra_clock_gate.sv
+    - hw/fpga/xilinx/cgra_sram_wrapper_updated.sv
     file_type: systemVerilogSource
   
   fpga-top:
@@ -271,7 +273,7 @@ targets:
     parameters:
     - SYNTHESIS=true
     - FPGA_ZCU104=true
-    - REMOVE_OECGRA=false
+    # - REMOVE_OECGRA=false
     - FPGA=true
     tools:
       vivado:
@@ -659,9 +661,9 @@ parameters:
     datatype: bool
     paramtype: vlogdefine
     default: false
-  REMOVE_OECGRA:
-    datatype: bool
-    paramtype: vlogdefine
-    default: false
+  # REMOVE_OECGRA:
+  #   datatype: bool
+  #   paramtype: vlogdefine
+  #   default: false
 
   
