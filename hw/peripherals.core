@@ -18,6 +18,7 @@ filesets:
     depend:
     - epfl:heepatia:packages
     - epfl:heepatia:control-reg
+    - eslepfl::cgra
     files:
     - ip/heepatia-peripherals/fll_subsystem.sv
     - ip/heepatia-peripherals/heepatia_peripherals.sv

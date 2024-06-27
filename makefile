@@ -334,6 +334,7 @@ endif
 # Build simulation model and launch simulation
 .PHONY: questasim-sim
 questasim-sim: | questasim-build $(QUESTA_SIM_DIR)/logs/
+ifeq ($(ACCESSIBLE), true)
 	fusesoc run --no-export --target sim --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		--firmware=$(FIRMWARE) \
 		--bypass_fll_opt=$(BYPASS_FLL) \
@@ -342,10 +343,21 @@ questasim-sim: | questasim-build $(QUESTA_SIM_DIR)/logs/
 		--max_cycles=$(MAX_CYCLES) \
 		$(FUSESOC_ARGS)
 	cat $(BUILD_DIR)/sim-common/uart.log
+else
+	fusesoc run --no-export --target sim-nofll --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
+		--firmware=$(FIRMWARE) \
+		--bypass_fll_opt=$(BYPASS_FLL) \
+		--boot_mode=$(BOOT_MODE) \
+		--vcd_mode=$(VCD_MODE) \
+		--max_cycles=$(MAX_CYCLES) \
+		$(FUSESOC_ARGS)
+	cat $(BUILD_DIR)/sim-common/uart.log
+endif
 
 # Launch simulation
 .PHONY: questasim-run
 questasim-run: | $(QUESTA_SIM_DIR)/logs/
+ifeq ($(ACCESSIBLE), true)
 	fusesoc run --no-export --target sim --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		--firmware=$(FIRMWARE) \
 		--bypass_fll_opt=$(BYPASS_FLL) \
@@ -354,6 +366,17 @@ questasim-run: | $(QUESTA_SIM_DIR)/logs/
 		--max_cycles=$(MAX_CYCLES) \
 		$(FUSESOC_ARGS)
 	cat $(BUILD_DIR)/sim-common/uart.log
+else
+	fusesoc run --no-export --target sim-nofll --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
+		--firmware=$(FIRMWARE) \
+		--bypass_fll_opt=$(BYPASS_FLL) \
+		--boot_mode=$(BOOT_MODE) \
+		--vcd_mode=$(VCD_MODE) \
+		--max_cycles=$(MAX_CYCLES) \
+		$(FUSESOC_ARGS)
+	cat $(BUILD_DIR)/sim-common/uart.log
+endif
+	
 
 # Launch simulation in GUI mode
 .PHONY: questasim-gui

@@ -27,6 +27,8 @@ filesets:
     - fll/generic_FLL/fe/rtl/FLL_settling_monitor.vhd
     - fll/generic_FLL/fe/rtl/FLL_synchroedge.vhd
     - fll/generic_FLL/fe/rtl/FLL_zerodelta.vhd
+    - fll/generic_FLL/fe/model/gf22_FLL_model.vhd
+    - fll/generic_FLL/fe/model/gf22_DCO_model.tc.vhd
     file_type: vhdlSource
 
 targets:

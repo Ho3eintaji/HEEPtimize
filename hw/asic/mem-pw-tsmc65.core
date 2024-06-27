@@ -25,6 +25,7 @@ targets:
   default:
     filesets:
       - target_sim ? (rtl)
+      - target_sim-nofll? (rtl)
       - target_sim_rtl-sim_tsmc65 ? (rtl)
       - target_sim_postsynthesis ? (rtl)
       - target_sim_postlayout ? (rtl)

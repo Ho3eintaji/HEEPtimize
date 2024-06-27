@@ -41,6 +41,7 @@ targets:
   default: &default
     filesets:
     - target_sim ? (rtl-vendor)
+    - target_sim-nofll? (rtl-vendor)
     - rtl
     - tool_verilator ? (verilator-waivers)
     toplevel: heepatia_bus
