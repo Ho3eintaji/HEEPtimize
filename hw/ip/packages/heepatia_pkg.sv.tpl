@@ -41,32 +41,28 @@ package heepatia_pkg;
   localparam logic [31:0] OecgraStartAddr = EXT_SLAVE_START_ADDRESS + 32'h${oecgra_start_address};
   localparam logic [31:0] OecgraEndAddr = OecgraStartAddr + 32'h${oecgra_size};
 
-
   // NM-Carus
   localparam int unsigned CarusNum = 32'd${carus_num};
   localparam int unsigned LogCarusNum = CarusNum > 32'd1 ? $clog2(CarusNum) : 32'd1;
+  localparam int unsigned CarusNumBanks = 32'd${carus_num_banks};
+  localparam int unsigned CarusBankAddrWidth = 32'd${carus_bank_addr_width};
 % for inst in range(carus_num):
-  localparam int unsigned Carus${inst}NumBanks = 32'd${carus_num_banks[inst]};
-  localparam int unsigned Carus${inst}BankAddrWidth = 32'd${carus_bank_addr_width[inst]};
-  localparam int unsigned Carus${inst}Idx = 32'd${inst + 1};
-% if inst == 0:
-  localparam logic [31:0] Carus${inst}StartAddr = EXT_SLAVE_START_ADDRESS + 32'h${carus_start_address[inst]};
-% else:
-  localparam logic [31:0] Carus${inst}StartAddr = Carus${inst - 1}EndAddr;
-% endif
-  localparam logic [31:0] Carus${inst}EndAddr = Carus${inst}StartAddr + 32'h${carus_size[inst]};
+  localparam int unsigned Carus${inst}Idx = 32'd${carus_num + inst};
+  localparam logic [31:0] Carus${inst}StartAddr = EXT_SLAVE_START_ADDRESS + 32'h${carus_start_address};
+  localparam logic [31:0] Carus${inst}EndAddr = Carus${inst}StartAddr + 32'h${carus_size};
 % endfor
 
-  localparam int unsigned InstancesNumBanks[CarusNum] = '{${', '.join([str(carus_num_banks[inst]) for inst in range(carus_num)])}};
-  localparam int unsigned InstancesBankAddrWidth[CarusNum] = '{${', '.join([str(carus_bank_addr_width[inst]) for inst in range(carus_num)])}};
+  localparam int unsigned InstancesNumBanks[CarusNum] = '{${', '.join([str(carus_num_banks) for _ in range(carus_num)])}};
+  localparam int unsigned InstancesBankAddrWidth[CarusNum] = '{${', '.join([str(carus_bank_addr_width) for _ in range(carus_num)])}};
 
   // External slaves address map
+
   localparam addr_map_rule_t [ExtXbarNSlave-1:0] ExtSlaveAddrRules = '{
     '{idx: OecgraIdx, start_addr: OecgraStartAddr, end_addr: OecgraEndAddr},
-  % for inst in range(carus_num-1, 0, -1):
+  % for inst in range(carus_num-1):
     '{idx: Carus${inst}Idx, start_addr: Carus${inst}StartAddr, end_addr: Carus${inst}EndAddr},
   % endfor
-    '{idx: Carus${0}Idx, start_addr: Carus${0}StartAddr, end_addr: Carus${0}EndAddr}
+    '{idx: Carus${carus_num-1}Idx, start_addr: Carus${carus_num-1}StartAddr, end_addr: Carus${carus_num-1}EndAddr}
   };
   localparam int unsigned ExtSlaveDefaultIdx = 32'd0;
 

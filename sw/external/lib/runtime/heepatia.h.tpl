@@ -26,13 +26,9 @@ extern "C" {
 // NM-Carus
 #define CARUS_NUM ${carus_num}
 %for inst in range(carus_num):
-%if inst == 0:
-#define CARUS${inst}_START_ADDRESS (EXT_SLAVE_START_ADDRESS + 0x${carus_start_address[inst]})
-%else:
-#define CARUS${inst}_START_ADDRESS (CARUS${inst-1}_END_ADDRESS)
-%endif
-#define CARUS${inst}_SIZE 0x${carus_size[inst]}
-#define CARUS${inst}_END_ADDRESS (CARUS${inst}_START_ADDRESS + CARUS${inst}_SIZE)
+#define CARUS${inst}_START_ADDRESS (EXT_SLAVE_START_ADDRESS + 0x${carus_start_address + inst * carus_size})
+#define CARUS${inst}_SIZE 0x${carus_size}
+#define CARUS${inst}_END_ADDRESS (CARUS${inst}_START_ADDRESS + CARUS_SIZE)
 %endfor
 
 // OECGRA

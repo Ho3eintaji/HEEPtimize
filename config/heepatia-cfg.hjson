@@ -30,9 +30,9 @@
 
         carus: {
             offset:     "0x00008000",
-            length:    ["0x00008000"],
+            length:    "0x00008000",
             num:       1,
-            num_banks: [4], // bank address width is log2(length/num_banks)
+            num_banks: 4, // bank address width is log2(length/num_banks)
         }, 
     },
 

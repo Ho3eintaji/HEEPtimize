@@ -9,6 +9,7 @@
 
 #include "carus.h"
 #include "carus_loader.h"
+#include "heepatia.h"
 #include "heepatia_ctrl_reg.h"
 #include "carus_addr_map.h"
 #include "dma_util.h"
@@ -19,14 +20,40 @@
 /* ---- GLOBAL VARIABLES ---- */
 /******************************/
 
-const int32_t carus_vlen[CARUS_NUM] = {
-    (int32_t) CARUS0_VLEN_MAX,
-    (int32_t) CARUS1_VLEN_MAX,
-};
-
-int32_t carus[CARUS_NUM] = {
-    (int32_t) CARUS0_START_ADDRESS,
-    (int32_t) CARUS1_START_ADDRESS,
+// Vector register file addresses
+const uint8_t *vregs[] = {
+    (uint8_t *)(0 * VLEN_MAX),  // v0
+    (uint8_t *)(1 * VLEN_MAX),  // v1
+    (uint8_t *)(2 * VLEN_MAX),  // v2
+    (uint8_t *)(3 * VLEN_MAX),  // v3
+    (uint8_t *)(4 * VLEN_MAX),  // v4
+    (uint8_t *)(5 * VLEN_MAX),  // v5
+    (uint8_t *)(6 * VLEN_MAX),  // v6
+    (uint8_t *)(7 * VLEN_MAX),  // v7
+    (uint8_t *)(8 * VLEN_MAX),  // v8
+    (uint8_t *)(9 * VLEN_MAX),  // v9
+    (uint8_t *)(10 * VLEN_MAX), // v10
+    (uint8_t *)(11 * VLEN_MAX), // v11
+    (uint8_t *)(12 * VLEN_MAX), // v12
+    (uint8_t *)(13 * VLEN_MAX), // v13
+    (uint8_t *)(14 * VLEN_MAX), // v14
+    (uint8_t *)(15 * VLEN_MAX), // v15
+    (uint8_t *)(16 * VLEN_MAX), // v16
+    (uint8_t *)(17 * VLEN_MAX), // v17
+    (uint8_t *)(18 * VLEN_MAX), // v18
+    (uint8_t *)(19 * VLEN_MAX), // v19
+    (uint8_t *)(20 * VLEN_MAX), // v20
+    (uint8_t *)(21 * VLEN_MAX), // v21
+    (uint8_t *)(22 * VLEN_MAX), // v22
+    (uint8_t *)(23 * VLEN_MAX), // v23
+    (uint8_t *)(24 * VLEN_MAX), // v24
+    (uint8_t *)(25 * VLEN_MAX), // v25
+    (uint8_t *)(26 * VLEN_MAX), // v26
+    (uint8_t *)(27 * VLEN_MAX), // v27
+    (uint8_t *)(28 * VLEN_MAX), // v28
+    (uint8_t *)(29 * VLEN_MAX), // v29
+    (uint8_t *)(30 * VLEN_MAX), // v30
+    (uint8_t *)(31 * VLEN_MAX)  // v31
 };
 
 /*************************************/
@@ -81,7 +108,7 @@ int carus_set_mode(const uint8_t inst, const carus_mode_t mode)
 // Get NM-Carus configuration
 int carus_get_ctl(const uint8_t inst, carus_ctl_t *ctl)
 {
-    const uint32_t *op_ctl_ptr = (uint32_t *)(carus[inst] + CTL_REG_OP_CTL_REG_ADDR);
+    const uint32_t *op_ctl_ptr = (uint32_t *)(inst * CARUS0_SIZE + CARUS0_START_ADDRESS + CTL_REG_OP_CTL_REG_ADDR);
     uint32_t op_ctl;
 
     // Set instance in configuration mode
@@ -107,7 +134,7 @@ int carus_get_ctl(const uint8_t inst, carus_ctl_t *ctl)
 // Set NM-Carus configuration
 int carus_set_ctl(const uint8_t inst, const carus_ctl_t *ctl)
 {
-    uint32_t *op_ctl = (uint32_t *)(carus[inst] + CTL_REG_OP_CTL_REG_ADDR);
+    uint32_t *op_ctl = (uint32_t *)(inst * CARUS0_SIZE + CARUS0_START_ADDRESS + CTL_REG_OP_CTL_REG_ADDR);
 
     // Set instance in configuration mode
     if (carus_set_mode(inst, CARUS_MODE_CFG) != 0)
@@ -131,14 +158,14 @@ int carus_set_ctl(const uint8_t inst, const carus_ctl_t *ctl)
 // Get current parameters
 int carus_get_cfg(const uint8_t inst, carus_cfg_t *cfg)
 {
-    const uint32_t *koffs = (uint32_t *)(carus[inst] + CTL_REG_KERNEL_REG_ADDR);
-    const uint32_t *scratch = (uint32_t *)(carus[inst] + CTL_REG_SCRATCH_REG_ADDR);
-    const uint32_t *vl = (uint32_t *)(carus[inst] + CTL_REG_VL_REG_ADDR);
-    const uint32_t *vtype = (uint32_t *)(carus[inst] + CTL_REG_VTYPE_REG_ADDR);
-    const uint32_t *arg0_ptr = (uint32_t *)(carus[inst] + CTL_REG_ARG0_REG_ADDR);
-    const uint32_t *arg1_ptr = (uint32_t *)(carus[inst] + CTL_REG_ARG1_REG_ADDR);
-    const uint32_t *arg2_ptr = (uint32_t *)(carus[inst] + CTL_REG_ARG2_REG_ADDR);
-    const uint32_t *arg3_ptr = (uint32_t *)(carus[inst] + CTL_REG_ARG3_REG_ADDR);
+    const uint32_t *koffs = (uint32_t *)(inst * CARUS0_SIZE + CARUS0_START_ADDRESS + CTL_REG_KERNEL_REG_ADDR);
+    const uint32_t *scratch = (uint32_t *)(inst * CARUS0_SIZE + CARUS0_START_ADDRESS + CTL_REG_SCRATCH_REG_ADDR);
+    const uint32_t *vl = (uint32_t *)(inst * CARUS0_SIZE + CARUS0_START_ADDRESS + CTL_REG_VL_REG_ADDR);
+    const uint32_t *vtype = (uint32_t *)(inst * CARUS0_SIZE + CARUS0_START_ADDRESS + CTL_REG_VTYPE_REG_ADDR);
+    const uint32_t *arg0_ptr = (uint32_t *)(inst * CARUS0_SIZE + CARUS0_START_ADDRESS + CTL_REG_ARG0_REG_ADDR);
+    const uint32_t *arg1_ptr = (uint32_t *)(inst * CARUS0_SIZE + CARUS0_START_ADDRESS + CTL_REG_ARG1_REG_ADDR);
+    const uint32_t *arg2_ptr = (uint32_t *)(inst * CARUS0_SIZE + CARUS0_START_ADDRESS + CTL_REG_ARG2_REG_ADDR);
+    const uint32_t *arg3_ptr = (uint32_t *)(inst * CARUS0_SIZE + CARUS0_START_ADDRESS + CTL_REG_ARG3_REG_ADDR);
 
     // Set instance in configuration mode
     if (carus_set_mode(inst, CARUS_MODE_CFG) != 0)
@@ -164,14 +191,14 @@ int carus_get_cfg(const uint8_t inst, carus_cfg_t *cfg)
 // Set parameters
 int carus_set_cfg(const uint8_t inst, const carus_cfg_t *cfg)
 {
-    uint32_t *koffs = (uint32_t *)(carus[inst] + CTL_REG_KERNEL_REG_ADDR);
-    uint32_t *scratch = (uint32_t *)(carus[inst] + CTL_REG_SCRATCH_REG_ADDR);
-    uint32_t *vl = (uint32_t *)(carus[inst] + CTL_REG_VL_REG_ADDR);
-    uint32_t *vtype = (uint32_t *)(carus[inst] + CTL_REG_VTYPE_REG_ADDR);
-    uint32_t *arg0_ptr = (uint32_t *)(carus[inst] + CTL_REG_ARG0_REG_ADDR);
-    uint32_t *arg1_ptr = (uint32_t *)(carus[inst] + CTL_REG_ARG1_REG_ADDR);
-    uint32_t *arg2_ptr = (uint32_t *)(carus[inst] + CTL_REG_ARG2_REG_ADDR);
-    uint32_t *arg3_ptr = (uint32_t *)(carus[inst] + CTL_REG_ARG3_REG_ADDR);
+    uint32_t *koffs = (uint32_t *)(inst * CARUS0_SIZE + CARUS0_START_ADDRESS + CTL_REG_KERNEL_REG_ADDR);
+    uint32_t *scratch = (uint32_t *)(inst * CARUS0_SIZE + CARUS0_START_ADDRESS + CTL_REG_SCRATCH_REG_ADDR);
+    uint32_t *vl = (uint32_t *)(inst * CARUS0_SIZE + CARUS0_START_ADDRESS + CTL_REG_VL_REG_ADDR);
+    uint32_t *vtype = (uint32_t *)(inst * CARUS0_SIZE + CARUS0_START_ADDRESS + CTL_REG_VTYPE_REG_ADDR);
+    uint32_t *arg0_ptr = (uint32_t *)(inst * CARUS0_SIZE + CARUS0_START_ADDRESS + CTL_REG_ARG0_REG_ADDR);
+    uint32_t *arg1_ptr = (uint32_t *)(inst * CARUS0_SIZE + CARUS0_START_ADDRESS + CTL_REG_ARG1_REG_ADDR);
+    uint32_t *arg2_ptr = (uint32_t *)(inst * CARUS0_SIZE + CARUS0_START_ADDRESS + CTL_REG_ARG2_REG_ADDR);
+    uint32_t *arg3_ptr = (uint32_t *)(inst * CARUS0_SIZE + CARUS0_START_ADDRESS + CTL_REG_ARG3_REG_ADDR);
 
     // Set instance in configuration mode
     if (carus_set_mode(inst, CARUS_MODE_CFG) != 0)
@@ -198,14 +225,9 @@ int carus_set_cfg(const uint8_t inst, const carus_cfg_t *cfg)
 int carus_init(const uint8_t inst)
 {
     carus_ctl_t ctl = CARUS_CTL_INIT;
-    carus_cfg_t cfg = CARUS_CFG_INIT(inst);
-    uint32_t *emem_ptr = (uint32_t *)(carus[inst] + CARUS_EMEM_BASE_ADDR);
+    carus_cfg_t cfg = CARUS_CFG_INIT;
+    uint32_t *emem_ptr = (uint32_t *)(CARUS0_START_ADDRESS + inst * CARUS0_SIZE + CARUS_EMEM_BASE_ADDR);
     uint32_t emem_image[CARUS_EMEM_SIZE >> 2] = {0};
-
-    for (int i = 0; i < 32; ++i) {
-        int32_t* v = carus_vrf(inst, i);
-        v = (int32_t *)(carus[inst] + i * carus_vlen[inst]);
-    }
 
     // Check instance number
     if (inst > (CARUS_NUM - 1))
@@ -245,7 +267,7 @@ int carus_init(const uint8_t inst)
 // Load a vector kernel into the specified NM-Carus instance
 int carus_load_kernel(const uint8_t inst, const uint32_t *kernel, const uint32_t size, const uint32_t offs)
 {
-    uint32_t *emem_ptr = (uint32_t *)(carus[inst] + CARUS_EMEM_KERNEL_BASE_ADDR + offs);
+    uint32_t *emem_ptr = (uint32_t *)(CARUS0_START_ADDRESS + inst * CARUS0_SIZE + CARUS_EMEM_KERNEL_BASE_ADDR + offs);
 
     // Check instance number
     if (inst > (CARUS_NUM - 1))
@@ -275,7 +297,7 @@ int carus_load_kernel(const uint8_t inst, const uint32_t *kernel, const uint32_t
 // Run the current vector kernel
 int carus_run_kernel(const uint8_t inst)
 {
-    volatile uint32_t *op_ctl_ptr = (uint32_t *)(carus[inst] + CTL_REG_OP_CTL_REG_ADDR);
+    volatile uint32_t *op_ctl_ptr = (uint32_t *)(inst * CARUS0_SIZE + CARUS0_START_ADDRESS + CTL_REG_OP_CTL_REG_ADDR);
 
     // Check instance number
     if (inst > (CARUS_NUM - 1))
@@ -337,6 +359,10 @@ int carus_copy_vector_to_vector(const uint8_t inst, const uint32_t *src, const u
     if (inst > (CARUS_NUM - 1))
         return -1;
 
+    // Check vector size
+    if (size > VLEN_MAX)
+        return -1;
+
     // Copy the vector
     dma_copy_16_32(tgt, src, size);
 
@@ -344,13 +370,15 @@ int carus_copy_vector_to_vector(const uint8_t inst, const uint32_t *src, const u
 }
 
 // Systemlevel vload.vx
-int carus_copy_scalar_to_vector(const uint8_t inst, const uint32_t src, const uint8_t v, const uint32_t size)
+int carus_copy_scalar_to_vector(const uint8_t inst, const uint32_t src, const uint32_t *tgt, const uint32_t size)
 {
     // Check instance number
     if (inst > (CARUS_NUM - 1))
         return -1;
 
-    int32_t *tgt = carus_vrf(inst, v);
+    // Check vector size
+    if (size > VLEN_MAX)
+        return -1;
 
     // Copy the scalar
     dma_fill(tgt, src, size);
