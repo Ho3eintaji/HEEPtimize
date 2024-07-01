@@ -10,8 +10,8 @@
 #include "core_v_mini_mcu.h"
 #include "rv_plic.h"
 #include "rv_plic_regs.h"
-#include "heepocrates.h"
-#include "heepocrates_ctrl.h"
+#include "heepatia.h"
+// #include "heepocrates_ctrl.h"
 #include "cgra.h"
 #include "cgra_bitstream.h"
 
@@ -41,18 +41,14 @@ int32_t stimuli[CGRA_N_ROWS][INPUT_LENGTH] = {
 
 int32_t exp_rc_c0[CGRA_N_ROWS][OUTPUT_LENGTH] = {0};
 
-// Interrupt controller variables
-dif_plic_params_t rv_plic_params;
-dif_plic_t rv_plic;
-dif_plic_result_t plic_res;
-dif_plic_irq_id_t intr_num;
+plic_result_t plic_res;
 
-void handler_irq_external(void) {
-    // Claim/clear interrupt
-    plic_res = dif_plic_irq_claim(&rv_plic, 0, &intr_num);
-    if (plic_res == kDifPlicOk && intr_num == CGRA_INTR) {
-        cgra_intr_flag = 1;
-    }
+static void handler_irq_cgra( uint32_t int_id )
+{
+  if (int_id == CGRA_INTR) { 
+    cgra_intr_flag = 1;
+  }
+  // plic_irq_complete(&int_id);  //todo: maybe it is already completed
 }
 
 int main(void) {
@@ -61,25 +57,24 @@ int main(void) {
   cgra_cmem_init(cgra_imem_bitstream, cgra_kmem_bitstream);
   PRINTF("\rdone\n");
 
-    // Init the PLIC
-  rv_plic_params.base_addr = mmio_region_from_addr((uintptr_t)PLIC_START_ADDRESS);
-  plic_res = dif_plic_init(rv_plic_params, &rv_plic);
-
-  if (plic_res != kDifPlicOk) {
+  // Init the PLIC
+  if (plic_Init() != kPlicOk) {
     printf("PLIC init failed\n;");
     return EXIT_FAILURE;
   }
-
   // Set CGRA priority to 1 (target threshold is by default 0) to trigger an interrupt to the target (the processor)
-  plic_res = dif_plic_irq_set_priority(&rv_plic, CGRA_INTR, 1);
-  if (plic_res != kDifPlicOk) {
+  if (plic_irq_set_priority(CGRA_INTR, 1) != kPlicOk) {
     printf("Set CGRA interrupt priority to 1 failed\n;");
     return EXIT_FAILURE;
   }
-
-  plic_res = dif_plic_irq_set_enabled(&rv_plic, CGRA_INTR, 0, kDifPlicToggleEnabled);
-  if (plic_res != kDifPlicOk) {
+  // Enable CGRA interrupt
+  if (plic_irq_set_enabled(CGRA_INTR, kPlicToggleEnabled) != kPlicOk) {
     printf("Enable CGRA interrupt failed\n;");
+    return EXIT_FAILURE;
+  }
+  // Assign CGRA interrupt handler
+  if (plic_assign_external_irq_handler(CGRA_INTR, &handler_irq_cgra) != kPlicOk) {
+    printf("Assign CGRA interrupt handler failed\n;");
     return EXIT_FAILURE;
   }
 
@@ -90,10 +85,6 @@ int main(void) {
   const uint32_t mask = 1 << 11;//IRQ_EXT_ENABLE_OFFSET;
   CSR_SET_BITS(CSR_REG_MIE, mask);
   cgra_intr_flag = 0;
-
-  heepocrates_ctrl_t heepocrates_ctrl;
-  heepocrates_ctrl.base_addr = mmio_region_from_addr((uintptr_t)HEEPOCRATES_CTRL_START_ADDRESS);
-  heepocrates_ctrl_cgra_disable(&heepocrates_ctrl, 0);
 
   cgra_t cgra;
   cgra.base_addr = mmio_region_from_addr((uintptr_t)OECGRA_CONFIG_REGS_START_ADDRESS);
@@ -163,12 +154,6 @@ int main(void) {
   cgra_intr_flag=0;
   while(cgra_intr_flag==0) {
     wait_for_interrupt();
-  }
-  // Complete the interrupt
-  plic_res = dif_plic_irq_complete(&rv_plic, 0, &intr_num);
-  if (plic_res != kDifPlicOk || intr_num != CGRA_INTR) {
-    printf("CGRA interrupt complete failed\n");
-    return EXIT_FAILURE;
   }
 
   printf("ERROR: CGRA while1 loop exited for unknown reason\n");
