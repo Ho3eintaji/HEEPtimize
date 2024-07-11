@@ -34,19 +34,39 @@ filesets:
     - hw/fpga/xilinx/carus_clk_gate_wrapper.sv
     - hw/fpga/xilinx/cgra_clock_gate.sv
     - hw/fpga/xilinx/cgra_sram_wrapper_updated.sv
+    - hw/fpga/xilinx/caesar_sram_wrapper.sv
+    - hw/fpga/xilinx/caesar_clk_gate_wrapper.sv
     file_type: systemVerilogSource
   
   fpga-top:
     files:
     - hw/fpga/xilinx/xilinx_heepatia_top_wrapper.sv
     file_type: systemVerilogSource
+  
+  # NM Caesar
+  nm_caesar_sim:
+    depend:
+    - epfl:caesar:nm-caesar
+  
+  nm_caesar_postsynthesis-netlist:
+    depend:
+    - epfl:heepatia:prim-tsmc16:0.1.0
+    files:
+    - hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/verilog/NMCaesar_top_pared.v
+    file_type: verilogSource
+
+  nm_caesar_postlayout-netlist:
+    depend:
+    - epfl:heepatia:prim-tsmc16:0.1.0
+    files:
+    - hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/verilog/NMCaesar_top_pnr.v
+    file_type: verilogSource
 
   # NM Carus
   nm_carus_sim:
     depend:
     - epfl:carus:nm-carus
   
-
   nm_carus_postsynthesis-netlist:
     depend:
     - epfl:heepatia:prim-tsmc16:0.1.0
@@ -178,6 +198,8 @@ filesets:
     files:
     - hw/fpga/xilinx/scripts/generate_sram_carus.tcl: {file_type: tclSource}
     - hw/fpga/xilinx/scripts/generate_sram_emem.tcl: {file_type: tclSource}
+    - hw/fpga/xilinx/scripts/generate_sram_8.tcl: {file_type: tclSource}
+    - hw/fpga/xilinx/scripts/generate_sram_16.tcl: {file_type: tclSource}
 
 scripts:
   # Create log directory
@@ -249,6 +271,7 @@ targets:
     filesets_append:
     - rtl-fpga
     - nm_carus_sim
+    - nm_caesar_sim
     - fpga-top
     - ip-fpga
     parameters:
@@ -268,6 +291,7 @@ targets:
     filesets_append:
     - rtl-fpga
     - nm_carus_sim
+    - nm_caesar_sim
     - fpga-top
     - ip-fpga
     parameters:
@@ -292,6 +316,7 @@ targets:
     - tb-system
     - tb-system-vendor
     - nm_carus_sim
+    - nm_caesar_sim
     - "!tool_verilator ? (tb-others)"
     - "!tool_verilator ? (tb-others-vendor)"
     - tool_verilator ? (tb-verilator)
@@ -361,6 +386,7 @@ targets:
     - tb-system
     - tb-system-vendor
     - nm_carus_sim
+    - nm_caesar_sim
     - "!tool_verilator ? (tb-others)"
     - "!tool_verilator ? (tb-others-vendor)"
     - tool_verilator ? (tb-verilator)
@@ -428,6 +454,7 @@ targets:
     filesets_append:
     - postsynthesis-netlist
     - nm_carus_postsynthesis-netlist
+    - nm_caesar_postsynthesis-netlist
     - tb-others
     - tb-others-vendor
     - tb-system
@@ -479,6 +506,7 @@ targets:
     filesets_append:
     - postlayout-netlist
     - nm_carus_postlayout-netlist
+    - nm_caesar_postlayout-netlist
     - tb-others
     - tb-others-vendor
     - tb-system

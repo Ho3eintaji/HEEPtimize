@@ -20,6 +20,8 @@ import csv
 from jsonref import JsonRef
 from mako.template import Template
 
+# todo: add caesar
+
 def main():
     parser = argparse.ArgumentParser(prog="mcugen")
 
@@ -74,8 +76,10 @@ def main():
 
     found_appended_sdf = False
     found_carus = False
+    found_caesar = False
     start_copying = False
     found_carus_lib = False
+    found_caesar_lib = False
 
     #first, remove the appended information as SDFFILE etc
     for sdf_obj_line in sdf_obj:

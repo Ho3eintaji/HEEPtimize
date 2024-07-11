@@ -89,6 +89,14 @@ set lib_mem(bc_m40) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram8192x32
 set lib_mem(wc_m40) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram8192x32m8/db/sram8192x32m8_ss_1p08v_1p08v_m40c.db
 set lib_mem(bc_125) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram8192x32m8/db/sram8192x32m8_ff_1p32v_1p32v_125c.db
 
+# LIBs specific to CAESAR
+set lib_mem_caesar(wc) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram4096x32m8/db/sram4096x32m8_ss_1p08v_1p08v_125c.db
+set lib_mem_caesar(bc) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram4096x32m8/db/sram4096x32m8_ff_1p32v_1p32v_m40c.db
+set lib_mem_caesar(tc) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram4096x32m8/db/sram4096x32m8_tt_1p20v_1p20v_25c.db
+set lib_mem_caesar(wc_m40) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram4096x32m8/db/sram4096x32m8_ss_1p08v_1p08v_m40c.db
+set lib_mem_caesar(bc_125) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram4096x32m8/db/sram4096x32m8_ff_1p32v_1p32v_125c.db
+set lib_mem_caesar(bc_m40) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram4096x32m8/db/sram4096x32m8_ff_1p32v_1p32v_m40c.db
+
 # LIBs specific to Carus
 set lib_emem(wc)        $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/rf128x32m2/db/rf128x32m2_ss_1p08v_1p08v_125c.db
 set lib_emem(bc)        $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/rf128x32m2/db/rf128x32m2_ff_1p32v_1p32v_m40c.db

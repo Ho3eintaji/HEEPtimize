@@ -84,6 +84,10 @@ def main():
     parser.add_argument(
         "--tpl-c", "-C", type=str, metavar="C_SOURCE", help="C template filename"
     )
+    parser.add_argument('--caesar_num',
+                        type=int,
+                        metavar='CAESAR_NUM',
+                        help='Number of NM-Caesar instances')
     parser.add_argument(
         "--carus_num",
         type=int,
@@ -135,6 +139,13 @@ def main():
     cpu_features = cfg["cpu_features"]
     if args.corev_pulp != None:
         cpu_features["corev_pulp"] = args.corev_pulp
+    
+     # NM-Caesar number of instances
+    caesar_num = int(cfg['ext_xbar_slaves']['caesar']['num'])
+    if args.caesar_num is not None:
+        caesar_num = args.caesar_num
+    if caesar_num < 0 or caesar_num > 16:
+        exit(f'NM-Caesar instances number must be <16: {caesar_num}')
 
     # OECGRA
     oecgra_start_address = int(cfg["ext_xbar_slaves"]["oecgra"]["offset"], 16)
@@ -142,7 +153,7 @@ def main():
     oecgra_size = int(cfg["ext_xbar_slaves"]["oecgra"]["length"], 16)
     oecgra_size_hex = int2hexstr(oecgra_size, 32)
 
-    xbar_nslaves = 1
+    # xbar_nslaves = 1
 
     # NM-Carus instance number
     carus_num = int(cfg["ext_xbar_slaves"]["carus"]["num"])
@@ -165,8 +176,14 @@ def main():
 
     # Bus configuration
     xbar_nmasters = int(cfg["ext_xbar_masters"])
-    xbar_nslaves = xbar_nslaves + carus_num
+    xbar_nslaves = carus_num + 2
     periph_nslaves = len(cfg["ext_periph"])
+
+    #Caesar memory
+    caesar_start_address = int(cfg['ext_xbar_slaves']['caesar']['offset'], 16)
+    caesar_start_address_hex = int2hexstr(caesar_start_address, 32)
+    caesar_size = int(cfg['ext_xbar_slaves']['caesar']['length'], 16)
+    caesar_size_hex = int2hexstr(caesar_size, 32)
 
     # Carus memory
     carus_start_address = int(cfg["ext_xbar_slaves"]["carus"]["offset"], 16)
@@ -222,6 +239,10 @@ def main():
         "oecgra_context_mem_size": oecgra_context_mem_size_hex,
         "oecgra_config_regs_start_address": oecgra_config_regs_start_address_hex,
         "oecgra_config_regs_size": oecgra_config_regs_size_hex,
+
+        "caesar_num": caesar_num,
+        "caesar_start_address": caesar_start_address_hex,
+        "caesar_size": caesar_size_hex,
 
         "carus_num": carus_num,
         "carus_num_banks": carus_num_banks,

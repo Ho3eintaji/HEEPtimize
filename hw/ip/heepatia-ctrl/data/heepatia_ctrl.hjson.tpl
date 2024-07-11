@@ -21,8 +21,21 @@
     registers: [
         {
             name: "OP_MODE",
-            desc: "NM-Carus operating mode control",
+            desc: "NM-Caesar and NM-Carus operating mode control",
             fields: [
+% for inst in range(caesar_num):
+                {
+                    bits: "${inst}",
+                    name: "CAESAR_IMC_${inst}",
+                    desc: '''
+                        When this bit is set, NM-Caesar enters computing mode, where bus requests are interpreted as commands.
+                        When this bit is cleared, NM-Caesar enters memory mode, where bus requests are interpreted as memory accesses.
+                    ''',
+                    swaccess: "rw",
+                    hwaccess: "hro",
+                    resval: "0",
+                },
+% endfor
 % for inst in range(carus_num):
                 {
                     bits: "${inst}",

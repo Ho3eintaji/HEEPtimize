@@ -15,6 +15,7 @@
 ROOT_DIR				:= $(realpath ..)
 BUILD_DIR				:= $(ROOT_DIR)/build/sw
 CARUS_BUILD_DIR			:= $(BUILD_DIR)/carus
+CAESAR_BUILD_DIR		:= $(BUILD_DIR)/caesar
 
 # NM-Carus startup code header
 CARUS_INIT_HEADER_DIR	:= external/lib/drivers/carus

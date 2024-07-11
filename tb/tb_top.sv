@@ -35,6 +35,9 @@ module tb_top;
   // Watchdog heartbeat cycles
   localparam int unsigned WatchdogHeartbeatCycles = 100_000;
 
+  // NM-Caesar last writeback cycles
+  localparam int unsigned CaesarLatency = 5;
+
   // INTERNAL SIGNALS
   // ----------------
   // TB signals
@@ -369,6 +372,27 @@ module tb_top;
     end
     if (carus_done && !carus_prev_done) begin
       carus_done_time <= $time;
+    end
+  end
+`endif
+
+  // NM-Caesar execution time monitor (GPIO triggered)
+  logic caesar_trig, caesar_prev_trig = 0;
+  longint      caesar_start_time = 0;
+  longint      caesar_done_time = 0;
+  int unsigned caesar_ex_count = 0;
+`ifndef SYNTHESIS
+  always_ff @(posedge sys_clk) begin : caesar_exec_mon
+    caesar_trig      <= tb_get_caesar_timer_trigger();
+    caesar_prev_trig <= caesar_trig;
+
+    if (caesar_trig && !caesar_prev_trig) begin
+      caesar_start_time <= $time;
+      $display("[%t] Caesar start", $time);
+    end else if (!caesar_trig && caesar_prev_trig) begin
+      caesar_done_time <= $time + CaesarLatency * SIM_CLK_PERIOD;  // add last writeback latency
+      caesar_ex_count  <= caesar_ex_count + 1;
+      $display("[%t] Caesar end", $time);
     end
   end
 `endif

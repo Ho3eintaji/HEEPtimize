@@ -38,6 +38,7 @@ set_clock_gating_style -minimum_bitwidth 3 -positive_edge_logic integrated:CKLNQ
 
 # set_voltage 1.08 -object_list { VDD }
 # set_voltage 0.00 -object_list { VSS }
+# set_voltage 1.08 -object_list { VDD_CAESAR }
 # set_voltage 1.08 -object_list { VDD_CARUS }
 
 compile_ultra -no_autoungroup -no_boundary_optimization -timing -gate_clock
@@ -58,6 +59,7 @@ report_constraints > ${REPORT_DIR}/constraints.rpt
 report_clock_gating > ${REPORT_DIR}/clock_gating.rpt
 report_power > ${REPORT_DIR}/power.rpt
 report_timing -through u_heepatia_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/*  > ${REPORT_DIR}/carus_timing.rpt
+report_timing -through u_heepatia_peripherals/gen_caesar_0__u_nm_caesar_wrapper/u_caesar_top/* > ${REPORT_DIR}/caesar_timing.rpt
 report_timing -through u_core_v_mini_mcu/external_subsystem_powergate_switch_ack_i* -max_paths 5  >> ${REPORT_DIR}/timing_sw_cells.rpt
 
 ### save here also the report
@@ -84,4 +86,5 @@ sh cp -R ${REPORT_DIR}/area.rpt ${SCRIPT_DIR}/../../synthesis/last_output
 sh cp -R ${REPORT_DIR}/resources.rpt ${SCRIPT_DIR}/../../synthesis/last_output
 sh cp -R ${REPORT_DIR}/timing_loop.rpt ${SCRIPT_DIR}/../../synthesis/last_output
 sh cp -R ${REPORT_DIR}/clocks.rpt ${SCRIPT_DIR}/../../synthesis/last_output
+sh cp -R ${REPORT_DIR}/caesar_timing.rpt ${SCRIPT_DIR}/../../synthesis/last_output
 sh cp -R ${REPORT_DIR}/carus_timing.rpt ${SCRIPT_DIR}/../../synthesis/last_output

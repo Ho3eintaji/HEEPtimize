@@ -67,6 +67,8 @@ ${pad.x_heep_system_interface}
   // OBI external slaves
   obi_req_t  [CarusNumRnd - 1:0]carus_req; // request to NM-Carus
   obi_resp_t [CarusNumRnd - 1:0]carus_rsp; // response from NM-Carus
+  obi_req_t  caesar_req; // request to NM-Caesar
+  obi_resp_t caesar_rsp; // response from NM-Caesar
   obi_req_t  oecgra_context_mem_slave_req;
   obi_resp_t oecgra_context_mem_slave_rsp;
 
@@ -107,6 +109,10 @@ ${pad.x_heep_system_interface}
   logic carus_rst_n;
   logic carus_set_retentive_n;
   logic carus_clkgate_n;
+  // NM-Caesar signals
+  logic caesar_rst_n;
+  logic caesar_set_retentive_n;
+
 
   // OECGRA signals
   logic oecgra_rst_n;
@@ -270,6 +276,10 @@ ${pad.core_v_mini_mcu_bonding}
   assign carus_rst_n            = external_subsystem_rst_n[0];
   assign carus_set_retentive_n  = external_ram_banks_set_retentive_n[0];
   assign carus_clkgate_n        = external_subsystem_clkgate_en_n[0];
+
+  assign caesar_rst_n = external_subsystem_rst_n[0];
+  assign caesar_set_retentive_n = external_ram_banks_set_retentive_n[0];
+
   assign oecgra_rst_n            = external_subsystem_rst_n[1];
   assign oecgra_set_retentive_n  = external_ram_banks_set_retentive_n[1];
   assign oecgra_clkgate_n        = external_subsystem_clkgate_en_n[1];
@@ -282,10 +292,17 @@ ${pad.core_v_mini_mcu_bonding}
     .rst_ni                           (rst_nin_sync),
     .system_clk_o                     (system_clk),
     .bypass_fll_i                     (bypass_fll_in_x),
+
     .carus_rst_ni                     (carus_rst_n),
     .carus_set_retentive_ni           (carus_set_retentive_n),
     .carus_req_i                      (carus_req),
     .carus_rsp_o                      (carus_rsp),
+
+    .caesar_rst_ni          (caesar_rst_n),
+    .caesar_set_retentive_ni(caesar_set_retentive_n),
+    .caesar_req_i           (caesar_req),
+    .caesar_rsp_o           (caesar_rsp),
+
     .oecgra_rst_ni                     (oecgra_rst_n),
     .oecgra_enable_i                   (oecgra_clkgate_n),
     .oecgra_master_req_o               (heepatia_master_req), //todo: double check
@@ -295,6 +312,7 @@ ${pad.core_v_mini_mcu_bonding}
     .oecgra_context_mem_slave_req_i    (oecgra_context_mem_slave_req),
     .oecgra_context_mem_slave_rsp_o    (oecgra_context_mem_slave_rsp),
     .oecgra_context_mem_set_retentive_i(~oecgra_set_retentive_n),
+
     .fll_req_i                        (fll_req),
     .fll_rsp_o                        (fll_rsp),
     .heepatia_ctrl_req_i              (heepatia_ctrl_req),
@@ -326,6 +344,8 @@ ${pad.core_v_mini_mcu_bonding}
     .heep_slave_resp_i            (heep_slave_rsp),
     .carus_req_o                  (carus_req),
     .carus_resp_i                 (carus_rsp),
+    .caesar_req_o           (caesar_req),
+    .caesar_resp_i           (caesar_rsp),
     .oecgra_context_mem_slave_req_o(oecgra_context_mem_slave_req),
     .oecgra_context_mem_slave_rsp_i(oecgra_context_mem_slave_rsp),
     .oecgra_config_regs_slave_req_o(oecgra_config_regs_slave_req),
@@ -406,13 +426,75 @@ ${pad_mux_process}
   // TODO: add clock gating cell
   // Connect to CORE-V-MINI-MCU power manager
 
+  logic caesar_sw0_ctrl;
+  logic caesar_sw0_ack, caesar_sw1_ack, caesar_sw2_ack, caesar_sw3_ack;
+
   logic carus_sw0_ctrl;
   logic carus_sw0_ack, carus_sw1_ack, carus_sw2_ack, carus_sw3_ack;
 
 `ifndef FPGA
+    assign caesar_sw0_ctrl = ~external_subsystem_powergate_switch_n[0];
+    assign external_subsystem_powergate_switch_ack_n[0] = ~caesar_sw3_ack;
+// Power switch and synchronizer
+    switch_cell_mem mem_caesar_sw0_i (
+  `ifdef USE_PG_PIN
+      .VIN,
+      .VOUT,
+      .VSS,
+  `endif
+      .VCTRL    (caesar_sw0_ctrl),  // Switch Signal Input
+      .VCTRLFBn (),               // Negated Schmitt Trigger Output
+      .VCTRLFB  (),    // Schmitt Trigger Output
+      .VCTRL_BUF(caesar_sw0_ack)    //ACK signal Output
+    );
 
-    assign carus_sw0_ctrl = ~external_subsystem_powergate_switch_n[0];
-    assign external_subsystem_powergate_switch_ack_n[0] = ~carus_sw3_ack;
+    switch_cell_mem mem_caesar_sw1_i (
+  `ifdef USE_PG_PIN
+      .VIN,
+      .VOUT,
+      .VSS,
+  `endif
+      .VCTRL    (caesar_sw0_ack),  // Switch Signal Input
+      .VCTRLFBn (),              // Negated Schmitt Trigger Output
+      .VCTRLFB  (),   // Schmitt Trigger Output
+      .VCTRL_BUF(caesar_sw1_ack)   //ACK signal Output
+    );
+
+    switch_cell_mem mem_caesar_sw2_i (
+  `ifdef USE_PG_PIN
+      .VIN,
+      .VOUT,
+      .VSS,
+  `endif
+      .VCTRL    (caesar_sw1_ack),  // Switch Signal Input
+      .VCTRLFBn (),              // Negated Schmitt Trigger Output
+      .VCTRLFB  (),   // Schmitt Trigger Output
+      .VCTRL_BUF(caesar_sw2_ack)   //ACK signal Output
+    );
+
+    switch_cell_mem mem_caesar_sw3_i (
+  `ifdef USE_PG_PIN
+      .VIN,
+      .VOUT,
+      .VSS,
+  `endif
+      .VCTRL    (caesar_sw2_ack),  // Switch Signal Input
+      .VCTRLFBn (),              // Negated Schmitt Trigger Output
+      .VCTRLFB  (),   // Schmitt Trigger Output
+      .VCTRL_BUF(caesar_sw3_ack)   //ACK signal Output
+    );
+
+`else
+
+    assign caesar_sw0_ctrl = '0;
+    assign external_subsystem_powergate_switch_ack_n[0] = '0;
+
+`endif
+
+`ifndef FPGA
+
+    assign carus_sw0_ctrl = ~external_subsystem_powergate_switch_n[1];
+    assign external_subsystem_powergate_switch_ack_n[1] = ~carus_sw3_ack;
 
     // Power switch and synchronizer
     switch_cell_mem mem_carus_sw0_i (

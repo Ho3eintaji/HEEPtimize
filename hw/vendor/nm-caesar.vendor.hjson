@@ -1,0 +1,19 @@
+// Copyright 2023 EPFL and Politecnico di Torino
+// Solderpad Hardware License, Version 2.1, see LICENSE.md for details
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+
+{
+    name: "nm-caesar",
+    target_dir: "nm-caesar",
+
+    upstream: {
+        url: "git@eslgit.epfl.ch:blade/nm-caesar.git",
+        rev: "5a73cb010362448d55e1c889d0d4e854eda37320"
+    },
+
+    exclude_from_upstream: [
+        ".git*",
+        "tb",
+        "util",
+    ],
+}

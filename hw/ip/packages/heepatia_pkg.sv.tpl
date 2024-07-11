@@ -41,6 +41,16 @@ package heepatia_pkg;
   localparam logic [31:0] OecgraStartAddr = EXT_SLAVE_START_ADDRESS + 32'h${oecgra_start_address};
   localparam logic [31:0] OecgraEndAddr = OecgraStartAddr + 32'h${oecgra_size};
 
+  
+  // NM-Caesar
+  localparam int unsigned CaesarNum = 32'd${caesar_num};
+  localparam int unsigned LogCaesarNum = CaesarNum > 32'd1 ? $clog2(CaesarNum) : 32'd1;
+% for inst in range(caesar_num):
+  localparam int unsigned Caesar${inst}Idx = 32'd${inst};
+  localparam logic [31:0] Caesar${inst}StartAddr = EXT_SLAVE_START_ADDRESS + 32'h${caesar_start_address + inst * caesar_size};
+  localparam logic [31:0] Caesar${inst}EndAddr = Caesar${inst}StartAddr + 32'h${caesar_size};
+% endfor
+
   // NM-Carus
   localparam int unsigned CarusNum = 32'd${carus_num};
   localparam int unsigned LogCarusNum = CarusNum > 32'd1 ? $clog2(CarusNum) : 32'd1;
@@ -59,6 +69,11 @@ package heepatia_pkg;
 
   localparam addr_map_rule_t [ExtXbarNSlave-1:0] ExtSlaveAddrRules = '{
     '{idx: OecgraIdx, start_addr: OecgraStartAddr, end_addr: OecgraEndAddr},
+
+  % for inst in range(caesar_num):
+    '{idx: Caesar${inst}Idx, start_addr: Caesar${inst}StartAddr, end_addr: Caesar${inst}EndAddr},
+  % endfor
+  
   % for inst in range(carus_num-1):
     '{idx: Carus${inst}Idx, start_addr: Carus${inst}StartAddr, end_addr: Carus${inst}EndAddr},
   % endfor

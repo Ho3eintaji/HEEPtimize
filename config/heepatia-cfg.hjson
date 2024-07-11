@@ -21,7 +21,7 @@
     ext_xbar_masters: 4,    // HT: increased for oecgra
     
     ext_xbar_slaves: {
-        nslaves: 2, // HT: carus+oecgra
+        nslaves: 3, // HT: carus+oecgra
 
         oecgra: {
             offset: "0x00000000",
@@ -34,6 +34,11 @@
             num:       1,
             num_banks: 4, // bank address width is log2(length/num_banks)
         }, 
+        caesar: {
+            offset:    "0x00010000",
+            length:    "0x00008000",
+            num:       1,
+        },
     },
 
     oecgra_bus_slaves: {

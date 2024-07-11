@@ -22,6 +22,13 @@ extern "C" {
 
 // Peripherals address map
 // -----------------------
+// NM-Caesar
+#define CAESAR_NUM ${caesar_num}
+%for inst in range(caesar_num):
+#define CAESAR${inst}_START_ADDRESS (EXT_SLAVE_START_ADDRESS + 0x${caesar_start_address + inst * caesar_size})
+#define CAESAR${inst}_SIZE 0x${caesar_size}
+#define CAESAR${inst}_END_ADDRESS (CAESAR${inst}_START_ADDRESS + CAESAR{inst}_SIZE)
+%endfor
 
 // NM-Carus
 #define CARUS_NUM ${carus_num}

@@ -86,6 +86,10 @@ lappend design(ALL_GDS)  $design(FLOW_ROOT)/hw/asic/fll/gds_merged/tsmc65_FLL.gd
 lappend design(ALL_LEFS) $design(FLOW_ROOT)/hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/lef/NMCarus.lef
 lappend design(ALL_GDS)  $design(FLOW_ROOT)/hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/gds/NMCarus.gds
 
+# Caesar
+lappend design(ALL_LEFS) $design(FLOW_ROOT)/hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/lef/NMCaesar.lef
+lappend design(ALL_GDS)  $design(FLOW_ROOT)/hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/gds/NMCaesar.gds
+
 # Heep Cover
 # lappend design(ALL_LEFS) $design(FLOW_ROOT)/hw/asic/logo_cover/lef/heep_cover.lef
 # lappend design(ALL_GDS)  $design(FLOW_ROOT)/hw/asic/logo_cover/gds/heep_cover.gds

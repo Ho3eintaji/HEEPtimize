@@ -23,6 +23,7 @@ filesets:
     - ip/heepatia-peripherals/fll_subsystem.sv
     - ip/heepatia-peripherals/heepatia_peripherals.sv
     - ip/heepatia-peripherals/nm_carus_wrapper.sv
+    - ip/heepatia-peripherals/nm_caesar_wrapper.sv
     file_type: systemVerilogSource
 
   rtl-vendor:

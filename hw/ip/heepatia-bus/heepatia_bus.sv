@@ -10,6 +10,7 @@
 module heepatia_bus #(
   // Dependent parameters: do not override!
   localparam int unsigned ExtXbarNmasterRnd = (heepatia_pkg::ExtXbarNMaster > 0) ? heepatia_pkg::ExtXbarNMaster : 32'd1,
+  localparam int unsigned CaesarNumRnd = (heepatia_pkg::CaesarNum > 0) ? heepatia_pkg::CaesarNum : 32'd1,
   localparam int unsigned CarusNumRnd = (heepatia_pkg::CarusNum > 0) ? heepatia_pkg::CarusNum : 32'd1
 ) (
   input logic clk_i,
@@ -45,6 +46,10 @@ module heepatia_bus #(
   // NM-Carus slave ports
   output obi_pkg::obi_req_t  [CarusNumRnd-1:0] carus_req_o,
   input  obi_pkg::obi_resp_t [CarusNumRnd-1:0] carus_resp_i,
+
+  // NM-Caesar slave ports
+  output obi_pkg::obi_req_t  [CaesarNumRnd-1:0] caesar_req_o,
+  input  obi_pkg::obi_resp_t [CaesarNumRnd-1:0] caesar_resp_i,
 
   // OECGRA context memory slave ports
   output obi_pkg::obi_req_t  oecgra_context_mem_slave_req_o,  //cgra_req_o
@@ -93,10 +98,22 @@ module heepatia_bus #(
   // ----------
   // COMPONENTS
   // ----------
+  /*
   generate
     for (genvar i = 0; i < CarusNumRnd; i++) begin : gen_carus_req
       assign carus_req_o[i]     = ext_slave_req[i+1];
       assign ext_slave_rsp[i+1] = carus_resp_i[i];
+    end
+  endgenerate
+  */
+  generate
+    for (genvar i = 0; i < CaesarNumRnd; i++) begin : gen_caesar_req
+      assign caesar_req_o[i]    = ext_slave_req[i+1];
+      assign ext_slave_rsp[i+1] = caesar_resp_i[i];
+    end
+    for (genvar i = 0; i < CarusNumRnd; i++) begin : gen_carus_req
+      assign carus_req_o[i]               = ext_slave_req[CaesarNum+1+i];
+      assign ext_slave_rsp[CaesarNum+1+i] = carus_resp_i[i];
     end
   endgenerate
   // External slave bus

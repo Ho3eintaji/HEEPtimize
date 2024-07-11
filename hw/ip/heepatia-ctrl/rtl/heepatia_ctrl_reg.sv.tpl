@@ -9,6 +9,7 @@
 
 module heepatia_ctrl_reg #(
   // Dependent parameters: do not override!
+  localparam int unsigned CaesarNumRnd = (heepatia_pkg::CaesarNum > 32'd1) ? heepatia_pkg::CaesarNum : 32'd1,
   localparam int unsigned CarusNumRnd = (heepatia_pkg::CarusNum > 32'd1) ? heepatia_pkg::CarusNum : 32'd1
 ) (
   input logic clk_i,
@@ -19,7 +20,8 @@ module heepatia_ctrl_reg #(
   output reg_pkg::reg_rsp_t rsp_o,
 
   // Hardware interface
-  output logic [CarusNumRnd-1:0] carus_imc_o
+  output logic [CarusNumRnd-1:0] carus_imc_o,
+  output logic [CaesarNumRnd-1:0] caesar_imc_o
 
 );
   import reg_pkg::*;
@@ -43,6 +45,12 @@ module heepatia_ctrl_reg #(
 %else:
     reg2hw.op_mode.q
 %endif
+  };
+  assign caesar_imc_o = {
+  % for inst in reversed(range(1, caesar_num)):
+      reg2hw.op_mode.caesar_imc_${inst}.q,
+  % endfor
+      reg2hw.op_mode.caesar_imc_0.q
   };
 
   // ----------

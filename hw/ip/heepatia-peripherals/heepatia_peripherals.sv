@@ -10,6 +10,7 @@
 module heepatia_peripherals #(
   // Dependent parameters: do not override!
   localparam int unsigned CarusNumRnd  = (heepatia_pkg::CarusNum > 32'd1) ? heepatia_pkg::CarusNum : 32'd1,
+  localparam int unsigned CaesarNumRnd = (heepatia_pkg::CaesarNum > 32'd1) ? heepatia_pkg::CaesarNum : 32'd1,
   localparam int unsigned ExtXbarNmasterRnd = (heepatia_pkg::ExtXbarNMaster > 0) ? heepatia_pkg::ExtXbarNMaster : 32'd1
 ) (
   input logic ref_clk_i,
@@ -19,7 +20,12 @@ module heepatia_peripherals #(
   output logic system_clk_o,
   input  logic bypass_fll_i,
 
-  // NM-Carus
+  // NM-Carus and NM-Caesar
+  input  logic                                  caesar_rst_ni,
+  input  logic                                  caesar_set_retentive_ni,
+  input  obi_pkg::obi_req_t  [CaesarNumRnd-1:0] caesar_req_i,
+  output obi_pkg::obi_resp_t [CaesarNumRnd-1:0] caesar_rsp_o,
+
   input  logic                                 carus_rst_ni,
   input  logic                                 carus_set_retentive_ni,
   input  obi_pkg::obi_req_t  [CarusNumRnd-1:0] carus_req_i,
@@ -57,14 +63,16 @@ module heepatia_peripherals #(
   // INTERNAL SIGNALS
   // ----------------
   // System clock
-  logic                   system_clk;
+  logic                    system_clk;
 
   // Near-memory computing devices
-  logic [CarusNumRnd-1:0] carus_imc;  // computing mode trigger for NM-Carus
-  logic [   CarusNum-1:0] carus_intr;  // interrupts from NM-Carus
+  logic [ CarusNumRnd-1:0] carus_imc;  // computing mode trigger for NM-Carus
+  logic [    CarusNum-1:0] carus_intr;  // interrupts from NM-Carus
+
+  logic [CaesarNumRnd-1:0] caesar_imc;  // computing mode trigger for NM-Caesar
 
   // OECGRA interrupt
-  logic                   oecgra_int;
+  logic                    oecgra_int;
 
   // --------------
   // OUTPUT CONTROL
@@ -97,6 +105,23 @@ module heepatia_peripherals #(
         .done_o          (carus_intr[i]),
         .bus_req_i       (carus_req_i[i]),
         .bus_rsp_o       (carus_rsp_o[i])
+      );
+    end
+  endgenerate
+
+  // NM-Caesar
+  // ---------
+  generate
+    for (genvar i = 0; unsigned'(i) < CaesarNum; i++) begin : gen_caesar
+      nm_caesar_wrapper #(
+        .REQ_PROXY(32'd0)  // imc_i synchronization ensured by software nops
+      ) u_nm_caesar_wrapper (
+        .clk_i           (system_clk),
+        .rst_ni          (caesar_rst_ni),
+        .set_retentive_ni(caesar_set_retentive_ni),
+        .imc_i           (caesar_imc[i]),
+        .bus_req_i       (caesar_req_i[i]),
+        .bus_rsp_o       (caesar_rsp_o[i])
       );
     end
   endgenerate
@@ -144,11 +169,12 @@ module heepatia_peripherals #(
   // Control and status registers
   // ----------------------------
   heepatia_ctrl_reg u_heepatia_ctrl_reg (
-    .clk_i      (system_clk),
-    .rst_ni     (rst_ni),
-    .req_i      (heepatia_ctrl_req_i),
-    .rsp_o      (heepatia_ctrl_rsp_o),
-    .carus_imc_o(carus_imc)
+    .clk_i       (system_clk),
+    .rst_ni      (rst_ni),
+    .req_i       (heepatia_ctrl_req_i),
+    .rsp_o       (heepatia_ctrl_rsp_o),
+    .caesar_imc_o(caesar_imc),
+    .carus_imc_o (carus_imc)
   );
 
 endmodule

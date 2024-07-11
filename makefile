@@ -30,6 +30,7 @@ FORMAT ?= true
 
 # NMC slaves number
 CARUS_NUM			?= 1
+CAESAR_NUM			?= 1
 
 # X-HEEP configuration
 XHEEP_DIR			:= $(ROOT_DIR)/hw/vendor/x-heep
@@ -39,7 +40,7 @@ X_HEEP_CFG_FPGA    	?= $(ROOT_DIR)/config/mcu-gen-system-fpga.hjson
 PAD_CFG				?= $(ROOT_DIR)/config/heep-pads.hjson
 PAD_CFG_FPGA	    ?= $(ROOT_DIR)/config/heep-pads-fpga.hjson
 EXT_PAD_CFG			?= $(ROOT_DIR)/config/heepatia-pads.hjson
-EXTERNAL_DOMAINS	:= 2 # NM-Carus + OECGRA
+EXTERNAL_DOMAINS	:= 3 # NM-Carus + OECGRA + NM-Caesar //todo: not sure
 MCU_GEN_OPTS		:= \
 	--config $(X_HEEP_CFG) \
 	--cfg_peripherals $(MCU_CFG_PERIPHERALS) \
@@ -58,7 +59,8 @@ MCU_GEN_LOCK			:= $(BUILD_DIR)/.mcu-gen.lock
 HEEPATIA_GEN_CFG	:= config/heepatia-cfg.hjson
 HEEPATIA_GEN_OPTS	:= \
 	--cfg $(HEEPATIA_GEN_CFG) \
-	--carus_num $(CARUS_NUM)
+	--carus_num $(CARUS_NUM) \
+	--caesar_num $(CAESAR_NUM) 
 HEEPATIA_GEN_TPL  := \
 	hw/ip/heepatia-ctrl/data/heepatia_ctrl.hjson.tpl \
 	hw/ip/packages/heepatia_pkg.sv.tpl \
@@ -120,8 +122,9 @@ PWR_VCD ?= $(QUESTA_SIM_POSTLAYOUT_DIR)/logs/waves-0.vcd
 THR_TESTS ?= scripts/performance-analysis/throughput-tests.txt
 PWR_TESTS ?= scripts/performance-analysis/power-tests.txt
 
-#CARUS PL Netlist and SDF
+#CAESAR AND CARUS PL Netlist and SDF
 CARUS_PL_SDF := $(ROOT_DIR)/hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/sdf/NMCarus_top_pared.sdf
+CAESAR_PL_SDF := $(ROOT_DIR)/hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/sdf/NMCaesar_top_pared.sdf
 
 #HEEPATIA PL Netlist and SDF
 HEEPATIA_PL_NET := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heepatia_pg.v
