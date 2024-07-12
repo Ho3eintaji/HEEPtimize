@@ -37,15 +37,12 @@ module heepatia_ctrl_reg #(
 
   // To near-memory computing IPs
   assign carus_imc_o = {
-% if carus_num > 1:
-  % for inst in range(carus_num-1, 0, -1):
+  % for inst in reversed(range(1, carus_num)):
       reg2hw.op_mode.carus_imc_${inst}.q,
   % endfor
-  reg2hw.op_mode.carus_imc_${0}.q
-%else:
-    reg2hw.op_mode.q
-%endif
+      reg2hw.op_mode.carus_imc_0.q
   };
+
   assign caesar_imc_o = {
   % for inst in reversed(range(1, caesar_num)):
       reg2hw.op_mode.caesar_imc_${inst}.q,

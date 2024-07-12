@@ -103,7 +103,7 @@ ${pad.x_heep_system_interface}
   logic [ExtDomainsRnd-1:0] external_subsystem_rst_n;
 
   // External domains clock-gating
-  logic [ExtDomainsRnd-1:0] external_subsystem_clkgate_en_n;
+  logic [ExtDomainsRnd-1:0] external_subsystem_clkgate_en_n; //todo: one removed because it seems it is not using for
 
   // NM-Carus signals
   logic carus_rst_n;
@@ -112,6 +112,7 @@ ${pad.x_heep_system_interface}
   // NM-Caesar signals
   logic caesar_rst_n;
   logic caesar_set_retentive_n;
+  logic caesar_clkgate_n;
 
 
   // OECGRA signals
@@ -273,16 +274,20 @@ ${pad.core_v_mini_mcu_bonding}
     .exit_value_o (exit_value)
   );
 
-  assign carus_rst_n            = external_subsystem_rst_n[0];
-  assign carus_set_retentive_n  = external_ram_banks_set_retentive_n[0];
-  assign carus_clkgate_n        = external_subsystem_clkgate_en_n[0];
+  //todo: double check
+  assign oecgra_rst_n            = external_subsystem_rst_n[0];
+  assign oecgra_set_retentive_n  = external_ram_banks_set_retentive_n[0];
+  assign oecgra_clkgate_n        = external_subsystem_clkgate_en_n[0];
 
-  assign caesar_rst_n = external_subsystem_rst_n[0];
-  assign caesar_set_retentive_n = external_ram_banks_set_retentive_n[0];
+  assign carus_rst_n            = external_subsystem_rst_n[1];
+  assign carus_set_retentive_n  = external_ram_banks_set_retentive_n[1];
+  assign carus_clkgate_n        = external_subsystem_clkgate_en_n[1];
 
-  assign oecgra_rst_n            = external_subsystem_rst_n[1];
-  assign oecgra_set_retentive_n  = external_ram_banks_set_retentive_n[1];
-  assign oecgra_clkgate_n        = external_subsystem_clkgate_en_n[1];
+  assign caesar_rst_n = external_subsystem_rst_n[2];
+  assign caesar_set_retentive_n = external_ram_banks_set_retentive_n[2];
+  assign caesar_clkgate_n        = external_subsystem_clkgate_en_n[2];
+
+  
 
   // External peripherals
   // --------------------
@@ -433,8 +438,8 @@ ${pad_mux_process}
   logic carus_sw0_ack, carus_sw1_ack, carus_sw2_ack, carus_sw3_ack;
 
 `ifndef FPGA
-    assign caesar_sw0_ctrl = ~external_subsystem_powergate_switch_n[0];
-    assign external_subsystem_powergate_switch_ack_n[0] = ~caesar_sw3_ack;
+    assign caesar_sw0_ctrl = ~external_subsystem_powergate_switch_n[2];
+    assign external_subsystem_powergate_switch_ack_n[2] = ~caesar_sw3_ack;
 // Power switch and synchronizer
     switch_cell_mem mem_caesar_sw0_i (
   `ifdef USE_PG_PIN
@@ -487,7 +492,7 @@ ${pad_mux_process}
 `else
 
     assign caesar_sw0_ctrl = '0;
-    assign external_subsystem_powergate_switch_ack_n[0] = '0;
+    assign external_subsystem_powergate_switch_ack_n[2] = '0;
 
 `endif
 
