@@ -31,7 +31,7 @@ package heepatia_pkg;
   localparam int unsigned LogExtXbarNMaster = ExtXbarNMaster > 32'd1 ? $clog2(ExtXbarNMaster) : 32'd1;
   localparam int unsigned LogExtXbarNSlave = ExtXbarNSlave > 32'd1 ? $clog2(ExtXbarNSlave) : 32'd1;
 
-  localparam int unsigned OecgraMasterIdx   = 32'd2;
+  localparam int unsigned OecgraMasterIdx   = 32'd2; // TODO: where is it used?
 
   // Memory map
   // ----------

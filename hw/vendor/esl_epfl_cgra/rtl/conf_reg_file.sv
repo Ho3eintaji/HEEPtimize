@@ -26,16 +26,6 @@ module conf_reg_file
 );
 
   logic [RCS_NUM_CREG-1:0][INSTR_WIDTH-1:0] conf_mem;
-  logic clk_cg, clk_en;
-
-  assign clk_en = we_i && ce_i;
-
-  cgra_clock_gate u_clk_gate (
-    .clk_i    (clk_i),
-    .test_en_i(1'b0),
-    .en_i     (clk_en),
-    .clk_o    (clk_cg)
-  );
 
   // Read instruction output register
   always_ff @(posedge clk_i) begin
@@ -47,8 +37,10 @@ module conf_reg_file
   end
 
   // Write instruction to register file
-  always_ff @(posedge clk_cg) begin
-    conf_mem[global_pc_i] <= instr_i;
+  always_ff @(posedge clk_i) begin
+    if (we_i & ce_i) begin
+      conf_mem[global_pc_i] <= instr_i;
+    end
   end
 
 endmodule
