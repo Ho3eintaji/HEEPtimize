@@ -41,25 +41,24 @@ package heepatia_pkg;
   localparam logic [31:0] OecgraStartAddr = EXT_SLAVE_START_ADDRESS + 32'h${oecgra_start_address};
   localparam logic [31:0] OecgraEndAddr = OecgraStartAddr + 32'h${oecgra_size};
 
-  
-  // NM-Caesar
-  localparam int unsigned CaesarNum = 32'd${caesar_num};
-  localparam int unsigned LogCaesarNum = CaesarNum > 32'd1 ? $clog2(CaesarNum) : 32'd1;
-% for inst in range(caesar_num):
-  localparam int unsigned Caesar${inst}Idx = 32'd${inst};
-  localparam logic [31:0] Caesar${inst}StartAddr = EXT_SLAVE_START_ADDRESS + 32'h${caesar_start_address + inst * caesar_size};
-  localparam logic [31:0] Caesar${inst}EndAddr = Caesar${inst}StartAddr + 32'h${caesar_size};
-% endfor
-
   // NM-Carus
   localparam int unsigned CarusNum = 32'd${carus_num};
   localparam int unsigned LogCarusNum = CarusNum > 32'd1 ? $clog2(CarusNum) : 32'd1;
   localparam int unsigned CarusNumBanks = 32'd${carus_num_banks};
   localparam int unsigned CarusBankAddrWidth = 32'd${carus_bank_addr_width};
 % for inst in range(carus_num):
-  localparam int unsigned Carus${inst}Idx = 32'd${carus_num + inst};
+  localparam int unsigned Carus${inst}Idx = 32'd${1 + inst}; //1 for oecgra
   localparam logic [31:0] Carus${inst}StartAddr = EXT_SLAVE_START_ADDRESS + 32'h${carus_start_address};
   localparam logic [31:0] Carus${inst}EndAddr = Carus${inst}StartAddr + 32'h${carus_size};
+% endfor
+
+  // NM-Caesar
+  localparam int unsigned CaesarNum = 32'd${caesar_num};
+  localparam int unsigned LogCaesarNum = CaesarNum > 32'd1 ? $clog2(CaesarNum) : 32'd1;
+% for inst in range(caesar_num):
+  localparam int unsigned Caesar${inst}Idx = 32'd${1 + caesar_num + inst};
+  localparam logic [31:0] Caesar${inst}StartAddr = EXT_SLAVE_START_ADDRESS + 32'h${caesar_start_address + inst * caesar_size};
+  localparam logic [31:0] Caesar${inst}EndAddr = Caesar${inst}StartAddr + 32'h${caesar_size};
 % endfor
 
   localparam int unsigned InstancesNumBanks[CarusNum] = '{${', '.join([str(carus_num_banks) for _ in range(carus_num)])}};

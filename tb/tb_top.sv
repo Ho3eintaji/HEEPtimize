@@ -405,9 +405,15 @@ module tb_top;
       end else begin
         $display("[%t] TEST FAILED", $time);
       end
+      if (caesar_ex_count > 1) begin
+        $display("[%t] WARNING: multiple Caesar executions detected. Cycle count is NOT accurate",
+                 $time);
+      end
       $display("[%t] - return value: %0d", $time, $signed(exit_value));
       $display("[%t] - NM-Carus kernel execution time: %0d ns", $time,
                carus_done_time - carus_start_time);
+      $display("[%t] - NM-Caesar kernel execution time: %0d ns", $time,
+               caesar_done_time - caesar_start_time);
       $dumpoff;
       if (exit_value == 0) begin
         $finish;

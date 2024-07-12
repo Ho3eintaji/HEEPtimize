@@ -107,14 +107,16 @@ module heepatia_bus #(
   endgenerate
   */
   generate
-    for (genvar i = 0; i < CaesarNumRnd; i++) begin : gen_caesar_req
-      assign caesar_req_o[i]    = ext_slave_req[i+1];
-      assign ext_slave_rsp[i+1] = caesar_resp_i[i];
-    end
     for (genvar i = 0; i < CarusNumRnd; i++) begin : gen_carus_req
-      assign carus_req_o[i]               = ext_slave_req[CaesarNum+1+i];
-      assign ext_slave_rsp[CaesarNum+1+i] = carus_resp_i[i];
+      assign carus_req_o[i]     = ext_slave_req[i+1];
+      assign ext_slave_rsp[i+1] = carus_resp_i[i];
     end
+
+    for (genvar i = 0; i < CaesarNumRnd; i++) begin : gen_caesar_req
+      assign caesar_req_o[i]             = ext_slave_req[CarusNum+i+1];
+      assign ext_slave_rsp[CarusNum+i+1] = caesar_resp_i[i];
+    end
+
   endgenerate
   // External slave bus
   // ------------------
