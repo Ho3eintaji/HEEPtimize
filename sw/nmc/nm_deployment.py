@@ -18,7 +18,7 @@ def dumpMatmulData(f, A: np.ndarray, B: np.ndarray, R_exp: np.ndarray, A_addr: i
     header_gen = CFileGen()
 
     # Map data into .xheep_data_interleaved section
-    header_gen.add_attribute('section(".xheep_data_interleaved")')
+    # header_gen.add_attribute('section(".xheep_data_interleaved")')
 
     # Dump input and output matrices
     header_gen.add_input_matrix('input_A', A)
@@ -58,7 +58,7 @@ def dumpConvData(f, A: np.ndarray, K: np.ndarray, M: np.ndarray, R_exp: np.ndarr
     header_gen = CFileGen()
 
     # Map data into .xheep_data_interleaved section
-    header_gen.add_attribute('section(".xheep_data_interleaved")')
+    # header_gen.add_attribute('section(".xheep_data_interleaved")')
 
     # Dump input and output matrices
     header_gen.add_input_matrix('input_A', A)
@@ -96,7 +96,7 @@ def dumpMaxPoolData(f, A: np.ndarray, R_exp: np.ndarray, A_addr: int = 0, R_addr
     header_gen = CFileGen()
 
     # Map data into .xheep_data_interleaved section
-    header_gen.add_attribute('section(".xheep_data_interleaved")')
+    # header_gen.add_attribute('section(".xheep_data_interleaved")')
 
     # Dump input and output matrices
     header_gen.add_input_matrix('input_A', A)
@@ -136,7 +136,7 @@ def dumpElemWiseData(f, A: np.ndarray, B: np.ndarray, R_exp: np.ndarray, A_addr:
     header_gen = CFileGen()
 
     # Map data into .xheep_data_interleaved section
-    header_gen.add_attribute('section(".xheep_data_interleaved")')
+    # header_gen.add_attribute('section(".xheep_data_interleaved")')
 
     # Dump input and output matrices
     header_gen.add_input_matrix('input_A', A)
@@ -174,7 +174,7 @@ def dumpReluData(f, A: np.ndarray, shamt: np.ndarray, R_exp: np.ndarray, A_addr:
     header_gen = CFileGen()
 
     # Map data into .xheep_data_interleaved section
-    header_gen.add_attribute('section(".xheep_data_interleaved")')
+    # header_gen.add_attribute('section(".xheep_data_interleaved")')
 
     # Dump input and output matrices
     header_gen.add_input_matrix('input_A', A)
@@ -224,7 +224,7 @@ def dumpGEMMData(f, A: np.ndarray, B: np.ndarray, C: np.ndarray, ALPHA: np.ndarr
     header_gen = CFileGen()
 
     # Map data into .xheep_data_interleaved section
-    header_gen.add_attribute('section(".xheep_data_interleaved")')
+    # header_gen.add_attribute('section(".xheep_data_interleaved")')
 
     # Dump input and output matrices
     header_gen.add_input_matrix('input_A', A)
@@ -262,7 +262,7 @@ def dumpCmds(f, cmd_name: str, cmd_list: str, addr_list: int = None):
     header_gen = CFileGen()
 
     # Map commands into .xheep_data_interleaved section
-    header_gen.add_attribute('section(".xheep_data_interleaved")')
+    # header_gen.add_attribute('section(".xheep_data_interleaved")')
 
     # Dump commands
     header_gen.add_code(cmd_name, cmd_list)
