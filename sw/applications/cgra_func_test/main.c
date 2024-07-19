@@ -1,3 +1,16 @@
+/*
+ * This application is a test of the CGRA functionality. It tests the following arithmetic operations:
+  * - Simple addition and subtraction (SADD and SSUB).
+  * - Simple and fixed-point multiplication (SMUL and FXPMUL).
+  * - Shift left, shift right, and arithmetic shift right (SLT, SRT, and SRA).
+  * - Bitwise comparisons (BSFA and BZFA).
+  * The application uses the CGRA peripheral to perform these operations. The input data is stored in a 2D array, and the expected
+  * results are stored in another 2D array. The application then compares the results from the CGRA with the expected results to
+  * verify the functionality of the CGRA.
+  * The application also uses the performance counters of the CGRA to measure the number of cycles spent in each column of the CGRA
+  * during the execution of the test.
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 

@@ -6,7 +6,7 @@
  *                     Application defines
  * --------------------------------------------------------------------------*/
 
-#define FFT_SIZE (512)
+#define FFT_SIZE (1024)
 
 // Choose complex or real values FFT
 #define CPLX_FFT

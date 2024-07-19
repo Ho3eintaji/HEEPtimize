@@ -1,3 +1,9 @@
+/*
+ * This application is a test for the CGRA kernels. It runs two kernels in parallel:
+  * - Double minimum search
+  * - Double maximum search
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 
