@@ -111,7 +111,7 @@ filesets:
   # RTL that depends on TSMC65
   rtl-tsmc65:
     depend:
-    - epfl:heeperator:prim-tsmc65:0.1.0
+    - epfl:heepatia:prim-tsmc65:0.1.0
   
   # Coprosit RTL (separated because it can't be verilated)
   rtl-coprosit:
