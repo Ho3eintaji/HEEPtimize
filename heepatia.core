@@ -256,7 +256,7 @@ targets:
     description: Design Compiler Script
     parameters:
     - SYNTHESIS=true
-     - PRIM_DEFAULT_IMPL=prim_pkg::tsmc65 //not really needed as today
+    - PRIM_DEFAULT_IMPL=prim_pkg::tsmc65 //not really needed as today
     filesets_append:
     - rtl-tsmc65
     toplevel: [heepatia_top]
