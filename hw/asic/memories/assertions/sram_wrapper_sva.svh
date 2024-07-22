@@ -7,9 +7,9 @@ initial begin
     $error("DataWidth must be 32. Other sizes are not supported.");
   end
   case (NumWords)
-    64, 128, 256, 2048, 4096, 8192:; // OK
+    64, 128, 256, 2048, 4096:; // OK
     default: begin
-      error("NumWords must be 64, 128, 256, 2048, 4096 or 8192. Other sizes are not supported.");
+      error("NumWords must be 2048 or 4096. Other sizes are not supported.");
     end
   endcase
 end

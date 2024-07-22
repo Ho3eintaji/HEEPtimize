@@ -22,6 +22,7 @@ filesets:
     - epfl:heepatia:peripherals
     - epfl:heepatia:pad-ring
     - epfl:carus:nm-carus
+    - epfl:carus:nm-caesar
     - eslepfl::cgra
     files:
     - hw/ip/heepatia_top.sv
@@ -50,14 +51,14 @@ filesets:
   
   nm_caesar_postsynthesis-netlist:
     depend:
-    - epfl:heepatia:prim-tsmc16:0.1.0
+    - epfl:heepatia:prim-tsmc65:0.1.0
     files:
     - hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/verilog/NMCaesar_top_pared.v
     file_type: verilogSource
 
   nm_caesar_postlayout-netlist:
     depend:
-    - epfl:heepatia:prim-tsmc16:0.1.0
+    - epfl:heepatia:prim-tsmc65:0.1.0
     files:
     - hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/verilog/NMCaesar_top_pnr.v
     file_type: verilogSource
@@ -69,14 +70,14 @@ filesets:
   
   nm_carus_postsynthesis-netlist:
     depend:
-    - epfl:heepatia:prim-tsmc16:0.1.0
+    - epfl:heepatia:prim-tsmc65:0.1.0
     files:
     - hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/verilog/NMCarus_top_pared.v
     file_type: verilogSource
 
   nm_carus_postlayout-netlist:
     depend:
-    - epfl:heepatia:prim-tsmc16:0.1.0
+    - epfl:heepatia:prim-tsmc65:0.1.0
     files:
     - hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/verilog/NMCarus_top_pnr.v
     file_type: verilogSource
@@ -107,6 +108,11 @@ filesets:
     - x-heep::packages
     - x-heep:ip:pad_control
   
+  # RTL that depends on TSMC65
+  rtl-tsmc65:
+    depend:
+    - epfl:heeperator:prim-tsmc65:0.1.0
+  
   # Coprosit RTL (separated because it can't be verilated)
   rtl-coprosit:
     depend:
@@ -126,7 +132,7 @@ filesets:
   postsynthesis-netlist:
     depend:
     - epfl:heepatia:packages
-    - epfl:heepatia:prim-tsmc16:0.1.0
+    - epfl:heepatia:prim-tsmc65:0.1.0
     files:
     - implementation/synthesis/last_output/netlist.v
     file_type: verilogSource
@@ -135,7 +141,7 @@ filesets:
   postlayout-netlist:
     depend:
     - epfl:heepatia:packages
-    - epfl:heepatia:prim-tsmc16:0.1.0
+    - epfl:heepatia:prim-tsmc65:0.1.0
     files:
     - build/innovus_latest/artefacts/export/heepatia_pg.v
     file_type: verilogSource
@@ -250,9 +256,9 @@ targets:
     description: Design Compiler Script
     parameters:
     - SYNTHESIS=true
-    - PRIM_DEFAULT_IMPL=prim_pkg::tsmc16 //not really needed as today
+     - PRIM_DEFAULT_IMPL=prim_pkg::tsmc65 //not really needed as today
     filesets_append:
-    - rtl-tsmc16
+    - rtl-tsmc65
     toplevel: [heepatia_top]
     tools:
       design_compiler:
@@ -460,7 +466,7 @@ targets:
     - tb-system
     - tb-system-vendor
     - rtl-sim
-    - rtl-tsmc16
+    - rtl-tsmc65
     - fll_simulation
     parameters:
     - boot_mode
@@ -469,7 +475,7 @@ targets:
     - verbose
     - vcd_mode
     - bypass_fll_opt
-    - PRIM_DEFAULT_IMPL=prim_pkg::tsmc16
+    - PRIM_DEFAULT_IMPL=prim_pkg::tsmc65
     - UNIT_DELAY=0
     - no_warning=true
     - SYNTHESIS=true
@@ -512,7 +518,7 @@ targets:
     - tb-system
     - tb-system-vendor
     - rtl-sim
-    - rtl-tsmc16
+    - rtl-tsmc65
     - fll_simulation
     parameters:
     - boot_mode
@@ -521,7 +527,7 @@ targets:
     - verbose
     - vcd_mode
     - bypass_fll_opt
-    - PRIM_DEFAULT_IMPL=prim_pkg::tsmc16
+    - PRIM_DEFAULT_IMPL=prim_pkg::tsmc65
     - UNIT_DELAY=0
     - no_warning=true
     - USE_PG_PIN=true

@@ -1,12 +1,8 @@
-// Copyright 2024 EPFL and Universidad Complutense de Madrid
+// Copyright 2022 OpenHW Group
 // Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
-//
-// Author: David Mallasén
-// Date: 19/04/2024
-// Description: TSMC 16nm clock cells
 
-module tsmc16_clk_gating (
+module tsmc65_clk_gating (
     input  logic clk_i,
     input  logic en_i,
     input  logic test_en_i,
@@ -17,7 +13,7 @@ module tsmc16_clk_gating (
   /*
     add here your standard cell
   */
-  CKLNQD10BWP16P90 clk_gating_i (
+  CKLNQD16LVT clk_gating_i (
       .TE(test_en_i),
       .CP(clk_i),
       .E (en_i),
@@ -26,7 +22,7 @@ module tsmc16_clk_gating (
 
 endmodule
 
-module tsmc16_clk_inverter (
+module tsmc65_clk_inverter (
     input  logic clk_i,
     output logic clk_o
 );
@@ -34,7 +30,7 @@ module tsmc16_clk_inverter (
   /*
     add here your standard cell
   */
-  CKND10BWP16P90 clk_inv_i (
+  CKND16LVT clk_inv_i (
       .I (clk_i),
       .ZN(clk_o)
   );
@@ -42,7 +38,7 @@ module tsmc16_clk_inverter (
 endmodule
 
 
-module tsmc16_clk_mux2 (
+module tsmc65_clk_mux2 (
     input  logic clk0_i,
     input  logic clk1_i,
     input  logic clk_sel_i,
@@ -52,7 +48,7 @@ module tsmc16_clk_mux2 (
   /*
     add here your standard cell
   */
-  CKMUX2D1BWP16P90 clk_mux2_i (
+  CKMUX2D4LVT clk_mux2_i (
       .I0(clk0_i),
       .I1(clk1_i),
       .S (clk_sel_i),
@@ -61,7 +57,7 @@ module tsmc16_clk_mux2 (
 
 endmodule
 
-module tsmc16_clk_xor2 (
+module tsmc65_clk_xor2 (
     input  logic clk0_i,
     input  logic clk1_i,
     output logic clk_o
@@ -70,7 +66,7 @@ module tsmc16_clk_xor2 (
   /*
     add here your standard cell
   */
-  CKXOR2D1BWP16P90 clk_xor2_i (
+  CKXOR2D4LVT clk_xor2_i (
       .A1(clk0_i),
       .A2(clk1_i),
       .Z (clk_o)
@@ -83,7 +79,7 @@ module cluster_clock_inverter (
     output logic clk_o
 );
 
-  tsmc16_clk_inverter clk_inv_i (.*);
+  tsmc65_clk_inverter clk_inv_i (.*);
 
 endmodule
 
@@ -94,7 +90,7 @@ module pulp_clock_mux2 (
     output logic clk_o
 );
 
-  tsmc16_clk_mux2 clk_mux2_i (.*);
+  tsmc65_clk_mux2 clk_mux2_i (.*);
 
 endmodule
 
@@ -105,7 +101,7 @@ module cv32e40p_clock_gate (
     output logic clk_o
 );
 
-  tsmc16_clk_gating clk_gate_i (
+  tsmc65_clk_gating clk_gate_i (
       .clk_i,
       .en_i,
       .test_en_i(scan_cg_en_i),
@@ -121,41 +117,7 @@ module cve2_clock_gate (
     output logic clk_o
 );
 
-  tsmc16_clk_gating clk_gate_i (
-      .clk_i,
-      .en_i,
-      .test_en_i(scan_cg_en_i),
-      .clk_o
-  );
-
-endmodule
-
-module cv32e40x_clock_gate #(
-    parameter LIB = 0
-) (
-    input  logic clk_i,
-    input  logic en_i,
-    input  logic scan_cg_en_i,
-    output logic clk_o
-);
-
-  tsmc16_clk_gating clk_gate_i (
-      .clk_i,
-      .en_i,
-      .test_en_i(scan_cg_en_i),
-      .clk_o
-  );
-
-endmodule
-
-module cv32e40px_clock_gate (
-    input  logic clk_i,
-    input  logic en_i,
-    input  logic scan_cg_en_i,
-    output logic clk_o
-);
-
-  tsmc16_clk_gating clk_gate_i (
+  tsmc65_clk_gating clk_gate_i (
       .clk_i,
       .en_i,
       .test_en_i(scan_cg_en_i),
@@ -171,7 +133,7 @@ module cgra_clock_gate (
     output logic clk_o
 );
 
-  tsmc16_clk_gating clk_gate_i (
+  tsmc65_clk_gating clk_gate_i (
       .clk_i,
       .en_i,
       .test_en_i,
@@ -189,7 +151,7 @@ module tc_clk_gating #(
    output logic clk_o
 );
 
-  tsmc16_clk_gating clk_gate_i (
+  tsmc65_clk_gating clk_gate_i (
       .clk_i,
       .en_i,
       .test_en_i,
@@ -205,7 +167,7 @@ module tc_clk_mux2 (
   output logic clk_o
 );
 
-  tsmc16_clk_mux2 tsmc16_clk_mux2_i (
+  tsmc65_clk_mux2 tsmc65_clk_mux2_i (
     .clk0_i,
     .clk1_i,
     .clk_sel_i,
@@ -220,7 +182,7 @@ module tc_clk_xor2 (
   output logic clk_o
 );
 
-  tsmc16_clk_xor2 tsmc16_clk_xor2_i (
+  tsmc65_clk_xor2 tsmc65_clk_xor2_i (
     .clk0_i,
     .clk1_i,
     .clk_o
@@ -233,6 +195,6 @@ module tc_clk_inverter (
     output logic clk_o
 );
 
-  tsmc16_clk_inverter clk_inv_i (.*);
+  tsmc65_clk_inverter clk_inv_i (.*);
 
 endmodule
