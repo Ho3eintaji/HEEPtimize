@@ -22,7 +22,7 @@ filesets:
     - epfl:heepatia:peripherals
     - epfl:heepatia:pad-ring
     - epfl:carus:nm-carus
-    - epfl:carus:nm-caesar
+    - epfl:caesar:nm-caesar
     - eslepfl::cgra
     files:
     - hw/ip/heepatia_top.sv
