@@ -1,36 +1,11 @@
-/*
-                              *******************
-******************************* C SOURCE FILE *******************************
-**                            *******************                          **
-**                                                                         **
-** project  : HEEPsilon                                                    **
-** filename : main.c                                                       **
-** version  : 1                                                            **
-** date     : 01/10/23                                                     **
-**                                                                         **
-*****************************************************************************
-**                                                                         **
-** Copyright (c) EPFL                                                      **
-** All rights reserved.                                                    **
-**                                                                         **
-*****************************************************************************
-*/
-
-/***************************************************************************/
-/***************************************************************************/
-
-/**
-* @file   main.c
-* @date   01/10/23
-* @brief  An application to run a matrix multiplication.
-*
-*/
-
-/****************************************************************************/
-/**                                                                        **/
-/*                             MODULES USED                                 */
-/**                                                                        **/
-/****************************************************************************/
+// Copyright 2022 EPFL and Politecnico di Torino.
+// Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+//
+// File: main.c
+// Author: Hossein Taji
+// Date: 22/06/2023
+// Description: Main file for running matmul on multi-accels platform
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -38,7 +13,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-// #include "transformer.h"
 #include "cgra_bitstream.h"
 #include "heepatia.h"
 
@@ -48,18 +22,24 @@
 #include "rv_plic.h"
 #include "rv_plic_regs.h"
 #include "hart.h"
-
+#include "fast_intr_ctrl.h"
+#include "dma_util.h"
+#include "vcd_util.h"
+#include "ext_irq.h"
+#include "carus.h"
+#include "carus_matmul.h"
 #include "timer_util.h"
+
 #include "data.h"
-
-#define PRINT_TIMING_DETAILS
-
+#include "data_carus.h"
 
 /****************************************************************************/
 /**                                                                        **/
 /*                        DEFINITIONS AND MACROS                            */
 /**                                                                        **/
 /****************************************************************************/
+
+#define PRINT_TIMING_DETAILS
 
 // Size of the input buffer for the CGRA
 #define CGRA_COL_INPUT_SIZE 4
@@ -91,12 +71,15 @@ static uint8_t              cgra_slot;
 // CGRA input and output buffers
 static int32_t cgra_input[CGRA_N_COLS][CGRA_COL_INPUT_SIZE]    __attribute__ ((aligned (4)));
 
-int32_t matrixC[R_ROWS*R_COLS];
-
-#define data_t int32_t // element data type
-
+int32_t R_cgra[R_ROWS*R_COLS];
 
 data_t R_cpu[R_ROWS*R_COLS]; // Result computed by the CPU
+
+/****************************************************************************/
+/**                                                                        **/
+/*                            LOCAL FUNCTIONS                               */
+/**                                                                        **/
+/****************************************************************************/
 
 // Software matrix multiplication
 // NOTE: force alignment on 32-bit boundary to prevent the execution time from
@@ -105,19 +88,27 @@ data_t R_cpu[R_ROWS*R_COLS]; // Result computed by the CPU
 void __attribute__((noinline, aligned(4))) cpuMatMul(data_t *A, data_t *B, data_t *R_cpu, unsigned int a_rows, unsigned int a_cols, unsigned int b_cols);
 
 
-/****************************************************************************/
-/**                                                                        **/
-/*                            LOCAL FUNCTIONS                               */
-/**                                                                        **/
-/****************************************************************************/
-
 void main()
 {
-    printf("Multi-Accels Matrix multiplication...\n");
+    // write a  proper start of app
+    printf("========================================\n");
+    printf("Multi-Accelerators Matrix Multiplication\n");
+    printf("========================================\n");
 
-    // fillMatrixInputs();
+    carus_cfg_t cfg = CARUS_CFG_INIT; // NM-Carus configuration
+    dma_data_type_t dma_type = DMA_DATA_TYPE_WORD;
+    data_t *row_ptr;
+
+    unsigned int a_rows = A_ROWS;
+    unsigned int a_cols = A_COLS;
+    unsigned int b_cols = B_COLS;
 
     uint32_t cpu_cycles = 0;
+    uint32_t carus_cycles = 0;
+    uint32_t carus_init_cycles = 0;
+    uint32_t carus_load_cycles = 0;
+    uint32_t carus_data_move_cycles = 0;
+    uint32_t carus_compute_cycles = 0;
     uint32_t cgra_cycles = 0;
     uint32_t cgra_init_cycles = 0;
     uint32_t cgra_load_cycles = 0;
@@ -125,22 +116,94 @@ void main()
     uint32_t cgra_compute_cycles = 0;
     timer_init();
 
-    // Init the PLIC
+    // Enable fast interrupts for DMA and PLIC
+    if (enable_fast_interrupt(kDma_fic_e, true) != kFastIntrCtrlOk_e)
+        return 1;
+    CSR_SET_BITS(CSR_REG_MSTATUS, 0x8);
+    const uint32_t mask = (1 << 19) | (1 << 11); // 19: DMA, 11: PLIC
+    CSR_SET_BITS(CSR_REG_MIE, mask); // MIE.meie = 1
+
     plic_Init();
+    // carus
+    if (ext_irq_init() != 0)
+        return 1;
+    // oe-cgra
     plic_irq_set_priority(CGRA_INTR, 1);
     plic_irq_set_enabled(CGRA_INTR, kPlicToggleEnabled);
     plic_assign_external_irq_handler( CGRA_INTR, (void *) &handler_irq_cgra);
 
-    // Enable interrupt on processor side
-    // Enable global interrupt for machine-level interrupts
-    CSR_SET_BITS(CSR_REG_MSTATUS, 0x8);
-    // Set mie.MEIE bit to one to enable machine-level external interrupts
-    const uint32_t mask = 1 << 11;//IRQ_EXT_ENABLE_OFFSET;
-    CSR_SET_BITS(CSR_REG_MIE, mask);
     cgra_intr_flag = 0;
 
+    // Initialize the DMA
+    dma_init(NULL);
+
+    // --------------------------------
+    // --- NM-Carus ---
+    // -------------------------------- 
+    // carus, initialize
+    timer_start();
+    if (carus_init(0) != 0) return 1;
+    carus_init_cycles = timer_stop();
+
+    // carus, load kernel
     timer_start();
     // Load kernel
+    if (carus_load_kernel(0, carus_matmul, CARUS_MATMUL_SIZE, NULL) != 0) return 1;
+    // Set kernel configuration configuration
+    cfg.vl = VL;
+    switch (ELEM_SIZE)
+    {
+    case 1: 
+        cfg.vtype = VTYPE_VSEW_8; 
+        dma_type = DMA_DATA_TYPE_BYTE;
+        break;
+    case 2: 
+        cfg.vtype = VTYPE_VSEW_16; 
+        dma_type = DMA_DATA_TYPE_HALF_WORD;
+        break;
+    case 4: 
+        cfg.vtype = VTYPE_VSEW_32; 
+        dma_type = DMA_DATA_TYPE_WORD;
+        break;
+    default: return 1;
+    }
+    cfg.arg0 = ARG0; // n. rows of A
+    cfg.arg1 = ARG1; // n. columns of A
+    // Write kernel configuration
+    if (carus_set_cfg(0, &cfg) != 0)
+        return 1;
+    carus_load_cycles = timer_stop();
+
+    // carus, data transfer
+    timer_start();
+    // Copy flattened matrix A
+    row_ptr = (data_t *) (CARUS0_START_ADDRESS + vregs[CARUS_MATMUL_A_VREG]);
+    if (dma_copy((uint8_t *) row_ptr, (uint8_t *) A, A_SIZE, dma_type) != 0) return 1;
+    // Copy matrix B
+    for (unsigned int i = 0; i < B_ROWS; i++) {
+        row_ptr = CARUS0_START_ADDRESS + vregs[CARUS_MATMUL_B_VREG + i];
+        if (dma_copy((uint8_t *) row_ptr, (uint8_t *) (B+i*B_COLS), B_COLS * ELEM_SIZE, dma_type) != 0)
+            return 1;
+    }
+    carus_data_move_cycles = timer_stop();
+
+    // carus, running the kernel
+    timer_start();
+    // Run the kernel
+    if (carus_run_kernel(0) != 0) return 1;
+    // Wait for the kernel to complete
+    if (carus_wait_done(0) != 0) return 1;
+    carus_compute_cycles = timer_stop();
+
+    carus_cycles = carus_init_cycles + carus_load_cycles + carus_data_move_cycles + carus_compute_cycles;
+
+
+    // --------------------------------
+    // --- OE-CGRA ---
+    // --------------------------------
+    // oecgra, load kernel
+    timer_start();
+
     cgra_cmem_init(cgra_imem_bitstream, cgra_kmem_bitstream);
     cgra.base_addr = mmio_region_from_addr((uintptr_t)OECGRA_CONFIG_REGS_START_ADDRESS);
     cgra_slot = cgra_get_slot(&cgra);
@@ -149,21 +212,21 @@ void main()
     cgra_input[0][0] = &B[0];
     cgra_input[0][1] = R_COLS/CGRA_N_ROWS;
     cgra_input[0][2] = &A[0];
-    cgra_input[0][3] = &matrixC[3];
+    cgra_input[0][3] = &R_cgra[3];
     // Col 1: &C[1][0], &B[0][1], nItLoopsColsA, &A[1][0]
-    cgra_input[1][0] = &matrixC[R_COLS];
+    cgra_input[1][0] = &R_cgra[R_COLS];
     cgra_input[1][1] = &B[1];
     cgra_input[1][2] = A_COLS;
     cgra_input[1][3] = &A[A_COLS];
     // Col 2: &A[2][0], &C[2][1], &B[0][2], nItLoopColsC
     cgra_input[2][0] = &A[2*A_COLS];
-    cgra_input[2][1] = &matrixC[2*R_COLS+1];
+    cgra_input[2][1] = &R_cgra[2*R_COLS+1];
     cgra_input[2][2] = &B[2];
     cgra_input[2][3] = R_COLS/CGRA_N_ROWS;
     // Col 3: nItLoopRowsC, &A[3][0], &C[3][2], &B[0][3], 
     cgra_input[3][0] = R_ROWS/CGRA_N_COLS;
     cgra_input[3][1] = &A[3*A_COLS];
-    cgra_input[3][2] = &matrixC[3*R_COLS+2];
+    cgra_input[3][2] = &R_cgra[3*R_COLS+2];
     cgra_input[3][3] = &B[3];
 
     // Set CGRA kernel L/S pointers
@@ -172,8 +235,7 @@ void main()
     }
     cgra_load_cycles = timer_stop();
 
-
-    // CGRA Execution
+    // oe-cgra, running the kernel
     timer_start();
     cgra_intr_flag = 0;
     cgra_set_kernel( &cgra, cgra_slot, TRANSFORMER );
@@ -184,49 +246,64 @@ void main()
     cgra_compute_cycles = timer_stop();
     cgra_cycles = cgra_init_cycles + cgra_load_cycles + cgra_data_move_cycles + cgra_compute_cycles;
   
-    // Software 
+    // --------------------------------
+    // --- CPU ---
+    // --------------------------------
     timer_start();
     cpuMatMul(A, B, R_cpu, A_ROWS, A_COLS, B_COLS);
     cpu_cycles = timer_stop();
 
-    checkErrors();
+    // check carus, oe-cgra, and cput results to be the same as the golden result
+    for (unsigned int i = 0; i < R_ROWS; i++) {
+        row_ptr = (data_t *) (CARUS0_START_ADDRESS + vregs[CARUS_MATMUL_R_VREG + i]);
+        for (unsigned int j = 0; j < R_COLS; j++) {
+            if (row_ptr[j] != R[i*R_COLS+j]) {
+                printf("NM-Carus|gold R[%u,%u]: %x %x\n", i, j, row_ptr[j], R[i*R_COLS+j]);
+                return 1;
+            }
+            if (R_cgra[i*R_COLS+j] != R[i*R_COLS+j]) {
+                printf("CGRA|gold R[%u,%u]: %x %x\n", i, j, R_cgra[i*R_COLS+j], R[i*R_COLS+j]);
+                return 1;
+            }
+            if (R_cpu[i*R_COLS+j] != R[i*R_COLS+j]) {
+                printf("CPU|gold R[%u,%u]: %x %x\n", i, j, R_cpu[i*R_COLS+j], R[i*R_COLS+j]);
+                return 1;
+            }
+            
+        }
+    }
 
   #ifdef PRINT_TIMING_DETAILS
-    // information about application
-    printf("========================================\n");
-    printf("CGRA matrix multiplication\n");
-    printf("========================================\n");
-
-    // printf matrix size
+    printf("----------------------------------------\n");
     printf("Matrix size: %u x %u * %u x %u\n", A_ROWS, A_COLS, A_COLS, B_COLS);
-
-    // printf all timing details
-    printf("CGRA init cycles: %u\n", cgra_init_cycles);
-    printf("CGRA load cycles: %u\n", cgra_load_cycles);
-    printf("CGRA data move cycles: %u\n", cgra_data_move_cycles);
-    printf("CGRA compute cycles: %u\n", cgra_compute_cycles);
-    printf("CGRA total cycles: %u\n", cgra_cycles);
-    printf("CPU cycles: %u\n", cpu_cycles);
+    printf("----------------------------------------\n");
+    // Then details of carus
+    printf("NM-Carus\n");
+    printf("----------------------------------------\n");
+    printf("Initialization cycles: %u\n", carus_init_cycles);
+    printf("Load kernel cycles: %u\n", carus_load_cycles);
+    printf("Data move cycles: %u\n", carus_data_move_cycles);
+    printf("Compute cycles: %u\n", carus_compute_cycles);
+    printf("Total cycles: %u\n", carus_cycles);
+    printf("----------------------------------------\n");
+    // Then details of oe-cgra
+    printf("OE-CGRA\n");
+    printf("----------------------------------------\n");
+    printf("Initialization cycles: %u\n", cgra_init_cycles);
+    printf("Load kernel cycles: %u\n", cgra_load_cycles);
+    printf("Data move cycles: %u\n", cgra_data_move_cycles);
+    printf("Compute cycles: %u\n", cgra_compute_cycles);
+    printf("Total cycles: %u\n", cgra_cycles);
+    printf("----------------------------------------\n");
+    // Finally details of cpu
+    printf("CPU\n");
+    printf("----------------------------------------\n");
+    printf("Compute cycles: %u\n", cpu_cycles);
+    printf("----------------------------------------\n"); 
 #endif
   
   return EXIT_SUCCESS;
 }
-
-// Check if the SW and CGRA executions give the same result
-void checkErrors(){
-  int errors = 0;
-  for(int i = 0; i < R_ROWS*R_COLS; i++ ){
-    if(R_cpu[i]!=matrixC[i]){
-      errors++;
-    }
-  }
-  printf("\rErrors: %d\n", errors);
-
-  if(errors>0){
-    printMatrix(matrixC, R_ROWS, R_COLS);
-  }
-}
-
 
 void cpuMatMul(data_t *A, data_t *B, data_t *R_cpu, unsigned int a_rows, unsigned int a_cols, unsigned int b_cols)
 {
@@ -238,17 +315,6 @@ void cpuMatMul(data_t *A, data_t *B, data_t *R_cpu, unsigned int a_rows, unsigne
             }
         }
     }
-}
-
-// Print matrix
-void printMatrix(int * matrix, int rows, int cols){
-  for(int i = 0; i < rows; i++){
-    printf("[ ");
-    for(int j=0; j < cols; j++){
-      printf("%d ", matrix[i*cols+j]);
-    }
-    printf("]\n");
-  }
 }
 
 // Interrupt controller variables
