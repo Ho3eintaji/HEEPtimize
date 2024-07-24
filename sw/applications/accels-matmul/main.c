@@ -28,10 +28,14 @@
 #include "ext_irq.h"
 #include "carus.h"
 #include "carus_matmul.h"
+#include "caesar.h"
 #include "timer_util.h"
 
 #include "data.h"
 #include "data_carus.h"
+
+#include "caesar_commands.h"
+#include "caesar_data.h"
 
 /****************************************************************************/
 /**                                                                        **/
@@ -114,6 +118,11 @@ void main()
     uint32_t cgra_load_cycles = 0;
     uint32_t cgra_data_move_cycles = 0;
     uint32_t cgra_compute_cycles = 0;
+    uint32_t caesar_cycles = 0;
+    uint32_t caesar_init_cycles = 0;
+    uint32_t caesar_load_cycles = 0;
+    uint32_t caesar_data_move_cycles = 0;
+    uint32_t caesar_compute_cycles = 0;
     timer_init();
 
     // Enable fast interrupts for DMA and PLIC
@@ -197,6 +206,39 @@ void main()
 
     carus_cycles = carus_init_cycles + carus_load_cycles + carus_data_move_cycles + carus_compute_cycles;
 
+    // --------------------------------
+    // --- NM-Caesar ---
+    // --------------------------------
+    // uint32_t* ptr_caesar_cmd;
+
+    // correcting the destination addresses
+    //the destination address are generated relatively to the memory, thus adding its system offset
+    for(int i=0; i < CAESAR_CMDS_MATMUL_ADDR_SIZE >> 2; i++){
+        caesar_cmds_matmul_addr[i] += CAESAR0_START_ADDRESS;
+    }
+
+    // caesar, data transfer
+    timer_start();
+    data_t* matrix_caesar_A = (data_t*) (CAESAR0_START_ADDRESS + CAESAR_A_OFFS);
+    data_t* matrix_caesar_B = (data_t*) (CAESAR0_START_ADDRESS + CAESAR_B_OFFS);
+    if (dma_copy((uint8_t *) matrix_caesar_A, (uint8_t *) A, A_SIZE, dma_type) != 0) return -1;
+    if (dma_copy((uint8_t *) matrix_caesar_B, (uint8_t *) B, B_SIZE, dma_type) != 0) return -1;
+    caesar_data_move_cycles = timer_stop();
+
+    // caesar, running the kernel
+    timer_start();
+    // Set NM-Caesar in computing mode
+    if (caesar_set_mode(0, CAESAR_MODE_COMP) != 0) return -1;
+    //Use the DMA to send commands - performing matmul M * A
+    dma_copy_to_addr_32b(caesar_cmds_matmul_addr, caesar_cmds_matmul, CAESAR_CMDS_MATMUL_SIZE >> 2);
+    caesar_compute_cycles = timer_stop();
+    caesar_cycles  = caesar_init_cycles + caesar_load_cycles + caesar_data_move_cycles + caesar_compute_cycles;
+    // Set NM-Caesar in memory mode
+    if (caesar_set_mode(0, CAESAR_MODE_MEM) != 0) return -1;
+
+    //set the pointer back
+    uint32_t* R_caesar = (uint32_t*)(CAESAR0_START_ADDRESS + CAESAR_R_OFFS);
+
 
     // --------------------------------
     // --- OE-CGRA ---
@@ -269,6 +311,11 @@ void main()
                 printf("CPU|gold R[%u,%u]: %x %x\n", i, j, R_cpu[i*R_COLS+j], R[i*R_COLS+j]);
                 return 1;
             }
+            if (R_caesar[i*R_COLS+j] != R[i*R_COLS+j]) {
+                printf("NM-Caesar|gold R[%u,%u]: %x %x\n", i, j, R_caesar[i*R_COLS+j], R[i*R_COLS+j]);
+                return -1;
+            }
+
             
         }
     }
@@ -285,6 +332,15 @@ void main()
     printf("Data move cycles: %u\n", carus_data_move_cycles);
     printf("Compute cycles: %u\n", carus_compute_cycles);
     printf("Total cycles: %u\n", carus_cycles);
+    printf("----------------------------------------\n");
+    // Then details of caesar
+    printf("NM-Caesar\n");
+    printf("----------------------------------------\n");
+    printf("Initialization cycles: %u\n", caesar_init_cycles);
+    printf("Load kernel cycles: %u\n", caesar_load_cycles);
+    printf("Data move cycles: %u\n", caesar_data_move_cycles);
+    printf("Compute cycles: %u\n", caesar_compute_cycles);
+    printf("Total cycles: %u\n", caesar_cycles);
     printf("----------------------------------------\n");
     // Then details of oe-cgra
     printf("OE-CGRA\n");
