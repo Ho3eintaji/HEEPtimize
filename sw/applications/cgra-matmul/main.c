@@ -50,6 +50,10 @@
 #include "rv_plic_regs.h"
 #include "hart.h"
 
+#include "timer_util.h"
+
+#define PRINT_TIMING_DETAILS
+
 
 /****************************************************************************/
 /**                                                                        **/
@@ -106,6 +110,18 @@ int32_t matrixB[ROWS_B*COLS_B];
 int32_t matrixC[ROWS_C*COLS_C];
 int32_t outSW[ROWS_C*COLS_C];
 
+#define data_t int32_t // element data type
+
+
+data_t R_cpu[ROWS_C*COLS_C] __attribute__((section(".xheep_data_interleaved"))); // Result computed by the CPU
+
+// Software matrix multiplication
+// NOTE: force alignment on 32-bit boundary to prevent the execution time from
+// being affected by the amount of previous compressed instructions. This
+// guarantees a stable baseline independent on the previous code.
+void __attribute__((noinline, aligned(4))) cpuMatMul(data_t *A, data_t *B, data_t *R_cpu, unsigned int a_rows, unsigned int a_cols, unsigned int b_cols);
+
+
 /****************************************************************************/
 /**                                                                        **/
 /*                            LOCAL FUNCTIONS                               */
@@ -116,26 +132,57 @@ void main()
 {
   fillMatrixInputs();
 
-  // Init timer
-  timerInit();
+  uint32_t cpu_cycles = 0;
+  uint32_t cgra_cycles = 0;
+  uint32_t cgra_init_cycles = 0;
+  uint32_t cgra_load_cycles = 0;
+  uint32_t cgra_data_move_cycles = 0;
+  uint32_t cgra_compute_cycles = 0;
+  timer_init();
 
   // Enable and reset the CGRA performance counters
   cgra_perf_cnt_enable(&cgra, 1);
   cgra_perf_cnt_reset( &cgra );
 
-  if(ROWS_C < CGRA_N_COLS || COLS_C < CGRA_N_ROWS){
-    kcom_perfRecordStart(&(kperf.time.sw));
-    mmulSoftware(matrixC);
-    kcom_perfRecordStop(&(kperf.time.sw));
-  } else {
+  // if(ROWS_C < CGRA_N_COLS || COLS_C < CGRA_N_ROWS){
+  //   kcom_perfRecordStart(&(kperf.time.sw));
+  //   mmulSoftware(matrixC);
+  //   kcom_perfRecordStop(&(kperf.time.sw));
+  // } else {
 
     // Initialize the CGRA
-    kcom_perfRecordStart(&(kperf.time.load));
-    initCGRA();
-    kcom_perfRecordStop(&(kperf.time.load));
+    // kcom_perfRecordStart(&(kperf.time.load));
+
+    // ===== Initialize the CGRA =====
+    // initCGRA();
+
+    // Init the PLIC
+    plic_Init();
+    plic_irq_set_priority(CGRA_INTR, 1);
+    plic_irq_set_enabled(CGRA_INTR, kPlicToggleEnabled);
+    plic_assign_external_irq_handler( CGRA_INTR, (void *) &handler_irq_cgra);
+
+    // Enable interrupt on processor side
+    // Enable global interrupt for machine-level interrupts
+    CSR_SET_BITS(CSR_REG_MSTATUS, 0x8);
+    // Set mie.MEIE bit to one to enable machine-level external interrupts
+    const uint32_t mask = 1 << 11;//IRQ_EXT_ENABLE_OFFSET;
+    CSR_SET_BITS(CSR_REG_MIE, mask);
+    cgra_intr_flag = 0;
+
+    timer_start();
+    // Load kernel
+    cgra_cmem_init(cgra_imem_bitstream, cgra_kmem_bitstream);
+
+    cgra.base_addr = mmio_region_from_addr((uintptr_t)OECGRA_CONFIG_REGS_START_ADDRESS);
+    // Select request slot of CGRA
+    cgra_slot = cgra_get_slot(&cgra);
+
+    // kcom_perfRecordStop(&(kperf.time.load));
 
     // Prepare the input vector for the CGRA
-    kcom_perfRecordStart(&(kperf.time.input));
+    // kcom_perfRecordStart(&(kperf.time.input));
+
     // Col 0: &B[0][0], nItLoopColsC, &A[0][0], &C[0][3]
     cgra_input[0][0] = &matrixB[0];
     cgra_input[0][1] = COLS_C/CGRA_N_ROWS;
@@ -156,35 +203,65 @@ void main()
     cgra_input[3][1] = &matrixA[3*COLS_A];
     cgra_input[3][2] = &matrixC[3*COLS_C+2];
     cgra_input[3][3] = &matrixB[3];
-    kcom_perfRecordStop(&(kperf.time.input));
+    // kcom_perfRecordStop(&(kperf.time.input));
 
     // Set CGRA kernel L/S pointers
-    kcom_perfRecordStart( &(kperf.time.reprogramCols) );
+    // kcom_perfRecordStart( &(kperf.time.reprogramCols) );
     for(int col_idx = 0 ; col_idx < CGRA_N_COLS ; col_idx++){
       cgra_set_read_ptr ( &cgra, cgra_slot, (uint32_t) cgra_input[col_idx], col_idx );
     }
-    kcom_perfRecordStop( &(kperf.time.reprogramCols) );
+    // kcom_perfRecordStop( &(kperf.time.reprogramCols) );
+    cgra_load_cycles = timer_stop();
+
 
     // CGRA Execution
-    kcom_perfRecordStart(   &(kperf.time.cgra) );
+    // kcom_perfRecordStart(   &(kperf.time.cgra) );
+    timer_start();
     cgra_intr_flag = 0;
     cgra_set_kernel( &cgra, cgra_slot, TRANSFORMER );
     // Wait until CGRA is done
     while(cgra_intr_flag==0) {
       wait_for_interrupt();
     }
-    kcom_perfRecordStop(   &(kperf.time.cgra) );
-
+    // kcom_perfRecordStop(   &(kperf.time.cgra) );
+    cgra_compute_cycles = timer_stop();
+    cgra_cycles = cgra_init_cycles + cgra_load_cycles + cgra_data_move_cycles + cgra_compute_cycles;
   
     // Software 
-    kcom_perfRecordStart(&(kperf.time.sw));
+    // kcom_perfRecordStart(&(kperf.time.sw));
+    // timer_start();
     mmulSoftware(outSW);
-    kcom_perfRecordStop(&(kperf.time.sw));
+    // cpu_cycles = timer_stop();
+    timer_start();
+    // Compute result on the CPU
+    // cpuMatMul(A, B, R_cpu, a_rows, a_cols, b_cols);
+    cpuMatMul(matrixA, matrixB, R_cpu, ROWS_A, COLS_A, COLS_B);
+    // Stop timer and disable VCD dump
+    cpu_cycles = timer_stop();
+    // kcom_perfRecordStop(&(kperf.time.sw));
 
     checkErrors();
-  }
+  // }
 
-  showPerformance(&kperf, 0);
+  // showPerformance(&kperf, 0);
+
+  #ifdef PRINT_TIMING_DETAILS
+    // information about application
+    printf("========================================\n");
+    printf("CGRA matrix multiplication\n");
+    printf("========================================\n");
+
+    // printf matrix size
+    printf("Matrix size: %u x %u * %u x %u\n", ROWS_A, COLS_A, COLS_A, COLS_B);
+
+    // printf all timing details
+    printf("CGRA init cycles: %u\n", cgra_init_cycles);
+    printf("CGRA load cycles: %u\n", cgra_load_cycles);
+    printf("CGRA data move cycles: %u\n", cgra_data_move_cycles);
+    printf("CGRA compute cycles: %u\n", cgra_compute_cycles);
+    printf("CGRA total cycles: %u\n", cgra_cycles);
+    printf("CPU cycles: %u\n", cpu_cycles);
+#endif
   
   return EXIT_SUCCESS;
 }
@@ -247,11 +324,24 @@ void fillMatrixInputs(){
 void mmulSoftware(int32_t * out){
   for(int i = 0; i < ROWS_A; i++){
     for(int j=0;j < COLS_B; j++){
+       out[i*COLS_C+j] = 0;
       for(int k=0; k < COLS_A; k++){
         out[i*COLS_C+j] += matrixA[i*COLS_A+k]*matrixB[k*COLS_B+j];
       }
     }
   }
+}
+
+void cpuMatMul(data_t *A, data_t *B, data_t *R_cpu, unsigned int a_rows, unsigned int a_cols, unsigned int b_cols)
+{
+    for (unsigned int i = 0; i < a_rows; i++) {
+        for (unsigned int j = 0; j < b_cols; j++) {
+            R_cpu[i*b_cols+j] = 0;
+            for (unsigned int k = 0; k < a_cols; k++) {
+                R_cpu[i*b_cols+j] += A[i*a_cols+k] * B[k*b_cols+j];
+            }
+        }
+    }
 }
 
 // Print matrix
