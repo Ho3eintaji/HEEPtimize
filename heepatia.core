@@ -49,12 +49,12 @@ filesets:
     depend:
     - epfl:caesar:nm-caesar
   
-  nm_caesar_postsynthesis-netlist:
-    depend:
-    - epfl:heepatia:prim-tsmc65:0.1.0
-    files:
-    - hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/verilog/NMCaesar_top_pared.v
-    file_type: verilogSource
+  # nm_caesar_postsynthesis-netlist:
+  #   depend:
+  #   - epfl:heepatia:prim-tsmc65:0.1.0
+  #   files:
+  #   - hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/verilog/NMCaesar_top_pared.v
+  #   file_type: verilogSource
 
   nm_caesar_postlayout-netlist:
     depend:
@@ -68,12 +68,12 @@ filesets:
     depend:
     - epfl:carus:nm-carus
   
-  nm_carus_postsynthesis-netlist:
-    depend:
-    - epfl:heepatia:prim-tsmc65:0.1.0
-    files:
-    - hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/verilog/NMCarus_top_pared.v
-    file_type: verilogSource
+  # nm_carus_postsynthesis-netlist:
+  #   depend:
+  #   - epfl:heepatia:prim-tsmc65:0.1.0
+  #   files:
+  #   - hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/verilog/NMCarus_top_pared.v
+  #   file_type: verilogSource
 
   nm_carus_postlayout-netlist:
     depend:
@@ -459,8 +459,8 @@ targets:
     default_tool: modelsim
     filesets_append:
     - postsynthesis-netlist
-    - nm_carus_postsynthesis-netlist
-    - nm_caesar_postsynthesis-netlist
+    # - nm_carus_postsynthesis-netlist
+    # - nm_caesar_postsynthesis-netlist
     - tb-others
     - tb-others-vendor
     - tb-system
