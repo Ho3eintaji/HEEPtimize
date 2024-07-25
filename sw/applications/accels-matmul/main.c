@@ -32,7 +32,7 @@
 #include "timer_util.h"
 
 #include "data.h"
-#include "data_carus.h"
+#include "carus_data.h"
 
 #include "caesar_commands.h"
 #include "caesar_data.h"
@@ -204,7 +204,7 @@ void main()
     if (carus_wait_done(0) != 0) return 1;
     carus_compute_cycles = timer_stop();
 
-    carus_cycles = carus_init_cycles + carus_load_cycles + carus_data_move_cycles + carus_compute_cycles;
+    carus_cycles = carus_load_cycles + carus_data_move_cycles + carus_compute_cycles;
 
     // --------------------------------
     // --- NM-Caesar ---
@@ -232,7 +232,7 @@ void main()
     //Use the DMA to send commands - performing matmul M * A
     dma_copy_to_addr_32b(caesar_cmds_matmul_addr, caesar_cmds_matmul, CAESAR_CMDS_MATMUL_SIZE >> 2);
     caesar_compute_cycles = timer_stop();
-    caesar_cycles  = caesar_init_cycles + caesar_load_cycles + caesar_data_move_cycles + caesar_compute_cycles;
+    caesar_cycles  =  caesar_load_cycles + caesar_data_move_cycles + caesar_compute_cycles;
     // Set NM-Caesar in memory mode
     if (caesar_set_mode(0, CAESAR_MODE_MEM) != 0) return -1;
 
@@ -286,7 +286,7 @@ void main()
       wait_for_interrupt();
     }
     cgra_compute_cycles = timer_stop();
-    cgra_cycles = cgra_init_cycles + cgra_load_cycles + cgra_data_move_cycles + cgra_compute_cycles;
+    cgra_cycles = cgra_load_cycles + cgra_data_move_cycles + cgra_compute_cycles;
   
     // --------------------------------
     // --- CPU ---
@@ -331,7 +331,7 @@ void main()
     printf("Load kernel cycles: %u\n", carus_load_cycles);
     printf("Data move cycles: %u\n", carus_data_move_cycles);
     printf("Compute cycles: %u\n", carus_compute_cycles);
-    printf("Total cycles: %u\n", carus_cycles);
+    printf("Total cycles: %u (load+mv+exe)\n", carus_cycles);
     printf("----------------------------------------\n");
     // Then details of caesar
     printf("NM-Caesar\n");
@@ -340,7 +340,7 @@ void main()
     printf("Load kernel cycles: %u\n", caesar_load_cycles);
     printf("Data move cycles: %u\n", caesar_data_move_cycles);
     printf("Compute cycles: %u\n", caesar_compute_cycles);
-    printf("Total cycles: %u\n", caesar_cycles);
+    printf("Total cycles: %u (load+mv+exe)\n", caesar_cycles);
     printf("----------------------------------------\n");
     // Then details of oe-cgra
     printf("OE-CGRA\n");
@@ -349,7 +349,7 @@ void main()
     printf("Load kernel cycles: %u\n", cgra_load_cycles);
     printf("Data move cycles: %u\n", cgra_data_move_cycles);
     printf("Compute cycles: %u\n", cgra_compute_cycles);
-    printf("Total cycles: %u\n", cgra_cycles);
+    printf("Total cycles: %u (load+mv+exe)\n", cgra_cycles);
     printf("----------------------------------------\n");
     // Finally details of cpu
     printf("CPU\n");

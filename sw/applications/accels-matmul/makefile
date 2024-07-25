@@ -32,4 +32,4 @@ data.h: .force
 # Clean
 .PHONY: clean
 clean:
-	$(RM) data.h data_carus.h
+	$(RM) data.h carus_data.h caesar_data.h caesar_commands.h caesar_instructions*

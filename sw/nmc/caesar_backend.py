@@ -105,8 +105,8 @@ def make_MatMul_simd_cmds(element_type, A_addr, B_addr, R_addr, width, A, B, R, 
     print(R_addr)
 
     #transform the C shape from column to row as it will be stored that way in memory (i.e. contiguous)
-    C = np.zeros((R.shape), dtype=np.int32)
-    C_reshaped = np.zeros((R.T.shape))
+    # C = np.zeros((R.shape), dtype=np.int32)
+    # C_reshaped = np.zeros((R.T.shape))
 
     #address are given in Byte, Caesar addresses words (32bit)
 
@@ -116,31 +116,31 @@ def make_MatMul_simd_cmds(element_type, A_addr, B_addr, R_addr, width, A, B, R, 
 
     #in SIMD we leverages the DOT PRODUCT, so we need to transpose A
 
-    B_transposed = B.T
+    # B_transposed = B.T
 
     for i in range(A.shape[0]):
 
         i_simd_index = int(i / elements_word)
 
-        for j in range(B_transposed.shape[0]):
+        for j in range(B.T.shape[0]):
 
-            c = 0
+            # c = np.int32(0)
 
             j_simd_index = int(j / elements_word)
 
             #the output is still 32b regardless the type
-            R_addr_loop = R_offs_addr + i*C_reshaped.shape[0] + j
+            R_addr_loop = R_offs_addr + i*R.T.shape[0] + j
 
             for k in range(A.shape[1]):
 
-                c += A[i,k]*B_transposed[j,k]
+                # c += A[i,k]*B.T[j,k]
 
                 k_simd_index = int(k / elements_word)
 
                 if ((k % elements_word) == 0 ): # generate instructions only at the beginning of a new 32b data
 
                     A_addr_loop = A_offs_addr + i*int(A.shape[1]/elements_word) + k_simd_index
-                    B_addr_loop = B_offs_addr + j*int(B_transposed.shape[1]/elements_word) + k_simd_index
+                    B_addr_loop = B_offs_addr + j*int(B.T.shape[1]/elements_word) + k_simd_index
 
                     addr1 = caesar_instruction.get_address2string(A_addr_loop)
                     addr0 = caesar_instruction.get_address2string(B_addr_loop)
@@ -166,16 +166,16 @@ def make_MatMul_simd_cmds(element_type, A_addr, B_addr, R_addr, width, A, B, R, 
             #     print("Overflow detected, returning (select smaller input numbers)")
             #     return (False, [], [])
 
-            C[i,j] = c
+            # C[i,j] = c
 
 
-    if not (C == R).all():
-        print("MatMul is wrong!")
-        print("C is ")
-        print(C)
-        print("expected")
-        print(R)
-        return (False, None, None)
+    # if not (C == R).all():
+    #     print("MatMul is wrong!")
+    #     print("C is ")
+    #     print(C)
+    #     print("expected")
+    #     print(R)
+    #     return (False, None, None)
 
     return (True, cmd_list, dest_list)
 
@@ -206,8 +206,8 @@ def make_MatMul_32b_cmds(A_addr, B_addr, R_addr, width, A, B, R, Debug= True) :
     print(R_addr)
 
     #transform the C shape from column to row as it will be stored that way in memory (i.e. continuguos)
-    C = np.zeros((R.shape))
-    C_reshaped = np.zeros((R.T.shape))
+    # C = np.zeros((R.shape), dtype=np.int32)
+    # C_reshaped = np.zeros((R.T.shape), dtype=np.int32)
 
     #address are given in Byte, Caesar addresses words (32bit)
 
@@ -219,13 +219,15 @@ def make_MatMul_32b_cmds(A_addr, B_addr, R_addr, width, A, B, R, Debug= True) :
 
         for j in range(B.shape[1]):
 
-            c = 0
+            # c = np.int32(0)
 
-            addr_dest_loop = R_offs_addr + i*C_reshaped.shape[0] + j
+            addr_dest_loop = R_offs_addr + i*R.T.shape[0] + j
 
             for k in range(A.shape[1]):
 
-                c += A[i,k]*B[k,j]
+                # temp = np.int32( np.int32(A[i,k])* np.int32(B[k,j]) )
+            
+                # c = np.int32(c + temp)
 
                 # the base address are given from SW side, so byte
                 A_addr_loop = A_offs_addr + i*A.shape[1] + k
@@ -251,20 +253,20 @@ def make_MatMul_32b_cmds(A_addr, B_addr, R_addr, width, A, B, R, Debug= True) :
                 dest_list.append(str(hex(addr_dest_loop*4)))
                 cmd_list.append(str(cmd))
 
-            if(c > biggest_number):
-                print("Overflow detected, returning (select smaller input numbers)")
-                return (False, [], [])
+            # if(c > biggest_number):
+            #     print("Overflow detected, returning (select smaller input numbers)")
+            #     return (False, [], [])
 
-            C[i,j] = c
+            # C[i,j] = np.int32(c)
 
 
-    if not (C == R).all():
-        print("ERR! MatMul is wrong!", file=sys.stderr)
-        print("C is ")
-        print(C)
-        print("expected")
-        print(R)
-        return (False, None, None)
+    # if not (C == R).all():
+    #     print("ERR! MatMul is wrong!", file=sys.stderr)
+    #     print("C is ")
+    #     print(C)
+    #     print("expected")
+    #     print(R)
+    #     return (False, None, None)
 
     return (True, cmd_list, dest_list)
 

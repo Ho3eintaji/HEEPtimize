@@ -171,7 +171,7 @@ if kernel_type == "matmul":
     R_exp = np.matmul(A,B, dtype=np.int32)
 
     if memory_type == "caesar":
-        (mm_result, cmd_list, dest_list) = caesar.make_MatMul_cmds(element_type = data_type, A_addr = A_addr, B_addr = B_addr, R_addr = R_addr, width = dbits, A = A, B = B, R = R_exp)
+        (mm_result, cmd_list, dest_list) = caesar.make_MatMul_cmds(element_type = data_type, A_addr = A_addr, B_addr = B_addr, R_addr = R_addr, width = dbits, A = A, B = B, R = R_exp, Debug = False)
         if mm_result == False:
             print("Error generating commands", file=sys.stderr)
             exit(1)
