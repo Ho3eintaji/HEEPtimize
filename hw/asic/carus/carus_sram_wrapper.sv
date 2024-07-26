@@ -52,4 +52,4 @@ module carus_sram_wrapper #(
         .rdata_o
     );
 
-endmoduless
+endmodule
