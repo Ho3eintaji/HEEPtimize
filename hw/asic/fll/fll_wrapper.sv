@@ -31,7 +31,8 @@ module fll_wrapper (
   output logic        jtq_o
 );
   // TSMC 65nm FLL
-  gf22_FLL fll_i (
+  // gf22_FLL fll_i (
+  tsmc65_FLL fll_i (
     .FLLCLK(clk_o),
     .FLLOE (oe_i),
     .REFCLK(ref_clk_i),

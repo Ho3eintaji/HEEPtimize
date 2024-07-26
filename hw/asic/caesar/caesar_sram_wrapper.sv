@@ -9,7 +9,7 @@
 
 // NOTE: based on the same module from HEEPocrates
 
-module carus_sram_wrapper #(
+module caesar_sram_wrapper #(
     parameter int unsigned NUM_WORDS = 32'd1024,  // Number of Words in data array
     parameter int unsigned DATA_WIDTH = 32'd32,  // Data signal width
     // DEPENDENT PARAMETERS, DO NOT OVERWRITE!
@@ -39,7 +39,7 @@ module carus_sram_wrapper #(
     sram_wrapper #(
         .NumWords (NUM_WORDS),  // Number of Words in data array
         .DataWidth(DATA_WIDTH)  // Data signal width
-    ) carus_mem_i (
+    ) caesar_mem_i (
         .clk_i,
         .rst_ni,
         // input ports
@@ -54,4 +54,4 @@ module carus_sram_wrapper #(
     );
   endgenerate
 
-endmoduless
+endmodule

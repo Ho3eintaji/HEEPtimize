@@ -25,9 +25,12 @@ filesets:
     - rtl/tsmc65_pad_cell_input.sv
     - rtl/tsmc65_pad_cell_output.sv
     - memories/sram_wrapper.sv
-    - memories/sram_wrapper.sv
     - carus/carus_sram_wrapper.sv
     - carus/carus_clk_gate_wrapper.sv
+    - caesar/caesar_sram_wrapper.sv
+    - caesar/caesar_clk_gate_wrapper.sv
+    - cgra/cgra_sram_wrapper.sv
+    - cgra/cgra_clock_gate.sv
     file_type: systemVerilogSource
 
   # Post-synthesis simulation models

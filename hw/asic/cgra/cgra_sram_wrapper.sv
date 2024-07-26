@@ -3,13 +3,13 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
 // File: carus_sram_wrapper.sv
-// Author: Hossein Taji
-// Date: 26/06/2024
+// Author: Luigi Giuffrida
+// Date: 04/05/2024
 // Description: SRAM wrapper for generated memory banks to be used in ASIC implementations
 
 // NOTE: based on the same module from HEEPocrates
 
-module carus_sram_wrapper #(
+module cgra_sram_wrapper #(
     parameter int unsigned NUM_WORDS = 32'd1024,  // Number of Words in data array
     parameter int unsigned DATA_WIDTH = 32'd32,  // Data signal width
     // DEPENDENT PARAMETERS, DO NOT OVERWRITE!
@@ -35,23 +35,24 @@ module carus_sram_wrapper #(
   assign write_en = req_i & we_i;
   assign read_en  = req_i & (~we_i);
 
+
   generate
-    sram_wrapper #(
-        .NumWords (NUM_WORDS),  // Number of Words in data array
-        .DataWidth(DATA_WIDTH)  // Data signal width
-    ) carus_mem_i (
-        .clk_i,
-        .rst_ni,
-        // input ports
-        .req_i,
-        .we_i,
-        .addr_i,
-        .wdata_i,
-        .be_i,
-        .set_retentive_ni,
-        // output ports
-        .rdata_o
-    );
+      sram_wrapper #(
+          .NumWords (NUM_WORDS),  // Number of Words in data array
+          .DataWidth(DATA_WIDTH)  // Data signal width
+      ) cgra_mem_i (
+          .clk_i,
+          .rst_ni,
+          // input ports
+          .req_i,
+          .we_i,
+          .addr_i,
+          .wdata_i,
+          .be_i,
+          .set_retentive_ni,
+          // output ports
+          .rdata_o
+      );
   endgenerate
 
-endmoduless
+endmodule
