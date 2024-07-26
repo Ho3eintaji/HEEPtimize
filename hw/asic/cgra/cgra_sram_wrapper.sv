@@ -2,7 +2,7 @@
 // Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
-// File: carus_sram_wrapper.sv
+// File: cgra_sram_wrapper.sv
 // Author: Luigi Giuffrida
 // Date: 04/05/2024
 // Description: SRAM wrapper for generated memory banks to be used in ASIC implementations
@@ -36,7 +36,6 @@ module cgra_sram_wrapper #(
   assign read_en  = req_i & (~we_i);
 
 
-  generate
       sram_wrapper #(
           .NumWords (NUM_WORDS),  // Number of Words in data array
           .DataWidth(DATA_WIDTH)  // Data signal width
@@ -53,6 +52,5 @@ module cgra_sram_wrapper #(
           // output ports
           .rdata_o
       );
-  endgenerate
 
 endmodule

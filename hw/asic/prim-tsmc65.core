@@ -81,10 +81,11 @@ targets:
   default:
     filesets:
       - target_asic_synthesis ? (rtl)
+      - target_sim_postsynthesis ? (rtl)
+      - target_sim_postsynthesis ? (rtl-postsyn)
       - target_sim_postlayout_timing ? (rtl)
       - target_sim_postlayout_timing ? (rtl-postpnr)
       - target_sim_postlayout ? (rtl)
       - target_sim_postlayout ? (rtl-postpnr)
-      - target_sim_postsynthesis ? (rtl-postsyn)
       - target_sim_rtl_tsmc65 ? (rtl)
       - target_sim_rtl_tsmc65 ? (rtl-postpnr)

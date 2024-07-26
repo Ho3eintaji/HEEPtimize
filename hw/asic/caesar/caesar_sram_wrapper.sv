@@ -35,7 +35,6 @@ module caesar_sram_wrapper #(
   assign write_en = req_i & we_i;
   assign read_en  = req_i & (~we_i);
 
-  generate
     sram_wrapper #(
         .NumWords (NUM_WORDS),  // Number of Words in data array
         .DataWidth(DATA_WIDTH)  // Data signal width
@@ -52,6 +51,5 @@ module caesar_sram_wrapper #(
         // output ports
         .rdata_o
     );
-  endgenerate
 
 endmodule
