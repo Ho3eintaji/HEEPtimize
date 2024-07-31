@@ -155,6 +155,12 @@ module tb_top;
       $display("[CONFIG] Execute from flash: %s", (exec_from_flash_opt ? "yes" : "no"));
     end
 
+`ifndef RTL_SIMULATION
+    if (boot_mode == BOOT_MODE_FORCE) begin
+      $fatal("ERR! Cannot run boot_mode force when not in RTL simulation. Use boot_mode flash instead.");
+    end
+`endif  //RTL_SIMULATION
+
     // Bypass FLL
     $value$plusargs("bypass_fll_opt=%d", bypass_fll_opt);
     $display("[CONFIG] Bypass FLL: %s", (bypass_fll_opt ? "yes" : "no"));
@@ -202,12 +208,14 @@ module tb_top;
       // SRAM load
       // ---------
       BOOT_MODE_FORCE: begin
+`ifdef RTL_SIMULATION
         $display("[%t] loading SRAM content...", $time);
         tb_loadHEX(firmware_file_opt);
         @(posedge sys_clk);
         $display("[%t] triggering boot loop exit...", $time);
         tb_set_exit_loop();
         $display("[%t] firmware loaded", $time);
+`endif  //RTL_SIMULATION
       end
 
       default: begin
