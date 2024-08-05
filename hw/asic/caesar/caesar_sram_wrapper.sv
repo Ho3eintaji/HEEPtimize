@@ -2,7 +2,7 @@
 // Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
-// File: carus_sram_wrapper.sv
+// File: caesar_sram_wrapper.sv
 // Author: Hossein Taji
 // Date: 26/06/2024
 // Description: SRAM wrapper for generated memory banks to be used in ASIC implementations
