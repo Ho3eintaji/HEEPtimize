@@ -2,8 +2,8 @@
 set STD_CELLS_DIR ../../../hw/asic/std-cells
 set MEMORIES_DIR ../../../hw/asic/symlinks/ARM_Memories/sram8192x32m8/db
 set PADS_DIR     ../../../hw/asic/pads
-# set FLL_DIR     ../../../hw/asic/fll/db
-# set MEM_PWR_SW_DIR ../../../hw/asic/mem-power-switches/db
+set FLL_DIR     ../../../hw/asic/fll/db
+set MEM_PWR_SW_DIR ../../../hw/asic/mem-power-switches/db
 
 set NM_CAESAR_DIR ../../../implementation/synthesis/lc_shell/nm-caesar/db
 set NM_CARUS_DIR ../../../implementation/synthesis/lc_shell/nm-carus/db

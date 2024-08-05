@@ -12,10 +12,10 @@ remove_design -all
 source ${SET_LIBS}
 
 # Make sure no HVT cells are used
-# set_attribute [get_lib_cells tcbn65lp*/*HVT] dont_use true
+set_attribute [get_lib_cells tcbn65lp*/*HVT] dont_use true
 # Use only power switches from the HVT lib
-# set_attribute [get_lib_cells tcbn65lp*/FTR*HVT] dont_use false
-# set_attribute [get_lib_cells tcbn65lp*/HDR*HVT] dont_use false
+set_attribute [get_lib_cells tcbn65lp*/FTR*HVT] dont_use false
+set_attribute [get_lib_cells tcbn65lp*/HDR*HVT] dont_use false
 
 source ${READ_SOURCES}.tcl
 
