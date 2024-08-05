@@ -3,6 +3,7 @@ data.h
 carus_data.h
 caesar_data.h
 caesar_commands.h
+caesar_instructions.hh
 caesar_instructions*
 
 
