@@ -246,7 +246,7 @@ targets:
     filesets:
     - rtl
     - rtl-x-heep
-    - "!tool_verilator ? (rtl-coprosit)"
+    # - "!tool_verilator ? (rtl-coprosit)"
     toplevel: heepatia_top
 
   # Synthesis

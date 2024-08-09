@@ -123,25 +123,25 @@ ${pad.x_heep_system_interface}
   // eXtension Interface
   if_xif #() ext_xif ();
 
-`ifndef VERILATOR
-  coprosit #(
-    .XLEN(coprosit_pkg::XLEN),
-    .INPUT_BUFFER_DEPTH(1),
-    .FORWARDING(1)
-  ) coprosit_i (
-    // Clock and Reset
-    .clk_i(system_clk),
-    .rst_ni(rst_nin_sync),
+// `ifndef VERILATOR
+//   coprosit #(
+//     .XLEN(coprosit_pkg::XLEN),
+//     .INPUT_BUFFER_DEPTH(1),
+//     .FORWARDING(1)
+//   ) coprosit_i (
+//     // Clock and Reset
+//     .clk_i(system_clk),
+//     .rst_ni(rst_nin_sync),
 
-    // CORE-V eXtension Interface
-    .xif_compressed_if (ext_xif.coproc_compressed),
-    .xif_issue_if      (ext_xif.coproc_issue),
-    .xif_commit_if     (ext_xif.coproc_commit),
-    .xif_mem_if        (ext_xif.coproc_mem),
-    .xif_mem_result_if (ext_xif.coproc_mem_result),
-    .xif_result_if     (ext_xif.coproc_result)
-  );
-`else
+//     // CORE-V eXtension Interface
+//     .xif_compressed_if (ext_xif.coproc_compressed),
+//     .xif_issue_if      (ext_xif.coproc_issue),
+//     .xif_commit_if     (ext_xif.coproc_commit),
+//     .xif_mem_if        (ext_xif.coproc_mem),
+//     .xif_mem_result_if (ext_xif.coproc_mem_result),
+//     .xif_result_if     (ext_xif.coproc_result)
+//   );
+// `else
   // Tie the CV-X-IF coprocessor signals to a default value that will
   // receive petitions but reject all offloaded instructions
   initial begin
@@ -157,7 +157,7 @@ ${pad.x_heep_system_interface}
     ext_xif.result_valid       = 1'b0;
     ext_xif.result             = '0;
   end
-`endif
+// `endif
 
   // CORE-V-MINI-MCU input/output pins
 % for pad in total_pad_list:

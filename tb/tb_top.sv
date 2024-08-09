@@ -157,7 +157,8 @@ module tb_top;
 
 `ifndef RTL_SIMULATION
     if (boot_mode == BOOT_MODE_FORCE) begin
-      $fatal("ERR! Cannot run boot_mode force when not in RTL simulation. Use boot_mode flash instead.");
+      $fatal(
+          "ERR! Cannot run boot_mode force when not in RTL simulation. Use boot_mode flash instead.");
     end
 `endif  //RTL_SIMULATION
 
