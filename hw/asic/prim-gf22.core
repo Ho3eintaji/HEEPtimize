@@ -1,0 +1,67 @@
+CAPI=2:
+
+# Copyright 2024 EPFL.
+# Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+#
+# File: prim-gf22.core
+# Author: Hossein Taji
+# Date: 14/08/2024
+# Description: GF 22nm primitives
+
+# Based on technology_prim_tsmc65.core from HEEPpocrates.
+
+name: "epfl:heepatia:prim-gf22:0.1.0"
+description: "Technology-specific files for GF22"
+filesets:
+  # RTL simulation models
+  rtl:
+    depend:
+    - epfl:heepatia:packages
+    files:
+    - rtl/pad_cell_inout.sv
+    - rtl/pad_cell_input.sv
+    - rtl/pad_cell_output.sv
+    - rtl/prim_gf22_clk.sv
+    - rtl/gf22_pad_cell_inout.sv
+    - rtl/gf22_pad_cell_input.sv
+    - rtl/gf22_pad_cell_output.sv
+    - memories/sram_wrapper.sv
+    file_type: systemVerilogSource
+
+
+  # Library RTL files for simulation (todo: if it is not working add wrappers)
+  rtl-postsyn:
+    files:
+    - symlinks/STDCELLS/GF22FDX_SC8T_104CPP_BASE_CSC28H_FDK_RELV05R30/model/verilog/GF22FDX_SC8T_104CPP_BASE_CSC28H.v
+    - symlinks/STDCELLS/GF22FDX_SC8T_104CPP_BASE_CSC28H_FDK_RELV05R30/model/verilog/prim.v
+    - symlinks/GF_memories_22nm/MemViews_6T_2kb_LPP_M8/model/verilog/sram1024x16m8.v
+    - symlinks/GF_memories_22nm/MemViews_6T_4kb_LPP_M4//model/verilog/sram1024x32m4.v
+    - symlinks/GF_memories_22nm/MemViews_6T_32kb_LPP_M8/model/verilog/sram8192x32m8.v
+    - symlinks/GF_memories_22nm/MemViews_6T_16kb_LPP_M8/model/verilog/sram4096x32m8.v
+    - symlinks/IOs/model/verilog/IN22FDX_GPIO18_10M3S40PI.v
+    file_type: verilogSource
+
+  # Post-layout models
+  rtl-postpnr:
+    files:
+    - symlinks/STDCELLS/GF22FDX_SC8T_104CPP_BASE_CSC28H_FDK_RELV05R30/model/verilog/GF22FDX_SC8T_104CPP_BASE_CSC28H.v
+    - symlinks/STDCELLS/GF22FDX_SC8T_104CPP_BASE_CSC28H_FDK_RELV05R30/model/verilog/prim.v
+    - symlinks/GF_memories_22nm/MemViews_6T_2kb_LPP_M8/model/verilog/sram1024x16m8.v
+    - symlinks/GF_memories_22nm/MemViews_6T_4kb_LPP_M4//model/verilog/sram1024x32m4.v
+    - symlinks/GF_memories_22nm/MemViews_6T_32kb_LPP_M8/model/verilog/sram8192x32m8.v
+    - symlinks/GF_memories_22nm/MemViews_6T_16kb_LPP_M8/model/verilog/sram4096x32m8.v
+    - symlinks/IOs/model/verilog/IN22FDX_GPIO18_10M3S40PI.v
+    file_type: verilogSource
+
+targets:
+  default:
+    filesets:
+      - target_asic_synthesis ? (rtl)
+      - target_sim_postlayout_timing ? (rtl)
+      - target_sim_postlayout_timing ? (rtl-postpnr)
+      - target_sim_postlayout ? (rtl)
+      - target_sim_postlayout ? (rtl-postpnr)
+      - target_sim_postsynthesis ? (rtl-postsyn)
+      - target_sim_rtl_gf22 ? (rtl)
+      - target_sim_rtl_gf22 ? (rtl-postpnr)

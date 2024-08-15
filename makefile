@@ -89,13 +89,14 @@ FUSESOC_ARGS		?=
 
 # QuestaSim
 FLL_FOLDER_PATH := $(ROOT_DIR)/hw/asic/fll/rtl
-ACCESSIBLE := $(shell if [ -d "$(FLL_FOLDER_PATH)" ] && [ -r "$(FLL_FOLDER_PATH)" ]; then echo true; else echo false; fi)
+# ACCESSIBLE := $(shell if [ -d "$(FLL_FOLDER_PATH)" ] && [ -r "$(FLL_FOLDER_PATH)" ]; then echo true; else echo false; fi)
 FUSESOC_BUILD_DIR			= $(shell find $(BUILD_DIR) -type d -name 'epfl_heepatia_heepatia_*' 2>/dev/null | sort | head -n 1)
-ifeq ($(ACCESSIBLE), true)
-	QUESTA_SIM_DIR=$(FUSESOC_BUILD_DIR)/sim-modelsim
-else
-	QUESTA_SIM_DIR=$(FUSESOC_BUILD_DIR)/sim-nofll-modelsim
-endif
+# ifeq ($(ACCESSIBLE), true)
+# 	QUESTA_SIM_DIR=$(FUSESOC_BUILD_DIR)/sim-modelsim
+# else
+# 	QUESTA_SIM_DIR=$(FUSESOC_BUILD_DIR)/sim-nofll-modelsim
+# endif
+QUESTA_SIM_DIR=$(FUSESOC_BUILD_DIR)/sim-modelsim
 QUESTA_SIM_POSTSYNTH_DIR 	= $(FUSESOC_BUILD_DIR)/sim_postsynthesis-modelsim
 QUESTA_SIM_POSTLAYOUT_DIR 	= $(FUSESOC_BUILD_DIR)/sim_postlayout-modelsim
 
@@ -322,22 +323,22 @@ verilator-waves: $(BUILD_DIR)/sim-common/waves.fst | .check-gtkwave
 # Build simulation model and launch simulation
 .PHONY: questasim-build
 questasim-build: $(HEEPATIA_GEN_LOCK) $(DPI_LIBS)
-ifeq ($(ACCESSIBLE), true)
+# ifeq ($(ACCESSIBLE), true)
 	@echo "### Building simulation model with FLL..."
 	$(FUSESOC) run --no-export --target sim --tool modelsim --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		$(FUSESOC_ARGS)
 	cd $(QUESTA_SIM_DIR) ; make opt
-else
-	@echo "### Building simulation model with FLL behavioural model..."
-	$(FUSESOC) run --no-export --target sim-nofll --tool modelsim --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
-		$(FUSESOC_ARGS)
-	cd $(QUESTA_SIM_DIR) ; make opt
-endif
+# else
+# 	@echo "### Building simulation model with FLL behavioural model..."
+# 	$(FUSESOC) run --no-export --target sim-nofll --tool modelsim --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
+# 		$(FUSESOC_ARGS)
+# 	cd $(QUESTA_SIM_DIR) ; make opt
+# endif
 
 # Build simulation model and launch simulation
 .PHONY: questasim-sim
 questasim-sim: | questasim-build $(QUESTA_SIM_DIR)/logs/
-ifeq ($(ACCESSIBLE), true)
+# ifeq ($(ACCESSIBLE), true)
 	fusesoc run --no-export --target sim --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		--firmware=$(FIRMWARE) \
 		--bypass_fll_opt=$(BYPASS_FLL) \
@@ -346,21 +347,21 @@ ifeq ($(ACCESSIBLE), true)
 		--max_cycles=$(MAX_CYCLES) \
 		$(FUSESOC_ARGS)
 	cat $(BUILD_DIR)/sim-common/uart.log
-else
-	fusesoc run --no-export --target sim-nofll --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
-		--firmware=$(FIRMWARE) \
-		--bypass_fll_opt=$(BYPASS_FLL) \
-		--boot_mode=$(BOOT_MODE) \
-		--vcd_mode=$(VCD_MODE) \
-		--max_cycles=$(MAX_CYCLES) \
-		$(FUSESOC_ARGS)
-	cat $(BUILD_DIR)/sim-common/uart.log
-endif
+# else
+# 	fusesoc run --no-export --target sim-nofll --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
+# 		--firmware=$(FIRMWARE) \
+# 		--bypass_fll_opt=$(BYPASS_FLL) \
+# 		--boot_mode=$(BOOT_MODE) \
+# 		--vcd_mode=$(VCD_MODE) \
+# 		--max_cycles=$(MAX_CYCLES) \
+# 		$(FUSESOC_ARGS)
+# 	cat $(BUILD_DIR)/sim-common/uart.log
+# endif
 
 # Launch simulation
 .PHONY: questasim-run
 questasim-run: | $(QUESTA_SIM_DIR)/logs/
-ifeq ($(ACCESSIBLE), true)
+# ifeq ($(ACCESSIBLE), true)
 	fusesoc run --no-export --target sim --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		--firmware=$(FIRMWARE) \
 		--bypass_fll_opt=$(BYPASS_FLL) \
@@ -369,16 +370,16 @@ ifeq ($(ACCESSIBLE), true)
 		--max_cycles=$(MAX_CYCLES) \
 		$(FUSESOC_ARGS)
 	cat $(BUILD_DIR)/sim-common/uart.log
-else
-	fusesoc run --no-export --target sim-nofll --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
-		--firmware=$(FIRMWARE) \
-		--bypass_fll_opt=$(BYPASS_FLL) \
-		--boot_mode=$(BOOT_MODE) \
-		--vcd_mode=$(VCD_MODE) \
-		--max_cycles=$(MAX_CYCLES) \
-		$(FUSESOC_ARGS)
-	cat $(BUILD_DIR)/sim-common/uart.log
-endif
+# else
+# 	fusesoc run --no-export --target sim-nofll --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
+# 		--firmware=$(FIRMWARE) \
+# 		--bypass_fll_opt=$(BYPASS_FLL) \
+# 		--boot_mode=$(BOOT_MODE) \
+# 		--vcd_mode=$(VCD_MODE) \
+# 		--max_cycles=$(MAX_CYCLES) \
+# 		$(FUSESOC_ARGS)
+# 	cat $(BUILD_DIR)/sim-common/uart.log
+# endif
 	
 
 # Launch simulation in GUI mode

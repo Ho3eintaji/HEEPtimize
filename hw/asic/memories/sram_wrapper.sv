@@ -3,14 +3,18 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
 // File: sram_wrapper.sv
-// Author: Michele Caon
-// Date: 21/02/2023
+// Author: Hossein Taji
+// Date: 14/08/2024
 // Description: SRAM wrapper for generated memory banks
 
 // NOTE: based on the same module from HEEPocrates
 
+`define GF22
+// or
+// `define TSMC65
+
 module sram_wrapper #(
-  parameter int unsigned NumWords = 32'd2048,  // Number of Words in data array
+  parameter int unsigned NumWords = 32'd4096,  // Number of Words in data array
   parameter int unsigned DataWidth = 32'd32,  // Data signal width
   // DEPENDENT PARAMETERS, DO NOT OVERWRITE!
   parameter int unsigned AddrWidth = (NumWords > 32'd1) ? unsigned'($clog2(NumWords)) : 32'd1
@@ -49,7 +53,117 @@ module sram_wrapper #(
   localparam ReadMargin = 3'b010;
   localparam WriteMargin = 2'b00;
 
-  generate
+`ifdef GF22
+    generate
+    case (NumWords)
+      8192: begin: gen_32kB_mem
+        sram8192x32m8 mem_bank (
+          .CLK        (clk_i),
+          .CEN        (~req_i),
+          .RDWEN      (~we_i),
+          //.DEEPSLEEP  (~pwrgate_ni),
+          .DEEPSLEEP  (1'b0),
+          .POWERGATE  (~set_retentive_ni),
+          .AS         (addr_i[AddrWidth-1:AddrWidth-2]),
+          .AW         (addr_i[AddrWidth-3:3]),
+          .AC         (addr_i[2:0]),
+          .D          (wdata_i),
+          .BW         (bit_we),
+          .T_BIST     ('0),
+          .T_LOGIC    ('0),
+          .T_CEN      ('0),
+          .T_RDWEN    ('0),
+          .T_DEEPSLEEP('0),
+          .T_POWERGATE('0),
+          .T_AS       ('0),
+          .T_AW       ('0),
+          .T_AC       ('0),
+          .T_D        ('0),
+          .T_BW       ('0),
+          .T_WBT      ('0),
+          .T_STAB     ('0),
+          .MA_SAWL    ('0),
+          .MA_WL      ('0),
+          .MA_WRAS    ('0),
+          .MA_WRASD   ('0),
+          .Q          (rdata_o),
+          .OBSV_CTL   ()
+        );
+      end
+      // Below is wrong numbers for 1024x32m4 address width
+      1024: begin: gen_4kB_mem
+        sram1024x32m4 mem_bank (
+          .CLK        (clk_i),
+          .CEN        (~req_i),
+          .RDWEN      (~we_i),
+          //.DEEPSLEEP  (~pwrgate_ni),
+          .DEEPSLEEP  (1'b0),
+          .POWERGATE  (~set_retentive_ni),
+          .AS         (addr_i[AddrWidth-1:AddrWidth-2]),
+          .AW         (addr_i[AddrWidth-3:3]),
+          .AC         (addr_i[2:0]),
+          .D          (wdata_i),
+          .BW         (bit_we),
+          .T_BIST     ('0),
+          .T_LOGIC    ('0),
+          .T_CEN      ('0),
+          .T_RDWEN    ('0),
+          .T_DEEPSLEEP('0),
+          .T_POWERGATE('0),
+          .T_AS       ('0),
+          .T_AW       ('0),
+          .T_AC       ('0),
+          .T_D        ('0),
+          .T_BW       ('0),
+          .T_WBT      ('0),
+          .T_STAB     ('0),
+          .MA_SAWL    ('0),
+          .MA_WL      ('0),
+          .MA_WRAS    ('0),
+          .MA_WRASD   ('0),
+          .Q          (rdata_o),
+          .OBSV_CTL   ()
+        );
+      end
+      default: begin: gen_16kB_mem
+        sram4096x32m8 mem_bank (
+          .CLK        (clk_i),
+          .CEN        (~req_i),
+          .RDWEN      (~we_i),
+          //.DEEPSLEEP  (~pwrgate_ni),
+          .DEEPSLEEP  (1'b0),
+          .POWERGATE  (~set_retentive_ni),
+          .AS         (addr_i[AddrWidth-1:AddrWidth-2]),
+          .AW         (addr_i[AddrWidth-3:3]),
+          .AC         (addr_i[2:0]),
+          .D          (wdata_i),
+          .BW         (bit_we),
+          .T_BIST     ('0),
+          .T_LOGIC    ('0),
+          .T_CEN      ('0),
+          .T_RDWEN    ('0),
+          .T_DEEPSLEEP('0),
+          .T_POWERGATE('0),
+          .T_AS       ('0),
+          .T_AW       ('0),
+          .T_AC       ('0),
+          .T_D        ('0),
+          .T_BW       ('0),
+          .T_WBT      ('0),
+          .T_STAB     ('0),
+          .MA_SAWL    ('0),
+          .MA_WL      ('0),
+          .MA_WRAS    ('0),
+          .MA_WRASD   ('0),
+          .Q          (rdata_o),
+          .OBSV_CTL   ()
+        );
+      end
+    endcase
+  endgenerate
+
+`elsif TSMC65
+    generate
     case (NumWords)
       64: begin: gen_256B_rf
         rf64x32m2 mem_bank (
@@ -135,8 +249,8 @@ module sram_wrapper #(
           .DFTRAMBYP(1'b0)
         );
       end
-      4096: begin: gen_16kB_mem
-        sram4096x32m8 mem_bank (
+      2048: begin: gen_4kB_mem 
+        sram2048x32m8 mem_bank (
           .CENY     (),
           .WENY     (),
           .AY       (),
@@ -191,8 +305,8 @@ module sram_wrapper #(
           .DFTRAMBYP(1'b0)
         );
       end
-      default: begin: gen_8kB_mem // 2048
-        sram2048x32m8 mem_bank (
+      default: begin: gen_16kB_mem
+        sram4096x32m8 mem_bank (
           .CENY     (),
           .WENY     (),
           .AY       (),
@@ -228,4 +342,12 @@ module sram_wrapper #(
   `ifndef SYNTHESIS
   `include "assertions/sram_wrapper_sva.svh"
   `endif // SYNTHESIS
+`else
+  // Default case if neither GF22 nor TSMC65 is defined
+  initial begin
+    $error("Neither GF22 nor TSMC65 is defined! Please define one of them.");
+  end
+
+`endif
+
 endmodule

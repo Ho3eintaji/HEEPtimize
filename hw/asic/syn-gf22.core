@@ -1,0 +1,31 @@
+CAPI=2:
+
+# Copyright 2022 EPFL and Politecnico di Torino.
+# Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+#
+# File: syn-gf22.core
+# Author: Clement CHONE
+# Date: 23/05/2024
+# Description: GF 22nm synthesis files
+# ADD HERE EVERY WRAPPER YOU NEED FOR YOUR IPS (SYNTHESIS)
+
+name: epfl:heepatia:syn-gf22:0.1.0
+description: GF 22nm synthesis files for ASIC implementation
+
+filesets:
+  # RTL files for synthesis
+  rtl-syn:
+    files:
+    - memories/sram_wrapper.sv
+    - carus/carus_sram_wrapper.sv
+    - carus/carus_clk_gate_wrapper.sv
+    - caesar/caesar_sram_wrapper.sv
+    - caesar/caesar_clk_gate_wrapper.sv
+    - cgra/cgra_sram_wrapper.sv
+    - cgra/cgra_clock_gate.sv
+    file_type: systemVerilogSource
+targets:
+  default: &default
+    filesets:
+    - target_asic_synthesis ? (rtl-syn)

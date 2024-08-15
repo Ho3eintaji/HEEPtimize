@@ -4,10 +4,10 @@
 //
 // File: caesar_sram_wrapper.sv
 // Author: Hossein Taji
-// Date: 26/06/2024
+// Date: 14/08/2024
 // Description: SRAM wrapper for generated memory banks to be used in ASIC implementations
 
-// NOTE: based on the same module from HEEPocrates
+// NOTE: Inside the SRAM wrapper, it is handled from which technology the SRAM is generated
 
 module caesar_sram_wrapper #(
     parameter int unsigned NUM_WORDS = 32'd1024,  // Number of Words in data array
@@ -24,6 +24,7 @@ module caesar_sram_wrapper #(
     input  logic [         31:0] wdata_i,
     input  logic [          3:0] be_i,
     input  logic                 set_retentive_ni,
+    // input  logic                  pwrgate_ni,
     // output ports
     output logic [         31:0] rdata_o
 );

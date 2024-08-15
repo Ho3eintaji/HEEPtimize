@@ -89,7 +89,7 @@ module fll_wrapper (
   // OUTPUT NETWORK
   // --------------
   // Output clock gate
-  carus_clk_gate_wrapper u_clk_gate(
+  fll_clk_gate_wrapper u_clk_gate(
   	.clk_i        (gen_clk),
     .en_i         (oe_i),
     .scan_cg_en_i (1'b0),

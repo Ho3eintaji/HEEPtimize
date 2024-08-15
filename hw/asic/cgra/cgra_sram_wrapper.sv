@@ -10,8 +10,8 @@
 // NOTE: based on the same module from HEEPocrates
 
 module cgra_sram_wrapper #(
-    parameter int unsigned NUM_WORDS = 32'd1024,  // Number of Words in data array
-    parameter int unsigned DATA_WIDTH = 32'd32,  // Data signal width
+    parameter int unsigned NumWords = 32'd1024,  // Number of Words in data array
+    parameter int unsigned DataWidth = 32'd32,  // Data signal width
     // DEPENDENT PARAMETERS, DO NOT OVERWRITE!
     localparam int unsigned AddrWidth = (NUM_WORDS > 32'd1) ? unsigned'($clog2(NUM_WORDS)) : 32'd1
 ) (
@@ -37,8 +37,8 @@ module cgra_sram_wrapper #(
 
 
       sram_wrapper #(
-          .NumWords (NUM_WORDS),  // Number of Words in data array
-          .DataWidth(DATA_WIDTH)  // Data signal width
+          .NumWords (NumWords),  // Number of Words in data array
+          .DataWidth(DataWidth)  // Data signal width
       ) cgra_mem_i (
         .clk_i          (clk_i),
         .rst_ni         (rst_ni),

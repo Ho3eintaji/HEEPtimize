@@ -48,39 +48,11 @@ filesets:
   nm_caesar_sim:
     depend:
     - epfl:caesar:nm-caesar
-  
-  # nm_caesar_postsynthesis-netlist:
-  #   depend:
-  #   - epfl:heepatia:prim-tsmc65:0.1.0
-  #   files:
-  #   - hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/verilog/NMCaesar_top_pared.v
-  #   file_type: verilogSource
-
-  nm_caesar_postlayout-netlist:
-    depend:
-    - epfl:heepatia:prim-tsmc65:0.1.0
-    files:
-    - hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/verilog/NMCaesar_top_pnr.v
-    file_type: verilogSource
 
   # NM Carus
   nm_carus_sim:
     depend:
     - epfl:carus:nm-carus
-  
-  # nm_carus_postsynthesis-netlist:
-  #   depend:
-  #   - epfl:heepatia:prim-tsmc65:0.1.0
-  #   files:
-  #   - hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/verilog/NMCarus_top_pared.v
-  #   file_type: verilogSource
-
-  nm_carus_postlayout-netlist:
-    depend:
-    - epfl:heepatia:prim-tsmc65:0.1.0
-    files:
-    - hw/vendor/nm-carus-backend-opt/implementation/pnr/outputs/nm-carus/verilog/NMCarus_top_pnr.v
-    file_type: verilogSource
 
   # FLL
   fll_simulation:
@@ -99,6 +71,7 @@ filesets:
     - pulp-platform:fll:generic
     files:
     - hw/simulation/switch_cell_mem.sv
+    - hw/simulation/fll_clk_gate_wrapper.sv
     file_type: systemVerilogSource
 
   # X-HEEP RTL (separated to avoid Verible errors)
@@ -108,31 +81,37 @@ filesets:
     - x-heep::packages
     - x-heep:ip:pad_control
   
-  # RTL that depends on TSMC65
-  rtl-tsmc65:
-    depend:
-    - epfl:heepatia:prim-tsmc65:0.1.0
-  
-  # Coprosit RTL (separated because it can't be verilated)
-  rtl-coprosit:
-    depend:
-    - davidmallasen:ip:coprosit:0.0.1
+  # # RTL that depends on TSMC65
+  # rtl-tsmc65:
+  #   depend:
+  #   - epfl:heepatia:prim-tsmc65:0.1.0
 
-  # RTL that depends on TSMC16
-  rtl-tsmc16:
+  # RTL that depends on GF22
+  rtl-gf22:
     depend:
-    - epfl:heepatia:prim-tsmc16:0.1.0
+    - epfl:heepatia:prim-gf22:0.1.0
+    - epfl:heepatia:syn-gf22:0.1.0
+
+  # # Coprosit RTL (separated because it can't be verilated)
+  # rtl-coprosit:
+  #   depend:
+  #   - davidmallasen:ip:coprosit:0.0.1
+
+  # # RTL that depends on TSMC16
+  # rtl-tsmc16:
+  #   depend:
+  #   - epfl:heepatia:prim-tsmc16:0.1.0
 
   # Post-synthesis simulation models
   rtl-postsyn:
     depend:
-    - epfl:heepatia:mem-pw-tsmc65  # TODO: Migrate to tsmc16
+    - epfl:heepatia:mem-pw-tsmc65  # TODO: Migrate to GF22, but do I really need them?
 
   # postsynthesis netlist
   postsynthesis-netlist:
     depend:
     - epfl:heepatia:packages
-    - epfl:heepatia:prim-tsmc65:0.1.0
+    - epfl:heepatia:prim-gf22:0.1.0
     files:
     - implementation/synthesis/last_output/netlist.v
     file_type: verilogSource
@@ -141,7 +120,7 @@ filesets:
   postlayout-netlist:
     depend:
     - epfl:heepatia:packages
-    - epfl:heepatia:prim-tsmc65:0.1.0
+    - epfl:heepatia:prim-gf22:0.1.0
     files:
     - build/innovus_latest/artefacts/export/heepatia_pg.v
     file_type: verilogSource
@@ -256,9 +235,9 @@ targets:
     description: Design Compiler Script
     parameters:
     - SYNTHESIS=true
-    - PRIM_DEFAULT_IMPL=prim_pkg::tsmc65 //not really needed as today
+    - PRIM_DEFAULT_IMPL=prim_pkg::gf22 //not really needed as today
     filesets_append:
-    - rtl-tsmc65
+    - rtl-gf22
     toplevel: [heepatia_top]
     tools:
       design_compiler:
@@ -459,14 +438,12 @@ targets:
     default_tool: modelsim
     filesets_append:
     - postsynthesis-netlist
-    # - nm_carus_postsynthesis-netlist
-    # - nm_caesar_postsynthesis-netlist
     - tb-others
     - tb-others-vendor
     - tb-system
     - tb-system-vendor
     - rtl-sim
-    - rtl-tsmc65
+    - rtl-gf22
     - fll_simulation
     parameters:
     - boot_mode
@@ -475,7 +452,7 @@ targets:
     - verbose
     - vcd_mode
     - bypass_fll_opt
-    - PRIM_DEFAULT_IMPL=prim_pkg::tsmc65
+    - PRIM_DEFAULT_IMPL=prim_pkg::gf22
     - UNIT_DELAY=0
     - no_warning=true
     - SYNTHESIS=true
@@ -511,14 +488,12 @@ targets:
     default_tool: modelsim
     filesets_append:
     - postlayout-netlist
-    - nm_carus_postlayout-netlist
-    - nm_caesar_postlayout-netlist
     - tb-others
     - tb-others-vendor
     - tb-system
     - tb-system-vendor
     - rtl-sim
-    - rtl-tsmc65
+    - rtl-gf22
     - fll_simulation
     parameters:
     - boot_mode
@@ -527,7 +502,7 @@ targets:
     - verbose
     - vcd_mode
     - bypass_fll_opt
-    - PRIM_DEFAULT_IMPL=prim_pkg::tsmc65
+    - PRIM_DEFAULT_IMPL=prim_pkg::gf22
     - UNIT_DELAY=0
     - no_warning=true
     - USE_PG_PIN=true

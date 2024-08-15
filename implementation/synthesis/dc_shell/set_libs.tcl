@@ -1,36 +1,65 @@
+# Custom procedure to recursively find .db files
+proc find_files {dir pattern} {
+    set results {}
+    foreach file [glob -nocomplain -directory $dir *] {
+        if {[file isdirectory $file]} {
+            lappend results {*}[find_files $file $pattern]
+        } elseif {[string match $pattern [file tail $file]]} {
+            lappend results $file
+        }
+    }
+    return $results
+}
 
+# todo: change std-cells to GF22FDX_SC8T_104CPP_BASE_CSC28R_FDK_RELV05R50, and 25 degree
 set STD_CELLS_DIR ../../../hw/asic/std-cells
-set MEMORIES_DIR ../../../hw/asic/symlinks/ARM_Memories/sram8192x32m8/db
+set DB_STDCELLS [glob -directory $STD_CELLS_DIR -- "*CSC28H*125*.db"]
+puts "------------------------------------------------------------------"
+puts "USED STDCELLS"
+puts $DB_STDCELLS
+puts "------------------------------------------------------------------"
+
+
+# todo: change memories to match GF22FDX_SC8T_104CPP_BASE_CSC28R_FDK_RELV05R50
+# set MEMORIES_DIR ../../../hw/asic/symlinks/ARM_Memories/sram8192x32m8/db
+# set MEMORIES_DIR_32kb ../../../hw/asic/symlinks/GF_memories_22nm/MemViews_6T_32kb_LPP_M8/db
+set MEMORIES_DIR ../../../hw/asic/symlinks/GF_memories_22nm
+# Find all .db files recursively
+set DB_MEM [find_files $MEMORIES_DIR "*.db"]
+
+# Check if any files were found
+if {[llength $DB_MEM] == 0} {
+    echo "No .db files found in the specified directory."
+} else {
+    echo "Found the following .db files:"
+    foreach file $DB_MEM {
+        echo $file
+    }
+}
+
 set PADS_DIR     ../../../hw/asic/pads
-set FLL_DIR     ../../../hw/asic/fll/db
-set MEM_PWR_SW_DIR ../../../hw/asic/mem-power-switches/db
-
-set NM_CAESAR_DIR ../../../implementation/synthesis/lc_shell/nm-caesar/db
-set NM_CARUS_DIR ../../../implementation/synthesis/lc_shell/nm-carus/db
-
-### LVT WC 1.08V
-set DB_STDCELLS [glob -directory $STD_CELLS_DIR -- "*.db"]
-### WC 1.08V
-set DB_MEM [glob -directory $MEMORIES_DIR -- "*ss*125*.db"]
-### WC 1.08V (IO 1.62V) - type of pads are random, please change it!!!
 set DB_PAD [glob -directory $PADS_DIR -- "*.db"]
 
-# set DB_FLL {}
-# lappend DB_FLL "$FLL_DIR/tsmc65_FLL_ss_typical_max_1p08v_125c.db"
+set FLL_DIR     ../../../hw/asic/fll/db
+set DB_FLL {}
+lappend DB_FLL "$FLL_DIR/tsmc65_FLL_ss_typical_max_1p08v_125c.db"
 
+# set MEM_PWR_SW_DIR ../../../hw/asic/mem-power-switches/db
 # set DB_MEM_PW_SW {}
 # lappend DB_MEM_PW_SW "$MEM_PWR_SW_DIR/mem_power_switches.db"
 
-set NM_CARUS {}
-lappend NM_CARUS "$NM_CARUS_DIR/NMCarus8192x32m8_ss_1p08v_1p08v_125c.db"
-
-set NM_CAESAR {}
-lappend NM_CAESAR "$NM_CAESAR_DIR/NMCaesar8192x32m8_ss_1p08v_1p08v_125c.db"
+# below part is not needed if it is memories!
+# set NM_CAESAR_DIR ../../../implementation/synthesis/lc_shell/nm-caesar/db
+# set NM_CARUS_DIR ../../../implementation/synthesis/lc_shell/nm-carus/db
+# set NM_CARUS {}
+# lappend NM_CARUS "$NM_CARUS_DIR/NMCarus8192x32m8_ss_1p08v_1p08v_125c.db"
+# set NM_CAESAR {}
+# lappend NM_CAESAR "$NM_CAESAR_DIR/NMCaesar8192x32m8_ss_1p08v_1p08v_125c.db"
 
 # target library
 set target_library      {}
 # set target_library  "$DB_STDCELLS $DB_MEM $DB_PAD $DB_FLL $DB_MEM_PW_SW $NM_CAESAR $NM_CARUS"
-set target_library  "$DB_STDCELLS $DB_MEM $DB_PAD"
+set target_library  "$DB_STDCELLS $DB_MEM $DB_PAD $DB_FLL"
 
 # link library
 set link_library "* $target_library"

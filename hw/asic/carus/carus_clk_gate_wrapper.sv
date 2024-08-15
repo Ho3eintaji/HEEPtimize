@@ -4,8 +4,8 @@
 //
 // File: carus_clk_gate_wrapper.sv
 // Author: Hossein Taji
-// Date: 06/05/2024
-// Description: Clock gating cell to be used in 65nm implementations of carus
+// Date: 14/08/2024
+// Description: Clock gating cell to be used in TSMC65 or GF22 implementations of carus
 
 module carus_clk_gate_wrapper (
     input  logic clk_i,
@@ -13,11 +13,27 @@ module carus_clk_gate_wrapper (
     input  logic scan_cg_en_i,
     output logic clk_o
 );
-  tsmc65_clk_gating tsmc65_clk_gating_i (
-      .clk_i,
-      .en_i,
+`ifdef GF22
+  // GF22 clock gating standard cell
+  gf22_clk_gating clk_gate_i (
+      .clk_i(clk_i),
+      .en_i(en_i),
       .test_en_i(scan_cg_en_i),
-      .clk_o
+      .clk_o(clk_o)
   );
+`elsif TSMC65
+  // TSMC65 clock gating standard cell
+  tsmc65_clk_gating clk_gate_i (
+      .clk_i(clk_i),
+      .en_i(en_i),
+      .test_en_i(scan_cg_en_i),
+      .clk_o(clk_o)
+  );
+`else
+  // Default case if neither GF22 nor TSMC65 is defined
+  initial begin
+    $error("Neither GF22 nor TSMC65 is defined! Please define one of them.");
+  end
+`endif
 
 endmodule

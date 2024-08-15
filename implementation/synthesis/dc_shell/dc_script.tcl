@@ -11,11 +11,12 @@ remove_design -all
 
 source ${SET_LIBS}
 
-# Make sure no HVT cells are used
-set_attribute [get_lib_cells tcbn65lp*/*HVT] dont_use true
-# Use only power switches from the HVT lib
-set_attribute [get_lib_cells tcbn65lp*/FTR*HVT] dont_use false
-set_attribute [get_lib_cells tcbn65lp*/HDR*HVT] dont_use false
+# todo: not needed because I do not want to skip any cell
+# # Make sure no HVT cells are used
+# set_attribute [get_lib_cells tcbn65lp*/*HVT] dont_use true
+# # Use only power switches from the HVT lib
+# set_attribute [get_lib_cells tcbn65lp*/FTR*HVT] dont_use false
+# set_attribute [get_lib_cells tcbn65lp*/HDR*HVT] dont_use false
 
 source ${READ_SOURCES}.tcl
 
@@ -58,9 +59,10 @@ report_resources -hierarchy > ${REPORT_DIR}/resources.rpt
 report_constraints > ${REPORT_DIR}/constraints.rpt
 report_clock_gating > ${REPORT_DIR}/clock_gating.rpt
 report_power > ${REPORT_DIR}/power.rpt
-report_timing -through u_heepatia_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/*  > ${REPORT_DIR}/carus_timing.rpt
-report_timing -through u_heepatia_peripherals/gen_caesar_0__u_nm_caesar_wrapper/u_caesar_top/* > ${REPORT_DIR}/caesar_timing.rpt
-report_timing -through u_core_v_mini_mcu/external_subsystem_powergate_switch_ack_i* -max_paths 5  >> ${REPORT_DIR}/timing_sw_cells.rpt
+report_timing -max_paths 10 -through u_heepatia_peripherals/gen_carus_0__u_nm_carus_wrapper/u_carus_top/*  > ${REPORT_DIR}/timing_carus.rpt
+report_timing -max_paths 10 -through u_heepatia_peripherals/gen_caesar_0__u_nm_caesar_wrapper/u_caesar_top/* > ${REPORT_DIR}/timing_caesar.rpt
+report_timing -max_paths 10 -through u_core_v_mini_mcu/external_subsystem_powergate_switch_ack_i*  >> ${REPORT_DIR}/timing_sw_cells.rpt
+report_timing -max_paths 10 -through u_heepatia_peripherals/u_cgra_top_wrapper/*  >> ${REPORT_DIR}/timing_cgra.rpt
 
 ### save here also the report
 set report_date [sh date +%Y_%m_%d_%k:%M]
@@ -86,5 +88,6 @@ sh cp -R ${REPORT_DIR}/area.rpt ${SCRIPT_DIR}/../../synthesis/last_output
 sh cp -R ${REPORT_DIR}/resources.rpt ${SCRIPT_DIR}/../../synthesis/last_output
 sh cp -R ${REPORT_DIR}/timing_loop.rpt ${SCRIPT_DIR}/../../synthesis/last_output
 sh cp -R ${REPORT_DIR}/clocks.rpt ${SCRIPT_DIR}/../../synthesis/last_output
-sh cp -R ${REPORT_DIR}/caesar_timing.rpt ${SCRIPT_DIR}/../../synthesis/last_output
-sh cp -R ${REPORT_DIR}/carus_timing.rpt ${SCRIPT_DIR}/../../synthesis/last_output
+sh cp -R ${REPORT_DIR}/timing_caesar.rpt ${SCRIPT_DIR}/../../synthesis/last_output
+sh cp -R ${REPORT_DIR}/timing_carus.rpt ${SCRIPT_DIR}/../../synthesis/last_output
+sh cp -R ${REPORT_DIR}/timing_cgra.rpt ${SCRIPT_DIR}/../../synthesis/last_output

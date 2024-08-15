@@ -130,7 +130,7 @@ module heepatia_peripherals #(
 
   // OECGRA //todo: double check the top wrapper!
   // -----
-  cgra_top_wrapper oecgra_i (
+  cgra_top_wrapper u_cgra_top_wrapper (
     .clk_i               (system_clk),
     .rst_ni              (oecgra_rst_ni),
     .rst_logic_ni        (oecgra_rst_ni),
