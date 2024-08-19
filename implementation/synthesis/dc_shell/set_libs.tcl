@@ -12,8 +12,8 @@ proc find_files {dir pattern} {
 }
 
 # set std cells
-set STD_CELLS_DIR ../../../hw/asic/std-cells/GF22FDX_SC8T_116CPP_BASE_DDC36UH_FDK_RELV04R20/model/timing/db
-set DB_STDCELLS [glob -directory $STD_CELLS_DIR -- "*_25*.db"]
+set STD_CELLS_DIR ../../../hw/asic/std-cells/GF22FDX_SC8T_104CPP_BASE_CSC28R_FDK_RELV05R50/model/timing/db
+set DB_STDCELLS [glob -directory $STD_CELLS_DIR -- "*TT_0P80V_0P00V_0P00V_0P00V_25C.db"]
 puts "------------------------------------------------------------------"
 puts "USED STDCELLS"
 puts $DB_STDCELLS

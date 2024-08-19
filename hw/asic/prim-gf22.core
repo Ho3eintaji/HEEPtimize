@@ -33,8 +33,8 @@ filesets:
   # Library RTL files for simulation (todo: if it is not working add wrappers)
   rtl-postsyn:
     files:
-    - std-cells/GF22FDX_SC8T_116CPP_BASE_DDC36UH_FDK_RELV04R20/model/verilog/GF22FDX_SC8T_116CPP_BASE_DDC36UH.v
-    - std-cells/GF22FDX_SC8T_116CPP_BASE_DDC36UH_FDK_RELV04R20/model/verilog/prim.v
+    - std-cells/GF22FDX_SC8T_104CPP_BASE_CSC28R_FDK_RELV05R50/model/verilog/GF22FDX_SC8T_104CPP_BASE_CSC28R.v
+    - std-cells/GF22FDX_SC8T_104CPP_BASE_CSC28R_FDK_RELV05R50/model/verilog/prim.v
 
     - std-cells-memories/memories/MemViews_6T_512x32_LPP_M4_TT_0_800_0_800_25/model/verilog/sram512x32m4_TT_0_800_0_800_25.v
     - std-cells-memories/memories/MemViews_6T_1024x32_LPP_M4_TT_0_800_0_800_25/model/verilog/sram1024x32m4_TT_0_800_0_800_25.v
@@ -48,8 +48,8 @@ filesets:
   # Post-layout models
   rtl-postpnr:
     files:
-    - std-cells/GF22FDX_SC8T_116CPP_BASE_DDC36UH_FDK_RELV04R20/model/verilog/GF22FDX_SC8T_116CPP_BASE_DDC36UH.v
-    - std-cells/GF22FDX_SC8T_116CPP_BASE_DDC36UH_FDK_RELV04R20/model/verilog/prim.v
+    - std-cells/GF22FDX_SC8T_104CPP_BASE_CSC28R_FDK_RELV05R50/model/verilog/GF22FDX_SC8T_104CPP_BASE_CSC28R.v
+    - std-cells/GF22FDX_SC8T_104CPP_BASE_CSC28R_FDK_RELV05R50/model/verilog/prim.v
 
     - std-cells-memories/memories/MemViews_6T_512x32_LPP_M4_TT_0_800_0_800_25/model/verilog/sram512x32m4_TT_0_800_0_800_25.v
     - std-cells-memories/memories/MemViews_6T_1024x32_LPP_M4_TT_0_800_0_800_25/model/verilog/sram1024x32m4_TT_0_800_0_800_25.v

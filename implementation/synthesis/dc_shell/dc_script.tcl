@@ -31,7 +31,8 @@ report_clocks > ${REPORT_DIR}/clocks.rpt
 report_timing -loop -max_paths 10 > ${REPORT_DIR}/timing_loop.rpt
 
 # Minimum number of bit required for clock gating and do not use Latches
-set_clock_gating_style -minimum_bitwidth 3 -positive_edge_logic integrated:SC8T_CKGPRELATNX4_DDC36UH -control_point before
+# set_clock_gating_style -minimum_bitwidth 3 -positive_edge_logic integrated:SC8T_CKGPRELATNX4_DDC36UH -control_point before
+set_clock_gating_style -minimum_bitwidth 3 -positive_edge_logic integrated:SC8T_CKGPRELATNX4_CSC28R -control_point before
 
 # remove_upf
 # load_upf ../../../heepatia.synthesis.upf

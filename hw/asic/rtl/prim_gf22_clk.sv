@@ -13,8 +13,8 @@ module gf22_clk_gating (
   /*
     add here your standard cell
   */
-  // SC8T_CKGPRELATNX4_CSC28H clk_gating_i (
-  SC8T_CKGPRELATNX4_DDC36UH clk_gating_i (
+  // SC8T_CKGPRELATNX4_DDC36UH clk_gating_i (
+  SC8T_CKGPRELATNX4_CSC28R clk_gating_i (
       .TE(test_en_i),
       .CLK(clk_i),
       .E (en_i),
@@ -31,8 +31,8 @@ module gf22_clk_inverter (
   /*
     add here your standard cell
   */
-  // SC8T_CKINVX16_CSC28H clk_inv_i (
-  SC8T_CKINVX6_DDC36UH clk_inv_i (
+  SC8T_CKINVX16_CSC28R clk_inv_i (
+  // SC8T_CKINVX6_DDC36UH clk_inv_i (
       .CLK (clk_i),
       .Z(clk_o)
   );
@@ -50,8 +50,8 @@ module gf22_clk_mux2 (
   /*
     add here your standard cell
   */
-  // SC8T_CKMUX2X8_CSC28H clk_mux2_i (
-  SC8T_CKMUX2X4_DDC36UH clk_mux2_i (
+  SC8T_CKMUX2X8_CSC28R clk_mux2_i (
+  // SC8T_CKMUX2X4_DDC36UH clk_mux2_i (
       .CLK1(clk0_i),
       .CLK2(clk1_i),
       .CLKSEL (clk_sel_i),
@@ -69,8 +69,8 @@ module gf22_clk_xor2 (
   /*
     add here your standard cell
   */
-  // SC8T_CKXOR2X8_CSC28H clk_xor2_i (     // TO UPDATE
-  SC8T_CKXOR2X4_DDC36UH clk_xor2_i (
+  SC8T_CKXOR2X8_CSC28R clk_xor2_i (     // TO UPDATE
+  // SC8T_CKXOR2X4_DDC36UH clk_xor2_i (
       .CLK(clk0_i),
       .EN(clk1_i),
       .Z (clk_o)
