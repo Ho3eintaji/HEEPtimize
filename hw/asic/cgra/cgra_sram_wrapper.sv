@@ -13,7 +13,7 @@ module cgra_sram_wrapper #(
     parameter int unsigned NumWords = 32'd1024,  // Number of Words in data array
     parameter int unsigned DataWidth = 32'd32,  // Data signal width
     // DEPENDENT PARAMETERS, DO NOT OVERWRITE!
-    localparam int unsigned AddrWidth = (NUM_WORDS > 32'd1) ? unsigned'($clog2(NUM_WORDS)) : 32'd1
+    localparam int unsigned AddrWidth = (NumWords > 32'd1) ? unsigned'($clog2(NumWords)) : 32'd1
 ) (
     input  logic                 clk_i,
     input  logic                 rst_ni,

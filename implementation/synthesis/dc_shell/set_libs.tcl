@@ -11,21 +11,18 @@ proc find_files {dir pattern} {
     return $results
 }
 
-# todo: change std-cells to GF22FDX_SC8T_104CPP_BASE_CSC28R_FDK_RELV05R50, and 25 degree
-set STD_CELLS_DIR ../../../hw/asic/std-cells
-set DB_STDCELLS [glob -directory $STD_CELLS_DIR -- "*CSC28H*125*.db"]
+# set std cells
+set STD_CELLS_DIR ../../../hw/asic/std-cells/GF22FDX_SC8T_116CPP_BASE_DDC36UH_FDK_RELV04R20/model/timing/db
+set DB_STDCELLS [glob -directory $STD_CELLS_DIR -- "*_25*.db"]
 puts "------------------------------------------------------------------"
 puts "USED STDCELLS"
 puts $DB_STDCELLS
 puts "------------------------------------------------------------------"
 
 
-# todo: change memories to match GF22FDX_SC8T_104CPP_BASE_CSC28R_FDK_RELV05R50
-# set MEMORIES_DIR ../../../hw/asic/symlinks/ARM_Memories/sram8192x32m8/db
-# set MEMORIES_DIR_32kb ../../../hw/asic/symlinks/GF_memories_22nm/MemViews_6T_32kb_LPP_M8/db
-set MEMORIES_DIR ../../../hw/asic/symlinks/GF_memories_22nm
+set MEMORIES_DIR ../../../hw/asic/std-cells-memories/memories
 # Find all .db files recursively
-set DB_MEM [find_files $MEMORIES_DIR "*.db"]
+set DB_MEM [find_files $MEMORIES_DIR "*TT_0_800_0_800_25*_025C.db"]
 
 # Check if any files were found
 if {[llength $DB_MEM] == 0} {
@@ -47,14 +44,6 @@ lappend DB_FLL "$FLL_DIR/tsmc65_FLL_ss_typical_max_1p08v_125c.db"
 # set MEM_PWR_SW_DIR ../../../hw/asic/mem-power-switches/db
 # set DB_MEM_PW_SW {}
 # lappend DB_MEM_PW_SW "$MEM_PWR_SW_DIR/mem_power_switches.db"
-
-# below part is not needed if it is memories!
-# set NM_CAESAR_DIR ../../../implementation/synthesis/lc_shell/nm-caesar/db
-# set NM_CARUS_DIR ../../../implementation/synthesis/lc_shell/nm-carus/db
-# set NM_CARUS {}
-# lappend NM_CARUS "$NM_CARUS_DIR/NMCarus8192x32m8_ss_1p08v_1p08v_125c.db"
-# set NM_CAESAR {}
-# lappend NM_CAESAR "$NM_CAESAR_DIR/NMCaesar8192x32m8_ss_1p08v_1p08v_125c.db"
 
 # target library
 set target_library      {}

@@ -14,7 +14,7 @@
 // `define TSMC65
 
 module sram_wrapper #(
-  parameter int unsigned NumWords = 32'd4096,  // Number of Words in data array
+  parameter int unsigned NumWords = 32'd8192,  // Number of Words in data array
   parameter int unsigned DataWidth = 32'd32,  // Data signal width
   // DEPENDENT PARAMETERS, DO NOT OVERWRITE!
   parameter int unsigned AddrWidth = (NumWords > 32'd1) ? unsigned'($clog2(NumWords)) : 32'd1
@@ -56,17 +56,23 @@ module sram_wrapper #(
 `ifdef GF22
     generate
     case (NumWords)
-      8192: begin: gen_32kB_mem
-        sram8192x32m8 mem_bank (
+
+      512: begin : gen_sram_512_32_2kb
+        // check the generated memory for the size of asI, awI, and acI, and how addr_i is assigned to them
+        wire [1-1:0] asI;
+        wire [6-1:0] awI;
+        wire [2-1:0] acI;
+        assign {awI[6-1:2], asI, awI[1:0], acI} = addr_i;
+
+        sram512x32m4_TT_0_800_0_800_25 mem_bank (
           .CLK        (clk_i),
           .CEN        (~req_i),
           .RDWEN      (~we_i),
-          //.DEEPSLEEP  (~pwrgate_ni),
           .DEEPSLEEP  (1'b0),
           .POWERGATE  (~set_retentive_ni),
-          .AS         (addr_i[AddrWidth-1:AddrWidth-2]),
-          .AW         (addr_i[AddrWidth-3:3]),
-          .AC         (addr_i[2:0]),
+          .AS         (asI),
+          .AW         (awI),
+          .AC         (acI),
           .D          (wdata_i),
           .BW         (bit_we),
           .T_BIST     ('0),
@@ -90,18 +96,22 @@ module sram_wrapper #(
           .OBSV_CTL   ()
         );
       end
-      // Below is wrong numbers for 1024x32m4 address width
-      1024: begin: gen_4kB_mem
-        sram1024x32m4 mem_bank (
+
+      1024: begin : gen_sram_1024_32_4kb
+        wire [1-1:0] asI;
+        wire [7-1:0] awI;
+        wire [2-1:0] acI;
+        assign {awI[7-1:2], asI, awI[1:0], acI} = addr_i;
+
+        sram1024x32m4_TT_0_800_0_800_25 mem_bank (
           .CLK        (clk_i),
           .CEN        (~req_i),
           .RDWEN      (~we_i),
-          //.DEEPSLEEP  (~pwrgate_ni),
           .DEEPSLEEP  (1'b0),
           .POWERGATE  (~set_retentive_ni),
-          .AS         (addr_i[AddrWidth-1:AddrWidth-2]),
-          .AW         (addr_i[AddrWidth-3:3]),
-          .AC         (addr_i[2:0]),
+          .AS         (asI),
+          .AW         (awI),
+          .AC         (acI),
           .D          (wdata_i),
           .BW         (bit_we),
           .T_BIST     ('0),
@@ -125,17 +135,100 @@ module sram_wrapper #(
           .OBSV_CTL   ()
         );
       end
-      default: begin: gen_16kB_mem
-        sram4096x32m8 mem_bank (
+
+      2048: begin : gen_sram_2048_32_8kb
+        wire [1-1:0] asI;
+        wire [8-1:0] awI;
+        wire [2-1:0] acI;
+        assign {awI[8-1:2], asI, awI[1:0], acI} = addr_i;
+
+        sram2048x32m4_TT_0_800_0_800_25 mem_bank (
           .CLK        (clk_i),
           .CEN        (~req_i),
           .RDWEN      (~we_i),
-          //.DEEPSLEEP  (~pwrgate_ni),
           .DEEPSLEEP  (1'b0),
           .POWERGATE  (~set_retentive_ni),
-          .AS         (addr_i[AddrWidth-1:AddrWidth-2]),
-          .AW         (addr_i[AddrWidth-3:3]),
-          .AC         (addr_i[2:0]),
+          .AS         (asI),
+          .AW         (awI),
+          .AC         (acI),
+          .D          (wdata_i),
+          .BW         (bit_we),
+          .T_BIST     ('0),
+          .T_LOGIC    ('0),
+          .T_CEN      ('0),
+          .T_RDWEN    ('0),
+          .T_DEEPSLEEP('0),
+          .T_POWERGATE('0),
+          .T_AS       ('0),
+          .T_AW       ('0),
+          .T_AC       ('0),
+          .T_D        ('0),
+          .T_BW       ('0),
+          .T_WBT      ('0),
+          .T_STAB     ('0),
+          .MA_SAWL    ('0),
+          .MA_WL      ('0),
+          .MA_WRAS    ('0),
+          .MA_WRASD   ('0),
+          .Q          (rdata_o),
+          .OBSV_CTL   ()
+        );
+      end
+
+      4096: begin : gen_sram_4096_32_16kb
+        wire [2-1:0] asI;
+        wire [8-1:0] awI;
+        wire [2-1:0] acI;
+        assign {awI[8-1:2], asI, awI[1:0], acI} = addr_i;
+
+        sram4096x32m4_TT_0_800_0_800_25 mem_bank (
+          .CLK        (clk_i),
+          .CEN        (~req_i),
+          .RDWEN      (~we_i),
+          .DEEPSLEEP  (1'b0),
+          .POWERGATE  (~set_retentive_ni),
+          .AS         (asI),
+          .AW         (awI),
+          .AC         (acI),
+          .D          (wdata_i),
+          .BW         (bit_we),
+          .T_BIST     ('0),
+          .T_LOGIC    ('0),
+          .T_CEN      ('0),
+          .T_RDWEN    ('0),
+          .T_DEEPSLEEP('0),
+          .T_POWERGATE('0),
+          .T_AS       ('0),
+          .T_AW       ('0),
+          .T_AC       ('0),
+          .T_D        ('0),
+          .T_BW       ('0),
+          .T_WBT      ('0),
+          .T_STAB     ('0),
+          .MA_SAWL    ('0),
+          .MA_WL      ('0),
+          .MA_WRAS    ('0),
+          .MA_WRASD   ('0),
+          .Q          (rdata_o),
+          .OBSV_CTL   ()
+        );
+      end
+
+      default: begin : gen_sram_8192_32_32kb      
+        wire [3-1:0] asI;
+        wire [8-1:0] awI;
+        wire [2-1:0] acI;
+        assign {awI[8-1:2], asI, awI[1:0], acI} = addr_i;
+
+        sram8192x32m4_TT_0_800_0_800_25 mem_bank (
+          .CLK        (clk_i),
+          .CEN        (~req_i),
+          .RDWEN      (~we_i),
+          .DEEPSLEEP  (1'b0),
+          .POWERGATE  (~set_retentive_ni),
+          .AS         (asI),
+          .AW         (awI),
+          .AC         (acI),
           .D          (wdata_i),
           .BW         (bit_we),
           .T_BIST     ('0),

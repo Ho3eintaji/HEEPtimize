@@ -24,7 +24,7 @@ module cgra_clock_gate (
   gf22_clk_gating clk_gate_i (
       .clk_i(clk_i),
       .en_i(en_i),
-      .test_en_i(scan_cg_en_i),
+      .test_en_i(test_en_i),
       .clk_o(clk_o)
   );
 `elsif TSMC65
@@ -32,7 +32,7 @@ module cgra_clock_gate (
   tsmc65_clk_gating clk_gate_i (
       .clk_i(clk_i),
       .en_i(en_i),
-      .test_en_i(scan_cg_en_i),
+      .test_en_i(test_en_i),
       .clk_o(clk_o)
   );
 `else

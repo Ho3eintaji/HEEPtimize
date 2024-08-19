@@ -483,6 +483,7 @@ targets:
         - -voptargs=+acc=npr
         - +bus_conflict_off
 
+
   # post layout simulation with no timing
   sim_postlayout:
     default_tool: modelsim

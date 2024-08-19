@@ -431,131 +431,133 @@ ${pad_mux_process}
   // TODO: add clock gating cell
   // Connect to CORE-V-MINI-MCU power manager
 
+  // CLOCK GATING PART WAS REMOVED FOR THESE MEMORY MODULES
+
   logic caesar_sw0_ctrl;
   logic caesar_sw0_ack, caesar_sw1_ack, caesar_sw2_ack, caesar_sw3_ack;
 
   logic carus_sw0_ctrl;
   logic carus_sw0_ack, carus_sw1_ack, carus_sw2_ack, carus_sw3_ack;
 
-`ifndef FPGA
-    assign caesar_sw0_ctrl = ~external_subsystem_powergate_switch_n[2];
-    assign external_subsystem_powergate_switch_ack_n[2] = ~caesar_sw3_ack;
-// Power switch and synchronizer
-    switch_cell_mem mem_caesar_sw0_i (
-  `ifdef USE_PG_PIN
-      .VIN,
-      .VOUT,
-      .VSS,
-  `endif
-      .VCTRL    (caesar_sw0_ctrl),  // Switch Signal Input
-      .VCTRLFBn (),               // Negated Schmitt Trigger Output
-      .VCTRLFB  (),    // Schmitt Trigger Output
-      .VCTRL_BUF(caesar_sw0_ack)    //ACK signal Output
-    );
+// `ifndef FPGA
+//     assign caesar_sw0_ctrl = ~external_subsystem_powergate_switch_n[2];
+//     assign external_subsystem_powergate_switch_ack_n[2] = ~caesar_sw3_ack;
+// // Power switch and synchronizer
+//     switch_cell_mem mem_caesar_sw0_i (
+//   `ifdef USE_PG_PIN
+//       .VIN,
+//       .VOUT,
+//       .VSS,
+//   `endif
+//       .VCTRL    (caesar_sw0_ctrl),  // Switch Signal Input
+//       .VCTRLFBn (),               // Negated Schmitt Trigger Output
+//       .VCTRLFB  (),    // Schmitt Trigger Output
+//       .VCTRL_BUF(caesar_sw0_ack)    //ACK signal Output
+//     );
 
-    switch_cell_mem mem_caesar_sw1_i (
-  `ifdef USE_PG_PIN
-      .VIN,
-      .VOUT,
-      .VSS,
-  `endif
-      .VCTRL    (caesar_sw0_ack),  // Switch Signal Input
-      .VCTRLFBn (),              // Negated Schmitt Trigger Output
-      .VCTRLFB  (),   // Schmitt Trigger Output
-      .VCTRL_BUF(caesar_sw1_ack)   //ACK signal Output
-    );
+//     switch_cell_mem mem_caesar_sw1_i (
+//   `ifdef USE_PG_PIN
+//       .VIN,
+//       .VOUT,
+//       .VSS,
+//   `endif
+//       .VCTRL    (caesar_sw0_ack),  // Switch Signal Input
+//       .VCTRLFBn (),              // Negated Schmitt Trigger Output
+//       .VCTRLFB  (),   // Schmitt Trigger Output
+//       .VCTRL_BUF(caesar_sw1_ack)   //ACK signal Output
+//     );
 
-    switch_cell_mem mem_caesar_sw2_i (
-  `ifdef USE_PG_PIN
-      .VIN,
-      .VOUT,
-      .VSS,
-  `endif
-      .VCTRL    (caesar_sw1_ack),  // Switch Signal Input
-      .VCTRLFBn (),              // Negated Schmitt Trigger Output
-      .VCTRLFB  (),   // Schmitt Trigger Output
-      .VCTRL_BUF(caesar_sw2_ack)   //ACK signal Output
-    );
+//     switch_cell_mem mem_caesar_sw2_i (
+//   `ifdef USE_PG_PIN
+//       .VIN,
+//       .VOUT,
+//       .VSS,
+//   `endif
+//       .VCTRL    (caesar_sw1_ack),  // Switch Signal Input
+//       .VCTRLFBn (),              // Negated Schmitt Trigger Output
+//       .VCTRLFB  (),   // Schmitt Trigger Output
+//       .VCTRL_BUF(caesar_sw2_ack)   //ACK signal Output
+//     );
 
-    switch_cell_mem mem_caesar_sw3_i (
-  `ifdef USE_PG_PIN
-      .VIN,
-      .VOUT,
-      .VSS,
-  `endif
-      .VCTRL    (caesar_sw2_ack),  // Switch Signal Input
-      .VCTRLFBn (),              // Negated Schmitt Trigger Output
-      .VCTRLFB  (),   // Schmitt Trigger Output
-      .VCTRL_BUF(caesar_sw3_ack)   //ACK signal Output
-    );
+//     switch_cell_mem mem_caesar_sw3_i (
+//   `ifdef USE_PG_PIN
+//       .VIN,
+//       .VOUT,
+//       .VSS,
+//   `endif
+//       .VCTRL    (caesar_sw2_ack),  // Switch Signal Input
+//       .VCTRLFBn (),              // Negated Schmitt Trigger Output
+//       .VCTRLFB  (),   // Schmitt Trigger Output
+//       .VCTRL_BUF(caesar_sw3_ack)   //ACK signal Output
+//     );
 
-`else
+// `else
 
     assign caesar_sw0_ctrl = '0;
     assign external_subsystem_powergate_switch_ack_n[2] = '0;
 
-`endif
+// `endif
 
-`ifndef FPGA
+// `ifndef FPGA
 
-    assign carus_sw0_ctrl = ~external_subsystem_powergate_switch_n[1];
-    assign external_subsystem_powergate_switch_ack_n[1] = ~carus_sw3_ack;
+//     assign carus_sw0_ctrl = ~external_subsystem_powergate_switch_n[1];
+//     assign external_subsystem_powergate_switch_ack_n[1] = ~carus_sw3_ack;
 
-    // Power switch and synchronizer
-    switch_cell_mem mem_carus_sw0_i (
-  `ifdef USE_PG_PIN
-      .VIN,
-      .VOUT,
-      .VSS,
-  `endif
-      .VCTRL    (carus_sw0_ctrl),  // Switch Signal Input
-      .VCTRLFBn (),               // Negated Schmitt Trigger Output
-      .VCTRLFB  (),    // Schmitt Trigger Output
-      .VCTRL_BUF(carus_sw0_ack)    //ACK signal Output
-    );
+//     // Power switch and synchronizer
+//     switch_cell_mem mem_carus_sw0_i (
+//   `ifdef USE_PG_PIN
+//       .VIN,
+//       .VOUT,
+//       .VSS,
+//   `endif
+//       .VCTRL    (carus_sw0_ctrl),  // Switch Signal Input
+//       .VCTRLFBn (),               // Negated Schmitt Trigger Output
+//       .VCTRLFB  (),    // Schmitt Trigger Output
+//       .VCTRL_BUF(carus_sw0_ack)    //ACK signal Output
+//     );
 
-    switch_cell_mem mem_carus_sw1_i (
-  `ifdef USE_PG_PIN
-      .VIN,
-      .VOUT,
-      .VSS,
-  `endif
-      .VCTRL    (carus_sw0_ack),  // Switch Signal Input
-      .VCTRLFBn (),              // Negated Schmitt Trigger Output
-      .VCTRLFB  (),   // Schmitt Trigger Output
-      .VCTRL_BUF(carus_sw1_ack)   //ACK signal Output
-    );
+//     switch_cell_mem mem_carus_sw1_i (
+//   `ifdef USE_PG_PIN
+//       .VIN,
+//       .VOUT,
+//       .VSS,
+//   `endif
+//       .VCTRL    (carus_sw0_ack),  // Switch Signal Input
+//       .VCTRLFBn (),              // Negated Schmitt Trigger Output
+//       .VCTRLFB  (),   // Schmitt Trigger Output
+//       .VCTRL_BUF(carus_sw1_ack)   //ACK signal Output
+//     );
 
-    switch_cell_mem mem_carus_sw2_i (
-  `ifdef USE_PG_PIN
-      .VIN,
-      .VOUT,
-      .VSS,
-  `endif
-      .VCTRL    (carus_sw1_ack),  // Switch Signal Input
-      .VCTRLFBn (),              // Negated Schmitt Trigger Output
-      .VCTRLFB  (),   // Schmitt Trigger Output
-      .VCTRL_BUF(carus_sw2_ack)   //ACK signal Output
-    );
+//     switch_cell_mem mem_carus_sw2_i (
+//   `ifdef USE_PG_PIN
+//       .VIN,
+//       .VOUT,
+//       .VSS,
+//   `endif
+//       .VCTRL    (carus_sw1_ack),  // Switch Signal Input
+//       .VCTRLFBn (),              // Negated Schmitt Trigger Output
+//       .VCTRLFB  (),   // Schmitt Trigger Output
+//       .VCTRL_BUF(carus_sw2_ack)   //ACK signal Output
+//     );
 
-    switch_cell_mem mem_carus_sw3_i (
-  `ifdef USE_PG_PIN
-      .VIN,
-      .VOUT,
-      .VSS,
-  `endif
-      .VCTRL    (carus_sw2_ack),  // Switch Signal Input
-      .VCTRLFBn (),              // Negated Schmitt Trigger Output
-      .VCTRLFB  (),   // Schmitt Trigger Output
-      .VCTRL_BUF(carus_sw3_ack)   //ACK signal Output
-    );
+//     switch_cell_mem mem_carus_sw3_i (
+//   `ifdef USE_PG_PIN
+//       .VIN,
+//       .VOUT,
+//       .VSS,
+//   `endif
+//       .VCTRL    (carus_sw2_ack),  // Switch Signal Input
+//       .VCTRLFBn (),              // Negated Schmitt Trigger Output
+//       .VCTRLFB  (),   // Schmitt Trigger Output
+//       .VCTRL_BUF(carus_sw3_ack)   //ACK signal Output
+//     );
 
-`else
+// `else
 
   assign carus_sw0_ctrl = '0;
   assign external_subsystem_powergate_switch_ack_n[1] = '0;
 
-`endif
+// `endif
 
 
 

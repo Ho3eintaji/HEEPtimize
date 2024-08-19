@@ -29,8 +29,8 @@ lint_off -rule UNUSED    -file "*esl_epfl_cgra/rtl/alu.sv"             -match "B
 lint_off -rule UNUSED    -file "*esl_epfl_cgra/rtl/alu.sv"             -match "Bits of signal are not used: 'mult_result_full'[63:47]"
 lint_off -rule UNUSED    -file "*esl_epfl_cgra/rtl/alu.sv"             -match "Bits of signal are not used: 'shift_amt'[31:5]"
 lint_off -rule UNUSED    -file "*esl_epfl_cgra/rtl/alu.sv"             -match "Bits of signal are not used: 'shift_right_result_33b'[32]"
-lint_off -rule UNOPTFLAT -file "*esl_epfl_cgra/rtl/alu.sv"             -match "Signal unoptimizable: Feedback to clock or circular logic: 'heepocrates_testharness.heepocrates_i.cgra_top_wrapper_i.cgra_top_i.cgra_rcs_i.rc_row_gen[*].rc_col_gen[*].rc_i.rc_datapath.rc_alu.data_add_s'"
-lint_off -rule UNOPTFLAT -file "*esl_epfl_cgra/rtl/datapath.sv"        -match "Signal unoptimizable: Feedback to clock or circular logic: 'heepocrates_testharness.heepocrates_i.cgra_top_wrapper_i.cgra_top_i.cgra_rcs_i.rc_row_gen[*].rc_col_gen[*].rc_i.rc_datapath.data_alu_mux'"
+lint_off -rule UNOPTFLAT -file "*esl_epfl_cgra/rtl/alu.sv"             -match "Signal unoptimizable: Feedback to clock or circular logic: 'heepocrates_testharness.heepocrates_i.u_cgra_top_wrapper.cgra_top_i.cgra_rcs_i.rc_row_gen[*].rc_col_gen[*].rc_i.rc_datapath.rc_alu.data_add_s'"
+lint_off -rule UNOPTFLAT -file "*esl_epfl_cgra/rtl/datapath.sv"        -match "Signal unoptimizable: Feedback to clock or circular logic: 'heepocrates_testharness.heepocrates_i.u_cgra_top_wrapper.cgra_top_i.cgra_rcs_i.rc_row_gen[*].rc_col_gen[*].rc_i.rc_datapath.data_alu_mux'"
 
 lint_off -rule UNUSED    -file "*esl_epfl_cgra/wrapper/cgra_top_wrapper.sv" -match "Signal is not used: 'periph_r_id'*"
 lint_off -rule UNUSED    -file "*esl_epfl_cgra/wrapper/cgra_top_wrapper.sv" -match "Signal is not used: 'periph_rvalid'*"
