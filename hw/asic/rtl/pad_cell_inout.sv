@@ -17,6 +17,8 @@ module pad_cell_inout #(
   inout logic pad_io, // pad value
   input logic [PADATTR-1:0] pad_attributes_i // pad attributes
 );
+  // TODO: add padding later
+  /*
   gf22_pad_cell_inout #(
     .PADATTR (PADATTR )
   ) u_pad_cell_inout (
@@ -26,4 +28,10 @@ module pad_cell_inout #(
     .pad_io           (pad_io           ),
     .pad_attributes_i (pad_attributes_i )
   );
+  */
+  
+  // Directly assign the pad_io to pad_out_o and pad_in_i
+  assign pad_io = (pad_oe_i) ? pad_in_i : 1'bz; // High-Z when output enable is off
+  assign pad_out_o = pad_io;
+
 endmodule

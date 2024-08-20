@@ -17,6 +17,8 @@ module pad_cell_input #(
   input logic pad_io, // pad value
   input logic [PADATTR-1:0] pad_attributes_i // pad attributes
 );
+// TODO: add padding later
+  /*
   // gf22 pad standard cell
   gf22_pad_cell_input #(
     .PADATTR (PADATTR )
@@ -27,4 +29,10 @@ module pad_cell_input #(
     .pad_io           (pad_io           ),
     .pad_attributes_i (pad_attributes_i )
   );
+  */
+
+  // Directly assign the pad_io to pad_out_o
+  assign pad_out_o = pad_io;
+
+  
 endmodule

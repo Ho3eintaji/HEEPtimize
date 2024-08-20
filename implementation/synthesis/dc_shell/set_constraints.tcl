@@ -1,6 +1,6 @@
 
 # Define the time unit (ns or ps)
-set TIME_UNIT "ns" ;# Change to "ps" for picoseconds or "ns" for nanoseconds
+set TIME_UNIT "ps" ;# Change to "ps" for picoseconds or "ns" for nanoseconds
 
 # Conversion factor based on the time unit
 if {$TIME_UNIT == "ns"} {
