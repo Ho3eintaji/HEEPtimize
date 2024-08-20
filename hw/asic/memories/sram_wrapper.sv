@@ -9,7 +9,7 @@
 
 // NOTE: based on the same module from HEEPocrates
 
-`define GF22
+// `define GF22
 // or
 // `define TSMC65
 
@@ -53,7 +53,7 @@ module sram_wrapper #(
   localparam ReadMargin = 3'b010;
   localparam WriteMargin = 2'b00;
 
-`ifdef GF22
+// `ifdef GF22
     generate
     case (NumWords)
 
@@ -255,192 +255,192 @@ module sram_wrapper #(
     endcase
   endgenerate
 
-`elsif TSMC65
-    generate
-    case (NumWords)
-      64: begin: gen_256B_rf
-        rf64x32m2 mem_bank (
-          .CENY     (),
-          .WENY     (),
-          .AY       (),
-          .GWENY    (),
-          .Q        (rdata_o),
-          .SO       (),
-          .CLK      (clk_i),
-          .CEN      (~req_i),
-          .WEN      (~bit_we),
-          .A        (addr_i),
-          .D        (wdata_i),
-          .EMA      (ReadMargin),
-          .EMAW     (WriteMargin),
-          .TEN      (1'b1),             // Test Mode Enable (active low)
-          .TCEN     (1'b1),
-          .TWEN     ('0),
-          .TA       ('0),
-          .TD       ('0),
-          .GWEN     (~we_i),
-          .TGWEN    (1'b1),
-          .RET1N    (set_retentive_ni),
-          .SI       (2'b00),
-          .SE       (1'b0),             // Scan Enable Input (active high)
-          .DFTRAMBYP(1'b0)
-        );
-      end
-      128: begin: gen_512B_rf
-        rf128x32m2 mem_bank (
-          .CENY     (),
-          .WENY     (),
-          .AY       (),
-          .GWENY    (),
-          .Q        (rdata_o),
-          .SO       (),
-          .CLK      (clk_i),
-          .CEN      (~req_i),
-          .WEN      (~bit_we),
-          .A        (addr_i),
-          .D        (wdata_i),
-          .EMA      (ReadMargin),
-          .EMAW     (WriteMargin),
-          .TEN      (1'b1),             // Test Mode Enable (active low)
-          .TCEN     (1'b1),
-          .TWEN     ('0),
-          .TA       ('0),
-          .TD       ('0),
-          .GWEN     (~we_i),
-          .TGWEN    (1'b1),
-          .RET1N    (set_retentive_ni),
-          .SI       (2'b00),
-          .SE       (1'b0),             // Scan Enable Input (active high)
-          .DFTRAMBYP(1'b0)
-        );
-      end
-      256: begin: gen_1kB_rf
-        rf256x32m2 mem_bank (
-          .CENY     (),
-          .WENY     (),
-          .AY       (),
-          .GWENY    (),
-          .Q        (rdata_o),
-          .SO       (),
-          .CLK      (clk_i),
-          .CEN      (~req_i),
-          .WEN      (~bit_we),
-          .A        (addr_i),
-          .D        (wdata_i),
-          .EMA      (ReadMargin),
-          .EMAW     (WriteMargin),
-          .TEN      (1'b1),             // Test Mode Enable (active low)
-          .TCEN     (1'b1),
-          .TWEN     ('0),
-          .TA       ('0),
-          .TD       ('0),
-          .GWEN     (~we_i),
-          .TGWEN    (1'b1),
-          .RET1N    (set_retentive_ni),
-          .SI       (2'b00),
-          .SE       (1'b0),             // Scan Enable Input (active high)
-          .DFTRAMBYP(1'b0)
-        );
-      end
-      2048: begin: gen_4kB_mem 
-        sram2048x32m8 mem_bank (
-          .CENY     (),
-          .WENY     (),
-          .AY       (),
-          .GWENY    (),
-          .Q        (rdata_o),
-          .SO       (),
-          .CLK      (clk_i),
-          .CEN      (~req_i),
-          .WEN      (~bit_we),
-          .A        (addr_i),
-          .D        (wdata_i),
-          .EMA      (ReadMargin),
-          .EMAW     (WriteMargin),
-          .TEN      (1'b1),             // Test Mode Enable (active low)
-          .TCEN     (1'b1),
-          .TWEN     ('0),
-          .TA       ('0),
-          .TD       ('0),
-          .GWEN     (~we_i),
-          .TGWEN    (1'b1),
-          .RET1N    (set_retentive_ni),
-          .SI       (2'b00),
-          .SE       (1'b0),             // Scan Enable Input (active high)
-          .DFTRAMBYP(1'b0)
-        );
-      end
-      8192: begin: gen_32kB_mem
-        sram8192x32m8 mem_bank (
-          .CENY     (),
-          .WENY     (),
-          .AY       (),
-          .GWENY    (),
-          .Q        (rdata_o),
-          .SO       (),
-          .CLK      (clk_i),
-          .CEN      (~req_i),
-          .WEN      (~bit_we),
-          .A        (addr_i),
-          .D        (wdata_i),
-          .EMA      (ReadMargin),
-          .EMAW     (WriteMargin),
-          .TEN      (1'b1),             // Test Mode Enable (active low)
-          .TCEN     (1'b1),
-          .TWEN     ('0),
-          .TA       ('0),
-          .TD       ('0),
-          .GWEN     (~we_i),
-          .TGWEN    (1'b1),
-          .RET1N    (set_retentive_ni),
-          .SI       (2'b00),
-          .SE       (1'b0),             // Scan Enable Input (active high)
-          .DFTRAMBYP(1'b0)
-        );
-      end
-      default: begin: gen_16kB_mem
-        sram4096x32m8 mem_bank (
-          .CENY     (),
-          .WENY     (),
-          .AY       (),
-          .GWENY    (),
-          .Q        (rdata_o),
-          .SO       (),
-          .CLK      (clk_i),
-          .CEN      (~req_i),
-          .WEN      (~bit_we),
-          .A        (addr_i),
-          .D        (wdata_i),
-          .EMA      (ReadMargin),
-          .EMAW     (WriteMargin),
-          .TEN      (1'b1),             // Test Mode Enable (active low)
-          .TCEN     (1'b1),
-          .TWEN     ('0),
-          .TA       ('0),
-          .TD       ('0),
-          .GWEN     (~we_i),
-          .TGWEN    (1'b1),
-          .RET1N    (set_retentive_ni),
-          .SI       (2'b00),
-          .SE       (1'b0),             // Scan Enable Input (active high)
-          .DFTRAMBYP(1'b0)
-        );
-      end
-    endcase
-  endgenerate
+// `elsif TSMC65
+//     generate
+//     case (NumWords)
+//       64: begin: gen_256B_rf
+//         rf64x32m2 mem_bank (
+//           .CENY     (),
+//           .WENY     (),
+//           .AY       (),
+//           .GWENY    (),
+//           .Q        (rdata_o),
+//           .SO       (),
+//           .CLK      (clk_i),
+//           .CEN      (~req_i),
+//           .WEN      (~bit_we),
+//           .A        (addr_i),
+//           .D        (wdata_i),
+//           .EMA      (ReadMargin),
+//           .EMAW     (WriteMargin),
+//           .TEN      (1'b1),             // Test Mode Enable (active low)
+//           .TCEN     (1'b1),
+//           .TWEN     ('0),
+//           .TA       ('0),
+//           .TD       ('0),
+//           .GWEN     (~we_i),
+//           .TGWEN    (1'b1),
+//           .RET1N    (set_retentive_ni),
+//           .SI       (2'b00),
+//           .SE       (1'b0),             // Scan Enable Input (active high)
+//           .DFTRAMBYP(1'b0)
+//         );
+//       end
+//       128: begin: gen_512B_rf
+//         rf128x32m2 mem_bank (
+//           .CENY     (),
+//           .WENY     (),
+//           .AY       (),
+//           .GWENY    (),
+//           .Q        (rdata_o),
+//           .SO       (),
+//           .CLK      (clk_i),
+//           .CEN      (~req_i),
+//           .WEN      (~bit_we),
+//           .A        (addr_i),
+//           .D        (wdata_i),
+//           .EMA      (ReadMargin),
+//           .EMAW     (WriteMargin),
+//           .TEN      (1'b1),             // Test Mode Enable (active low)
+//           .TCEN     (1'b1),
+//           .TWEN     ('0),
+//           .TA       ('0),
+//           .TD       ('0),
+//           .GWEN     (~we_i),
+//           .TGWEN    (1'b1),
+//           .RET1N    (set_retentive_ni),
+//           .SI       (2'b00),
+//           .SE       (1'b0),             // Scan Enable Input (active high)
+//           .DFTRAMBYP(1'b0)
+//         );
+//       end
+//       256: begin: gen_1kB_rf
+//         rf256x32m2 mem_bank (
+//           .CENY     (),
+//           .WENY     (),
+//           .AY       (),
+//           .GWENY    (),
+//           .Q        (rdata_o),
+//           .SO       (),
+//           .CLK      (clk_i),
+//           .CEN      (~req_i),
+//           .WEN      (~bit_we),
+//           .A        (addr_i),
+//           .D        (wdata_i),
+//           .EMA      (ReadMargin),
+//           .EMAW     (WriteMargin),
+//           .TEN      (1'b1),             // Test Mode Enable (active low)
+//           .TCEN     (1'b1),
+//           .TWEN     ('0),
+//           .TA       ('0),
+//           .TD       ('0),
+//           .GWEN     (~we_i),
+//           .TGWEN    (1'b1),
+//           .RET1N    (set_retentive_ni),
+//           .SI       (2'b00),
+//           .SE       (1'b0),             // Scan Enable Input (active high)
+//           .DFTRAMBYP(1'b0)
+//         );
+//       end
+//       2048: begin: gen_4kB_mem 
+//         sram2048x32m8 mem_bank (
+//           .CENY     (),
+//           .WENY     (),
+//           .AY       (),
+//           .GWENY    (),
+//           .Q        (rdata_o),
+//           .SO       (),
+//           .CLK      (clk_i),
+//           .CEN      (~req_i),
+//           .WEN      (~bit_we),
+//           .A        (addr_i),
+//           .D        (wdata_i),
+//           .EMA      (ReadMargin),
+//           .EMAW     (WriteMargin),
+//           .TEN      (1'b1),             // Test Mode Enable (active low)
+//           .TCEN     (1'b1),
+//           .TWEN     ('0),
+//           .TA       ('0),
+//           .TD       ('0),
+//           .GWEN     (~we_i),
+//           .TGWEN    (1'b1),
+//           .RET1N    (set_retentive_ni),
+//           .SI       (2'b00),
+//           .SE       (1'b0),             // Scan Enable Input (active high)
+//           .DFTRAMBYP(1'b0)
+//         );
+//       end
+//       8192: begin: gen_32kB_mem
+//         sram8192x32m8 mem_bank (
+//           .CENY     (),
+//           .WENY     (),
+//           .AY       (),
+//           .GWENY    (),
+//           .Q        (rdata_o),
+//           .SO       (),
+//           .CLK      (clk_i),
+//           .CEN      (~req_i),
+//           .WEN      (~bit_we),
+//           .A        (addr_i),
+//           .D        (wdata_i),
+//           .EMA      (ReadMargin),
+//           .EMAW     (WriteMargin),
+//           .TEN      (1'b1),             // Test Mode Enable (active low)
+//           .TCEN     (1'b1),
+//           .TWEN     ('0),
+//           .TA       ('0),
+//           .TD       ('0),
+//           .GWEN     (~we_i),
+//           .TGWEN    (1'b1),
+//           .RET1N    (set_retentive_ni),
+//           .SI       (2'b00),
+//           .SE       (1'b0),             // Scan Enable Input (active high)
+//           .DFTRAMBYP(1'b0)
+//         );
+//       end
+//       default: begin: gen_16kB_mem
+//         sram4096x32m8 mem_bank (
+//           .CENY     (),
+//           .WENY     (),
+//           .AY       (),
+//           .GWENY    (),
+//           .Q        (rdata_o),
+//           .SO       (),
+//           .CLK      (clk_i),
+//           .CEN      (~req_i),
+//           .WEN      (~bit_we),
+//           .A        (addr_i),
+//           .D        (wdata_i),
+//           .EMA      (ReadMargin),
+//           .EMAW     (WriteMargin),
+//           .TEN      (1'b1),             // Test Mode Enable (active low)
+//           .TCEN     (1'b1),
+//           .TWEN     ('0),
+//           .TA       ('0),
+//           .TD       ('0),
+//           .GWEN     (~we_i),
+//           .TGWEN    (1'b1),
+//           .RET1N    (set_retentive_ni),
+//           .SI       (2'b00),
+//           .SE       (1'b0),             // Scan Enable Input (active high)
+//           .DFTRAMBYP(1'b0)
+//         );
+//       end
+//     endcase
+//   endgenerate
 
-  // ----------
-  // ASSERTIONS
-  // ----------
-  `ifndef SYNTHESIS
-  `include "assertions/sram_wrapper_sva.svh"
-  `endif // SYNTHESIS
-`else
-  // Default case if neither GF22 nor TSMC65 is defined
-  initial begin
-    $error("Neither GF22 nor TSMC65 is defined! Please define one of them.");
-  end
+//   // ----------
+//   // ASSERTIONS
+//   // ----------
+//   `ifndef SYNTHESIS
+//   `include "assertions/sram_wrapper_sva.svh"
+//   `endif // SYNTHESIS
+// `else
+//   // Default case if neither GF22 nor TSMC65 is defined
+//   initial begin
+//     $error("Neither GF22 nor TSMC65 is defined! Please define one of them.");
+//   end
 
-`endif
+// `endif
 
 endmodule

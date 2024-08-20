@@ -70,4 +70,5 @@ targets:
       - target_sim_postlayout ? (rtl-postpnr)
       - target_sim_postsynthesis ? (rtl-postsyn)
       - target_sim_rtl_gf22 ? (rtl)
-      - target_sim_rtl_gf22 ? (rtl-postpnr)
+      # - target_sim_rtl_gf22 ? (rtl-postpnr)
+      - target_sim_rtl_gf22 ? (rtl-postsyn)

@@ -97,6 +97,7 @@ FUSESOC_BUILD_DIR			= $(shell find $(BUILD_DIR) -type d -name 'epfl_heepatia_hee
 # 	QUESTA_SIM_DIR=$(FUSESOC_BUILD_DIR)/sim-nofll-modelsim
 # endif
 QUESTA_SIM_DIR=$(FUSESOC_BUILD_DIR)/sim-modelsim
+QUESTA_SIM_RTL_GF22_DIR	= $(FUSESOC_BUILD_DIR)/sim_rtl_gf22-modelsim
 QUESTA_SIM_POSTSYNTH_DIR 	= $(FUSESOC_BUILD_DIR)/sim_postsynthesis-modelsim
 QUESTA_SIM_POSTLAYOUT_DIR 	= $(FUSESOC_BUILD_DIR)/sim_postlayout-modelsim
 
@@ -320,7 +321,7 @@ verilator-waves: $(BUILD_DIR)/sim-common/waves.fst | .check-gtkwave
 
 # QuestaSim RTL simulation
 # ------------------------
-# Build simulation model and launch simulation
+# Build simulation model
 .PHONY: questasim-build
 questasim-build: $(HEEPATIA_GEN_LOCK) $(DPI_LIBS)
 # ifeq ($(ACCESSIBLE), true)
@@ -404,6 +405,34 @@ $(BUILD_DIR)/sw/sim/uartdpi.so: hw/vendor/x-heep/hw/vendor/lowrisc_opentitan/hw/
 
 # Post-sysnthesis and post-layout simulations
 # -------------------------------------------
+
+# QuestaSim RTL + gf22 netlist of black boxes simulation
+
+## Build simulation model
+.PHONY: questasim-gf22-build
+questasim-gf22-build: $(HEEPATIA_GEN_LOCK) $(DPI_LIBS)
+	fusesoc run --no-export --target sim_rtl_gf22 --tool modelsim --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
+		$(FUSESOC_ARGS)
+	cd $(QUESTA_SIM_RTL_GF22_DIR) ; make opt
+
+## Launch simulation. Bootmode set to flash.
+.PHONY: questasim-gf22-run
+questasim-gf22-run:
+	fusesoc run --no-export --target sim_rtl_gf22 --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
+		--firmware=$(FIRMWARE) \
+		--bypass_fll_opt=$(BYPASS_FLL) \
+		--boot_mode=flash \
+		--vcd_mode=$(VCD_MODE) \
+		--max_cycles=$(MAX_CYCLES) \
+		$(FUSESOC_ARGS)
+	cat $(BUILD_DIR)/sim-common/uart.log
+
+## Launch simulation in GUI mode. Bootmode set to flash.
+.PHONY: questasim-gf22-gui
+questasim-gf22-gui: | $(QUESTA_SIM_RTL_GF22_DIR)/logs/
+	$(MAKE) -C $(QUESTA_SIM_RTL_GF22_DIR) run-gui RUN_OPT=1 PLUSARGS="firmware=$(FIRMWARE) bypass_fll_opt=$(BYPASS_FLL) boot_mode=flash vcd_mode=$(VCD_MODE) max_cycles=$(MAX_CYCLES)"
+
+
 # Questasim PostSynth Simulation (with no timing)
 .PHONY: questasim-postsynth-build
 questasim-postsynth-build: $(HEEPATIA_GEN_LOCK) $(DPI_LIBS)

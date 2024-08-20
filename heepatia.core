@@ -432,6 +432,57 @@ targets:
         - '-Wpedantic'
         - '-LDFLAGS "-pthread -lutil -lelf"'
         # - '-CFLAGS "-Wall -g"'
+  
+
+  # RTL simulation with TSMC16 netlist of memories, pads, etc.
+  sim_rtl_gf22:
+    <<: *default
+    description: Simulate the RTL + GF22 netlist of black boxes
+    default_tool: modelsim
+    filesets_append:
+    - rtl-sim
+    - rtl-gf22
+    - tb-system
+    - tb-system-vendor
+    - nm_carus_sim
+    - nm_caesar_sim
+    - tb-others
+    - tb-others-vendor
+    - pre_build_uartdpi
+    - fll_simulation  # FIXME: Add the actual FLL
+    toplevel:
+    - tb_top
+    hooks:
+      pre_build:
+      - pre_build_uartdpi
+      - pre_patch_modelsim_Makefile
+      pre_run:
+      - prepare_dirs
+      post_run:
+      - copy_waves
+      - copy_uart
+    parameters_append:
+    - boot_mode
+    - firmware
+    - max_cycles
+    - verbose
+    - vcd_mode
+    - bypass_fll_opt
+    tools:
+      modelsim:
+        vlog_options:
+        - -override_timescale 1ns/1ps
+        - -suppress vlog-2577
+        - -suppress vlog-2583
+        - -pedanticerrors
+        - -define MODELSIM
+        - +notimingcheck
+        - +nospecify
+        vsim_options:
+        - -suppress 3111 # suppress error on passing string variables to $fdumpvars, that is apparently supported instead
+        - -sv_lib ../../sw/sim/uartdpi
+        - -voptargs=+acc=npr
+        - "-64"
 
   # post synthesis simulation
   sim_postsynthesis:

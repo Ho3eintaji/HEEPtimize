@@ -32,6 +32,7 @@ targets:
     filesets:
     - target_sim? (rtl)
     - target_sim_rtl_tsmc65? (rtl)
+    - target_sim_rtl_gf22? (rtl)
     - target_sim_postsynthesis? (rtl)
     - target_sim_postlayout? (rtl-pg)
     - target_sim_postlayout_timing? (rtl-pg)

@@ -29,3 +29,4 @@ targets:
   default: &default
     filesets:
     - target_asic_synthesis ? (rtl-syn)
+    - target_sim_rtl_gf22 ? (rtl-syn)

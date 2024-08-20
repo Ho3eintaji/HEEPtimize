@@ -8,7 +8,7 @@
 // Description: Clock gating cell to be used in TSMC65 or GF22 implementations of carus
 
 // Define the technology flag
-`define GF22
+// `define GF22
 // or
 // `define TSMC65
 
@@ -19,7 +19,7 @@ module cgra_clock_gate (
     output logic clk_o
 );
 
-`ifdef GF22
+// `ifdef GF22
   // GF22 clock gating standard cell
   gf22_clk_gating clk_gate_i (
       .clk_i(clk_i),
@@ -27,20 +27,20 @@ module cgra_clock_gate (
       .test_en_i(test_en_i),
       .clk_o(clk_o)
   );
-`elsif TSMC65
-  // TSMC65 clock gating standard cell
-  tsmc65_clk_gating clk_gate_i (
-      .clk_i(clk_i),
-      .en_i(en_i),
-      .test_en_i(test_en_i),
-      .clk_o(clk_o)
-  );
-`else
-  // Default case if neither GF22 nor TSMC65 is defined
-  initial begin
-    $error("Neither GF22 nor TSMC65 is defined! Please define one of them.");
-  end
+// `elsif TSMC65
+//   // TSMC65 clock gating standard cell
+//   tsmc65_clk_gating clk_gate_i (
+//       .clk_i(clk_i),
+//       .en_i(en_i),
+//       .test_en_i(test_en_i),
+//       .clk_o(clk_o)
+//   );
+// `else
+//   // Default case if neither GF22 nor TSMC65 is defined
+//   initial begin
+//     $error("Neither GF22 nor TSMC65 is defined! Please define one of them.");
+//   end
 
-`endif
+// `endif
 
 endmodule

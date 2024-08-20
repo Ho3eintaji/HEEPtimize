@@ -50,6 +50,8 @@ targets:
     - target_sim? (rtl-postsyn)
     - target_sim_rtl_tsmc65? (rtl)
     - target_sim_rtl_tsmc65? (rtl-postsyn)
+    - target_sim_rtl_gf22? (rtl)
+    - target_sim_rtl_gf22? (rtl-postsyn)
     - target_sim_postsynthesis? (rtl)
     - target_sim_postsynthesis? (rtl-postsyn)
     - target_sim_postlayout? (rtl-postpnr)
