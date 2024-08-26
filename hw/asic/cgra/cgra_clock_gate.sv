@@ -2,7 +2,7 @@
 // Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
-// File: carus_clk_gate_wrapper.sv
+// File: cgra_clk_gate_wrapper.sv
 // Author: Hossein Taji
 // Date: 14/08/2024
 // Description: Clock gating cell to be used in TSMC65 or GF22 implementations of carus

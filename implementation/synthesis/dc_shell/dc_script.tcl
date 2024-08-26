@@ -65,6 +65,8 @@ report_timing -max_paths 10 -through u_heepatia_peripherals/gen_caesar_0__u_nm_c
 report_timing -max_paths 10 -through u_core_v_mini_mcu/external_subsystem_powergate_switch_ack_i*  >> ${REPORT_DIR}/timing_sw_cells.rpt
 report_timing -max_paths 10 -through u_heepatia_peripherals/u_cgra_top_wrapper/*  >> ${REPORT_DIR}/timing_cgra.rpt
 
+# check_design 
+
 ### save here also the report
 set report_date [sh date +%Y_%m_%d_%k:%M]
 
