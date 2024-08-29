@@ -11,7 +11,7 @@
     // CORE-V-MINI-MCU CPU features
     cpu_features: {
         corev_pulp: true,
-        corev_xif: true,
+        corev_xif: false,
         fpu: false,
         riscv_zfinx: false,
     },

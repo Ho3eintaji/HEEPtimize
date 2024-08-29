@@ -53,26 +53,29 @@ module fll_subsystem
   assign fll_slave_resp_o.ready = fll_pready;
   assign fll_slave_resp_o.error = fll_pslverr;
 
-  fll_wrapper u_fll_wrapper (
-    .clk_o      (fll_clk),
-    .oe_i       (1'b1),
-    .ref_clk_i  (ref_clk_i),
-    .lock_o     (fll_lock),
-    .req_i      (fll_req),
-    .ack_o      (fll_ack),
-    .addr_i     (fll_add[1:0]),
-    .wdata_i    (fll_data),
-    .rdata_o    (fll_r_data),
-    .wr_ni      (fll_wrn),
-    .rst_ni     (rst_ni),
-    .pwd_i      (1'b0),
-    .test_mode_i(test_mode),
-    .shift_en_i (shift_enable),
-    .td_i       (1'b0),
-    .tq_o       (),
-    .jtd_i      (1'b0),
-    .jtq_o      ()
-  );
+  assign fll_clk                = ref_clk_i;
+
+  //FIXME: add the fll
+  // fll_wrapper u_fll_wrapper (
+  //   .clk_o      (fll_clk),
+  //   .oe_i       (1'b1),
+  //   .ref_clk_i  (ref_clk_i),
+  //   .lock_o     (fll_lock),
+  //   .req_i      (fll_req),
+  //   .ack_o      (fll_ack),
+  //   .addr_i     (fll_add[1:0]),
+  //   .wdata_i    (fll_data),
+  //   .rdata_o    (fll_r_data),
+  //   .wr_ni      (fll_wrn),
+  //   .rst_ni     (rst_ni),
+  //   .pwd_i      (1'b0),
+  //   .test_mode_i(test_mode),
+  //   .shift_en_i (shift_enable),
+  //   .td_i       (1'b0),
+  //   .tq_o       (),
+  //   .jtd_i      (1'b0),
+  //   .jtq_o      ()
+  // );
 
   pulp_clock_mux2 clk_mux_fll_soc_i (
     .clk0_i   (fll_clk),
