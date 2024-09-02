@@ -119,8 +119,18 @@ SW_DIR		:= sw
 # Dummy target to force software rebuild
 PARAMS = $(PROJECT)
 
+# power analysis
+PWR_TYPE ?= postsynth
+# Conditional check to set PWR_VCD based on PWR_TYPE
+ifeq ($(PWR_TYPE),postlayout)
+    PWR_VCD ?= $(QUESTA_SIM_POSTLAYOUT_DIR)/logs/waves-0.vcd
+else ifeq ($(PWR_TYPE),postsynth)
+    PWR_VCD ?= $(QUESTA_SIM_POSTSYNTH_DIR)/logs/waves-0.vcd
+else
+    $(error "Unknown SIM_TYPE specified. Use 'postlayout' or 'postsynth'.")
+endif
+
 # Benchmarking configuration
-PWR_VCD ?= $(QUESTA_SIM_POSTLAYOUT_DIR)/logs/waves-0.vcd
 THR_TESTS ?= scripts/performance-analysis/throughput-tests.txt
 PWR_TESTS ?= scripts/performance-analysis/power-tests.txt
 
@@ -129,8 +139,21 @@ CARUS_PL_SDF := $(ROOT_DIR)/hw/vendor/nm-carus-backend-opt/implementation/pnr/ou
 CAESAR_PL_SDF := $(ROOT_DIR)/hw/vendor/nm-caesar-backend-opt/implementation/pnr/outputs/nm-caesar/sdf/NMCaesar_top_pared.sdf
 
 #HEEPATIA PL Netlist and SDF
-HEEPATIA_PL_NET := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heepatia_pg.v
-HEEPATIA_PL_SDF := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heepatia.sdf
+# HEEPATIA_PL_NET := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heepatia_pg.v
+# HEEPATIA_PL_SDF := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heepatia.sdf
+
+# Using post synthesis files
+# Conditional check of PWR_TYPE
+ifeq ($(PWR_TYPE),postlayout)
+    HEEPATIA_PL_NET := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heepatia_pg.v
+	HEEPATIA_PL_SDF := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heepatia.sdf
+else ifeq ($(PWR_TYPE),postsynth)
+	HEEPATIA_PL_NET := $(BUILD_DIR)/epfl_heepatia_heepatia_0.3.0/asic_synthesis-design_compiler/report/netlist.v
+	HEEPATIA_PL_SDF := $(BUILD_DIR)/epfl_heepatia_heepatia_0.3.0/asic_synthesis-design_compiler/report/netlist.sdf
+else
+    $(error "Unknown SIM_TYPE specified. Use 'postlayout' or 'postsynth'.")
+endif
+
 #for power analysis
 HEEPATIA_PL_NET_PA := $(ROOT_DIR)/implementation/power_analysis/heepatia_pg_power_analysis.v
 HEEPATIA_PL_SDF_PA := $(ROOT_DIR)/implementation/power_analysis/heepatia.sdf
@@ -550,17 +573,20 @@ charts: build/performance-analysis/power.csv build/performance-analysis/throughp
 # --------------
 .PHONY: patch-files-power-analysis
 patch-files-power-analysis: $(BUILD_DIR)/.patch-files-power-analysis.lock
-$(BUILD_DIR)/.patch-files-power-analysis.lock: $(HEEPATIA_PL_NET) $(HEEPATIA_PL_SDF).gz
+# TODO: is bellow correct ?
+# $(BUILD_DIR)/.patch-files-power-analysis.lock: $(HEEPATIA_PL_NET) $(HEEPATIA_PL_SDF).gz 
+$(BUILD_DIR)/.patch-files-power-analysis.lock: $(HEEPATIA_PL_NET) $(HEEPATIA_PL_SDF)
 #   the LIB and LEF of the FLL are wrong as the VDDA power pin is missing, thus deleting it so that power analysis can be done
 	cp $(HEEPATIA_PL_NET) $(HEEPATIA_PL_NET_PA)
-	sed -i '/.VDDA(VDD)/d' $(HEEPATIA_PL_NET_PA)
+# sed -i '/.VDDA(VDD)/d' $(HEEPATIA_PL_NET_PA)
 	touch $(BUILD_DIR)/.patch-files-power-analysis.lock
 
 .PHONY: power-analysis
 power-analysis: $(BUILD_DIR)/.patch-files-power-analysis.lock $(PWR_VCD)
 	@echo "### Running power analysis..."
 	rm -rf implementation/power_analysis/reports/*
-	pushd implementation/power_analysis/; ./run_pwr_flow.sh $(PWR_VCD) $(HEEPATIA_PL_NET_PA) $(HEEPATIA_PL_SDF).gz heepatia_top; popd;
+	pushd implementation/power_analysis/; ./run_pwr_flow.sh $(PWR_VCD) $(HEEPATIA_PL_NET_PA) $(HEEPATIA_PL_SDF) heepatia_top; popd;
+# pushd implementation/power_analysis/; ./run_pwr_flow.sh $(PWR_VCD) $(HEEPATIA_PL_NET_PA) $(HEEPATIA_PL_SDF).gz heepatia_top; popd;
 
 # Software
 # --------
