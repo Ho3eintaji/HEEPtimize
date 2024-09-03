@@ -86,7 +86,8 @@ set lib_fll(tt) $design(FLOW_ROOT)/hw/asic/fll/db/tsmc65_FLL_ss_typical_max_1p08
 # set lib_io(bc_m40) $lib_io(bc)
 # set lib_io(wc_m40) $lib_io(wc)
 # set lib_io(bc_125) $lib_io(bc)
-set lib_io(tt) $design(FLOW_ROOT)/hw/asic/pads/IN22FDX_GPIO18_10M3S40PI_SSG_0P72_1P62_125.db
+
+# set lib_io(tt) $design(FLOW_ROOT)/hw/asic/pads/IN22FDX_GPIO18_10M3S40PI_SSG_0P72_1P62_125.db
 
 
 # set lib_mem(wc) $design(FLOW_ROOT)/hw/asic/symlinks/ARM_Memories/sram8192x32m8/db/sram8192x32m8_ss_1p08v_1p08v_125c.db
@@ -133,7 +134,8 @@ set lib_mem(tt) [join $lib_mem(tt) " "]
 
 # target library
 # set target_library "$lib_std($ANALYSIS_MODE) $lib_std_rvt($ANALYSIS_MODE) $lib_std_hvt($ANALYSIS_MODE) $lib_std_dualrail($ANALYSIS_MODE) $lib_cgcells($ANALYSIS_MODE) $lib_pswitch($ANALYSIS_MODE) $lib_fll($ANALYSIS_MODE) $lib_io($ANALYSIS_MODE) $lib_mem($ANALYSIS_MODE) $lib_emem($ANALYSIS_MODE) $lib_vrf($ANALYSIS_MODE)"
-set target_library "$lib_std($ANALYSIS_MODE) $lib_fll($ANALYSIS_MODE) $lib_io($ANALYSIS_MODE) $lib_mem($ANALYSIS_MODE)"
+# set target_library "$lib_std($ANALYSIS_MODE) $lib_fll($ANALYSIS_MODE) $lib_io($ANALYSIS_MODE) $lib_mem($ANALYSIS_MODE)"
+set target_library "$lib_std($ANALYSIS_MODE) $lib_fll($ANALYSIS_MODE) $lib_mem($ANALYSIS_MODE)"
 
 # link library
 set link_library ""

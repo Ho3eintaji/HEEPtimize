@@ -33,8 +33,10 @@ module pad_cell_output #(
   */
 
   // Drive pad_io based on pad_in_i and pad_oe_i
-  assign pad_io = (pad_oe_i) ? pad_in_i : 1'bz; // Drive pad_io with pad_in_i if pad_oe_i is high, else high-Z
-  assign pad_out_o = pad_io; // Reflect the state of pad_io on pad_out_o
+  logic pad;
+  assign pad_out_o = 1'b0;
+  assign pad_io = pad;
+  assign pad = pad_in_i;
 
 
 endmodule

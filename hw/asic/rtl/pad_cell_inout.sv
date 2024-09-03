@@ -31,7 +31,9 @@ module pad_cell_inout #(
   */
   
   // Directly assign the pad_io to pad_out_o and pad_in_i
-  assign pad_io = (pad_oe_i) ? pad_in_i : 1'bz; // High-Z when output enable is off
+  logic pad;
   assign pad_out_o = pad_io;
+  assign pad_io = pad;
+  assign pad = (pad_oe_i) ? pad_in_i : 1'bz;
 
 endmodule

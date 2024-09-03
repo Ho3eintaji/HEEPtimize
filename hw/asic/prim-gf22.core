@@ -42,7 +42,8 @@ filesets:
     - std-cells-memories/memories/MemViews_6T_4096x32_LPP_M4_TT_0_800_0_800_25/model/verilog/sram4096x32m4_TT_0_800_0_800_25.v
     - std-cells-memories/memories/MemViews_6T_8192x32_LPP_M4_TT_0_800_0_800_25/model/verilog/sram8192x32m4_TT_0_800_0_800_25.v
 
-    - symlinks/IOs/model/verilog/IN22FDX_GPIO18_10M3S40PI.v
+    # FIXME: i removed padding
+    # - symlinks/IOs/model/verilog/IN22FDX_GPIO18_10M3S40PI.v
     file_type: verilogSource
 
   # Post-layout models
@@ -57,7 +58,7 @@ filesets:
     - std-cells-memories/memories/MemViews_6T_4096x32_LPP_M4_TT_0_800_0_800_25/model/verilog/sram4096x32m4_TT_0_800_0_800_25.v
     - std-cells-memories/memories/MemViews_6T_8192x32_LPP_M4_TT_0_800_0_800_25/model/verilog/sram8192x32m4_TT_0_800_0_800_25.v
     
-    - symlinks/IOs/model/verilog/IN22FDX_GPIO18_10M3S40PI.v
+    # - symlinks/IOs/model/verilog/IN22FDX_GPIO18_10M3S40PI.v
     file_type: verilogSource
 
 targets:
