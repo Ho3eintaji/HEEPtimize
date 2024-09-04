@@ -2,10 +2,7 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-# set analysis mode
-set ANALYSIS_MODE tt
-
-set PERFORM_STA 0
+set PERFORM_STA 1
 
 # initial setup
 set power_enable_timing_analysis true
@@ -15,6 +12,9 @@ set power_analysis_mode averaged
 set design(FLOW_ROOT) $::env(FLOW_ROOT)
 
 # should be passed from the Makefile
+echo "PWR ANALYSIS MODE: " $PWR_ANALYSIS_MODE
+# set analysis mode
+set ANALYSIS_MODE $PWR_ANALYSIS_MODE
 echo "NETLIST FILE: " $NETLIST
 echo "TOP_MODULE: " $TOP_MODULE
 set VCD_FILE "$design(FLOW_ROOT)/$VCD_FILE"
@@ -33,12 +33,12 @@ if {$TOP_MODULE == "heepatia_top"} {
 # source init
 source ../common/primetime/init.tcl
 
-# if {$TOP_MODULE == "heepatia_top"} {
-#     # set constraints
-#     source ${CONSTRAINTS}
-# } else {
-#     create_clock clk_i -period 3.0
-# }
+# set constraints
+if {$TOP_MODULE == "heepatia_top"} {
+    source ${CONSTRAINTS}
+} else {
+    create_clock clk_i -period 3.0
+}
 
 # # clock tree synthesis
 # set_propagated_clock [all_clocks]
@@ -47,9 +47,10 @@ source ../common/primetime/init.tcl
 read_sdf -load_delay cell $SDF_FILE
 report_annotated_delay > $REPORTS_PATH/annotated_delay.rpt
 
-# update_timing
+# update timing
 update_timing -full
 
+# Timing analysis
 if { $PERFORM_STA == 1 } {
     puts "Performing STA\n"
     # ensure design is properly constrained
@@ -59,16 +60,20 @@ if { $PERFORM_STA == 1 } {
     report_timing -slack_lesser_than 0.0 -delay min_max -nosplit -input -net -sign 4 -max_paths 10 > $REPORTS_PATH/timing.rpt
     report_clock -skew -attribute > $REPORTS_PATH/clock.rpt
     report_analysis_coverage -status_details {untested} > $REPORTS_PATH/analysis_coverage.rpt
+
+    # # Report worst slack for all clocks
+    # report_worst_slack > $REPORTS_PATH/worst_slack.rpt
+
+    # # Report frequency for each clock
+    # foreach clk [all_clocks] {
+    #     set freq [expr 1.0 / [get_attribute $clk period]]
+    #     puts "Frequency for clock $clk: $freq MHz"
+    #     puts [open "$REPORTS_PATH/clock_frequency.rpt" a] "Frequency for clock $clk: $freq MHz"
+    # }
 }
 
 # read sw activity
 read_vcd ${VCD_FILE} -strip_path $STRIP_PATH
-
-# 
-# # read UPF
-# if {$TOP_MODULE == "heepatia_top"} {
-#     load_upf ../../heepatia.post_synthesis.upf
-# }
 
 # run power analysis
 update_power

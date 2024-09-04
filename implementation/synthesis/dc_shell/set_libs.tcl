@@ -13,7 +13,7 @@ proc find_files {dir pattern} {
 
 # set std cells
 set STD_CELLS_DIR ../../../hw/asic/std-cells/GF22FDX_SC8T_104CPP_BASE_CSC28R_FDK_RELV05R50/model/timing/db
-set DB_STDCELLS [glob -directory $STD_CELLS_DIR -- "*TT_0P80V_0P00V_0P00V_0P00V_25C.db"]
+set DB_STDCELLS [glob -directory $STD_CELLS_DIR -- "*SSG_0P81V_0P00V_0P00V_0P00V_125C.db"] 
 puts "------------------------------------------------------------------"
 puts "USED STDCELLS"
 puts $DB_STDCELLS
@@ -22,7 +22,7 @@ puts "------------------------------------------------------------------"
 
 set MEMORIES_DIR ../../../hw/asic/std-cells-memories/memories
 # Find all .db files recursively
-set DB_MEM [find_files $MEMORIES_DIR "*TT_0_800_0_800_25*_025C.db"]
+set DB_MEM [find_files $MEMORIES_DIR "*116cpp_SSG_0P810V_0P810V_0P000V_0P000V_125C.db"] 
 
 # Check if any files were found
 if {[llength $DB_MEM] == 0} {

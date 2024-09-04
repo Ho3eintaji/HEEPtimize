@@ -104,6 +104,14 @@ QUESTA_SIM_POSTLAYOUT_DIR 	= $(FUSESOC_BUILD_DIR)/sim_postlayout-modelsim
 # Waves
 SIM_VCD 			?= $(BUILD_DIR)/sim-common/questa-waves.fst
 
+# Default ANALYSIS_MODE value
+PWR_ANALYSIS_MODE ?= tt_0p80_25
+# ANALYSIS_MODE can be one of the following:
+# tt_0p50_25  -> Typical at 0.50V, 25C
+# tt_0p65_25  -> Typical at 0.65V, 25C
+# tt_0p80_25  -> Typical at 0.80V, 25C
+# tt_0p90_25  -> Typical at 0.90V, 25C
+
 # Application data generation
 # NOTE: the application makefile may accept additional parameters, e.g.:
 # 	KERNEL_PARAMS="--row_a 8 --col_a 8 --col_b 256"
@@ -573,7 +581,7 @@ charts: build/performance-analysis/power.csv build/performance-analysis/throughp
 # --------------
 .PHONY: patch-files-power-analysis
 patch-files-power-analysis: $(BUILD_DIR)/.patch-files-power-analysis.lock
-# TODO: is bellow correct ?
+# TODO: is below correct?
 # $(BUILD_DIR)/.patch-files-power-analysis.lock: $(HEEPATIA_PL_NET) $(HEEPATIA_PL_SDF).gz 
 $(BUILD_DIR)/.patch-files-power-analysis.lock: $(HEEPATIA_PL_NET) $(HEEPATIA_PL_SDF)
 #   the LIB and LEF of the FLL are wrong as the VDDA power pin is missing, thus deleting it so that power analysis can be done
@@ -585,7 +593,7 @@ $(BUILD_DIR)/.patch-files-power-analysis.lock: $(HEEPATIA_PL_NET) $(HEEPATIA_PL_
 power-analysis: $(BUILD_DIR)/.patch-files-power-analysis.lock $(PWR_VCD)
 	@echo "### Running power analysis..."
 	rm -rf implementation/power_analysis/reports/*
-	pushd implementation/power_analysis/; ./run_pwr_flow.sh $(PWR_VCD) $(HEEPATIA_PL_NET_PA) $(HEEPATIA_PL_SDF) heepatia_top; popd;
+	pushd implementation/power_analysis/; ./run_pwr_flow.sh $(PWR_VCD) $(HEEPATIA_PL_NET_PA) $(HEEPATIA_PL_SDF) heepatia_top $(PWR_ANALYSIS_MODE); popd;
 # pushd implementation/power_analysis/; ./run_pwr_flow.sh $(PWR_VCD) $(HEEPATIA_PL_NET_PA) $(HEEPATIA_PL_SDF).gz heepatia_top; popd;
 
 # Software

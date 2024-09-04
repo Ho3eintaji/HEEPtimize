@@ -64,7 +64,7 @@ module sram_wrapper #(
         wire [2-1:0] acI;
         assign {awI[6-1:2], asI, awI[1:0], acI} = addr_i;
 
-        sram512x32m4_TT_0_800_0_800_25 mem_bank (
+        sram512x32m4 mem_bank (
           .CLK        (clk_i),
           .CEN        (~req_i),
           .RDWEN      (~we_i),
@@ -103,7 +103,7 @@ module sram_wrapper #(
         wire [2-1:0] acI;
         assign {awI[7-1:2], asI, awI[1:0], acI} = addr_i;
 
-        sram1024x32m4_TT_0_800_0_800_25 mem_bank (
+        sram1024x32m4 mem_bank (
           .CLK        (clk_i),
           .CEN        (~req_i),
           .RDWEN      (~we_i),
@@ -142,7 +142,7 @@ module sram_wrapper #(
         wire [2-1:0] acI;
         assign {awI[8-1:2], asI, awI[1:0], acI} = addr_i;
 
-        sram2048x32m4_TT_0_800_0_800_25 mem_bank (
+        sram2048x32m4 mem_bank (
           .CLK        (clk_i),
           .CEN        (~req_i),
           .RDWEN      (~we_i),
@@ -181,7 +181,7 @@ module sram_wrapper #(
         wire [2-1:0] acI;
         assign {awI[8-1:2], asI, awI[1:0], acI} = addr_i;
 
-        sram4096x32m4_TT_0_800_0_800_25 mem_bank (
+        sram4096x32m4 mem_bank (
           .CLK        (clk_i),
           .CEN        (~req_i),
           .RDWEN      (~we_i),
@@ -220,7 +220,7 @@ module sram_wrapper #(
         wire [2-1:0] acI;
         assign {awI[8-1:2], asI, awI[1:0], acI} = addr_i;
 
-        sram8192x32m4_TT_0_800_0_800_25 mem_bank (
+        sram8192x32m4 mem_bank (
           .CLK        (clk_i),
           .CEN        (~req_i),
           .RDWEN      (~we_i),

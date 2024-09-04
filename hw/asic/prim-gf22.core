@@ -36,11 +36,11 @@ filesets:
     - std-cells/GF22FDX_SC8T_104CPP_BASE_CSC28R_FDK_RELV05R50/model/verilog/GF22FDX_SC8T_104CPP_BASE_CSC28R.v
     - std-cells/GF22FDX_SC8T_104CPP_BASE_CSC28R_FDK_RELV05R50/model/verilog/prim.v
 
-    - std-cells-memories/memories/MemViews_6T_512x32_LPP_M4_TT_0_800_0_800_25/model/verilog/sram512x32m4_TT_0_800_0_800_25.v
-    - std-cells-memories/memories/MemViews_6T_1024x32_LPP_M4_TT_0_800_0_800_25/model/verilog/sram1024x32m4_TT_0_800_0_800_25.v
-    - std-cells-memories/memories/MemViews_6T_2048x32_LPP_M4_TT_0_800_0_800_25/model/verilog/sram2048x32m4_TT_0_800_0_800_25.v
-    - std-cells-memories/memories/MemViews_6T_4096x32_LPP_M4_TT_0_800_0_800_25/model/verilog/sram4096x32m4_TT_0_800_0_800_25.v
-    - std-cells-memories/memories/MemViews_6T_8192x32_LPP_M4_TT_0_800_0_800_25/model/verilog/sram8192x32m4_TT_0_800_0_800_25.v
+    - std-cells-memories/memories/MemViews_6T_512x32_LPP_M4_SSG_0_810_0_810_125/model/verilog/sram512x32m4.v
+    - std-cells-memories/memories/MemViews_6T_1024x32_LPP_M4_SSG_0_810_0_810_125/model/verilog/sram1024x32m4.v
+    - std-cells-memories/memories/MemViews_6T_2048x32_LPP_M4_SSG_0_810_0_810_125/model/verilog/sram2048x32m4.v
+    - std-cells-memories/memories/MemViews_6T_4096x32_LPP_M4_SSG_0_810_0_810_125/model/verilog/sram4096x32m4.v
+    - std-cells-memories/memories/MemViews_6T_8192x32_LPP_M4_SSG_0_810_0_810_125/model/verilog/sram8192x32m4.v
 
     # FIXME: i removed padding
     # - symlinks/IOs/model/verilog/IN22FDX_GPIO18_10M3S40PI.v
@@ -52,11 +52,11 @@ filesets:
     - std-cells/GF22FDX_SC8T_104CPP_BASE_CSC28R_FDK_RELV05R50/model/verilog/GF22FDX_SC8T_104CPP_BASE_CSC28R.v
     - std-cells/GF22FDX_SC8T_104CPP_BASE_CSC28R_FDK_RELV05R50/model/verilog/prim.v
 
-    - std-cells-memories/memories/MemViews_6T_512x32_LPP_M4_TT_0_800_0_800_25/model/verilog/sram512x32m4_TT_0_800_0_800_25.v
-    - std-cells-memories/memories/MemViews_6T_1024x32_LPP_M4_TT_0_800_0_800_25/model/verilog/sram1024x32m4_TT_0_800_0_800_25.v
-    - std-cells-memories/memories/MemViews_6T_2048x32_LPP_M4_TT_0_800_0_800_25/model/verilog/sram2048x32m4_TT_0_800_0_800_25.v
-    - std-cells-memories/memories/MemViews_6T_4096x32_LPP_M4_TT_0_800_0_800_25/model/verilog/sram4096x32m4_TT_0_800_0_800_25.v
-    - std-cells-memories/memories/MemViews_6T_8192x32_LPP_M4_TT_0_800_0_800_25/model/verilog/sram8192x32m4_TT_0_800_0_800_25.v
+    - std-cells-memories/memories/MemViews_6T_512x32_LPP_M4_SSG_0_810_0_810_125/model/verilog/sram512x32m4.v
+    - std-cells-memories/memories/MemViews_6T_1024x32_LPP_M4_SSG_0_810_0_810_125/model/verilog/sram1024x32m4.v
+    - std-cells-memories/memories/MemViews_6T_2048x32_LPP_M4_SSG_0_810_0_810_125/model/verilog/sram2048x32m4.v
+    - std-cells-memories/memories/MemViews_6T_4096x32_LPP_M4_SSG_0_810_0_810_125/model/verilog/sram4096x32m4.v
+    - std-cells-memories/memories/MemViews_6T_8192x32_LPP_M4_SSG_0_810_0_810_125/model/verilog/sram8192x32m4.v
     
     # - symlinks/IOs/model/verilog/IN22FDX_GPIO18_10M3S40PI.v
     file_type: verilogSource
