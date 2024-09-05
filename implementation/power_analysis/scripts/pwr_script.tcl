@@ -33,12 +33,10 @@ if {$TOP_MODULE == "heepatia_top"} {
 # source init
 source ../common/primetime/init.tcl
 
-# set constraints
-if {$TOP_MODULE == "heepatia_top"} {
-    source ${CONSTRAINTS}
-} else {
-    create_clock clk_i -period 3.0
-}
+set CONSTRAINTS $design(FLOW_ROOT)/implementation/synthesis/dc_shell/set_constraints.tcl
+# set CONSTRAINTS  $design(FLOW_ROOT)/implementation/synthesis/last_output/netlist.sdc
+source ${CONSTRAINTS}
+
 
 # # clock tree synthesis
 # set_propagated_clock [all_clocks]
@@ -53,13 +51,17 @@ update_timing -full
 # Timing analysis
 if { $PERFORM_STA == 1 } {
     puts "Performing STA\n"
+
     # ensure design is properly constrained
     check_timing -verbose > $REPORTS_PATH/check_timing.rpt
 
     # report_timing section
-    report_timing -slack_lesser_than 0.0 -delay min_max -nosplit -input -net -sign 4 -max_paths 10 > $REPORTS_PATH/timing.rpt
+    report_timing -slack_lesser_than 0.0 -delay min -nosplit -input -net -sign 4 -max_paths 50 > $REPORTS_PATH/timing_min.rpt
+    report_timing -slack_lesser_than 0.0 -delay max -nosplit -input -net -sign 4 -max_paths 50 > $REPORTS_PATH/timing_max.rpt
+    report_timing > $REPORTS_PATH/timing_cmplt.rpt
     report_clock -skew -attribute > $REPORTS_PATH/clock.rpt
     report_analysis_coverage -status_details {untested} > $REPORTS_PATH/analysis_coverage.rpt
+    report_disable_timing > $REPORTS_PATH/disable_timing.rpt
 
     # # Report worst slack for all clocks
     # report_worst_slack > $REPORTS_PATH/worst_slack.rpt

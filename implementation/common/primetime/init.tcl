@@ -6,7 +6,7 @@ set design(FLOW_ROOT) $::env(FLOW_ROOT)
 
 set SET_LIBS     ../common/primetime/set_libs.tcl
 set REPORTS_PATH ./reports
-set CONSTRAINTS  $design(FLOW_ROOT)/implementation/synthesis/last_output/netlist.sdc
+# set CONSTRAINTS  $design(FLOW_ROOT)/implementation/synthesis/last_output/netlist.sdc
 
 # create reports folder
 sh mkdir -p $REPORTS_PATH
