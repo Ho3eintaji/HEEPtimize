@@ -18,7 +18,7 @@ set lib_std(tt_0p90_25) $design(FLOW_ROOT)/hw/asic/std-cells/GF22FDX_SC8T_104CPP
 set lib_std(wc)         $design(FLOW_ROOT)/hw/asic/std-cells/GF22FDX_SC8T_104CPP_BASE_CSC28R_FDK_RELV05R50/model/timing/db/GF22FDX_SC8T_104CPP_BASE_CSC28R_SSG_0P81V_0P00V_0P00V_0P00V_125C.db
 
 # FLL libraries
-set lib_fll $design(FLOW_ROOT)/hw/asic/fll/db/tsmc65_FLL_ss_typical_max_1p08v_125c.db
+# set lib_fll $design(FLOW_ROOT)/hw/asic/fll/db/tsmc65_FLL_ss_typical_max_1p08v_125c.db
 
 # Memory libraries
 set lib_mem(tt_0p50_25) ""
@@ -61,7 +61,8 @@ lappend lib_mem(wc)         $design(FLOW_ROOT)/hw/asic/std-cells-memories/memori
 set lib_mem($ANALYSIS_MODE) [join $lib_mem($ANALYSIS_MODE) " "]
 
 # Target library
-set target_library "$lib_std($ANALYSIS_MODE) $lib_fll $lib_mem($ANALYSIS_MODE)"
+# set target_library "$lib_std($ANALYSIS_MODE) $lib_fll $lib_mem($ANALYSIS_MODE)"
+set target_library "$lib_std($ANALYSIS_MODE) $lib_mem($ANALYSIS_MODE)"
 
 # Link library
 set link_library ""

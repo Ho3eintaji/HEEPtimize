@@ -37,9 +37,9 @@ if {[llength $DB_MEM] == 0} {
 # set PADS_DIR     ../../../hw/asic/pads
 # set DB_PAD [glob -directory $PADS_DIR -- "*.db"]
 
-set FLL_DIR     ../../../hw/asic/fll/db
-set DB_FLL {}
-lappend DB_FLL "$FLL_DIR/tsmc65_FLL_ss_typical_max_1p08v_125c.db"
+# set FLL_DIR     ../../../hw/asic/fll/db
+# set DB_FLL {}
+# lappend DB_FLL "$FLL_DIR/tsmc65_FLL_ss_typical_max_1p08v_125c.db"
 
 # set MEM_PWR_SW_DIR ../../../hw/asic/mem-power-switches/db
 # set DB_MEM_PW_SW {}
@@ -48,7 +48,8 @@ lappend DB_FLL "$FLL_DIR/tsmc65_FLL_ss_typical_max_1p08v_125c.db"
 # target library
 set target_library      {}
 # set target_library  "$DB_STDCELLS $DB_MEM $DB_PAD $DB_FLL $DB_MEM_PW_SW $NM_CAESAR $NM_CARUS"
-set target_library  "$DB_STDCELLS $DB_MEM $DB_FLL"
+# set target_library  "$DB_STDCELLS $DB_MEM $DB_FLL"
+set target_library  "$DB_STDCELLS $DB_MEM"
 
 # link library
 set link_library "* $target_library"
