@@ -78,14 +78,17 @@ DPI_CINC			:= -I$(dir $(shell which verilator))../share/verilator/include/vltstd
 
 # Simulation configuration
 LOG_LEVEL			?= LOG_NORMAL
-BOOT_MODE			?= flash # jtag: wait for JTAG (DPI module), flash: boot from flash, force: load firmware into SRAM
+BOOT_MODE			?= force # jtag: wait for JTAG (DPI module), flash: boot from flash, force: load firmware into SRAM
 FIRMWARE			?= $(ROOT_DIR)/build/sw/app/main.hex
 FIRMWARE_FLASH 		?= $(ROOT_DIR)/build/sw/app-flash/main.hex
 VCD_MODE			?= 0 # QuestaSim-only - 0: no dumo, 1: dump always active, 2: dump triggered by GPIO 0
-BYPASS_FLL          ?= 0 # 0: FLL enabled, 1: FLL bypassed (TODO: make FLL work and set this to 0 by default)
+BYPASS_FLL          ?= 1 # 0: FLL enabled, 1: FLL bypassed (TODO: make FLL work and set this to 0 by default)
 MAX_CYCLES			?= 10000000
 FUSESOC_FLAGS		?=
 FUSESOC_ARGS		?=
+
+# Flash file
+FLASHWRITE_FILE		?= $(FIRMWARE)
 
 # QuestaSim
 FLL_FOLDER_PATH := $(ROOT_DIR)/hw/asic/fll/rtl
@@ -593,7 +596,7 @@ $(BUILD_DIR)/.patch-files-power-analysis.lock: $(HEEPATIA_PL_NET) $(HEEPATIA_PL_
 power-analysis: $(BUILD_DIR)/.patch-files-power-analysis.lock $(PWR_VCD)
 	@echo "### Running power analysis..."
 	rm -rf implementation/power_analysis/reports/*
-	pushd implementation/power_analysis/; ./run_pwr_flow.sh $(PWR_VCD) $(HEEPATIA_PL_NET_PA) $(HEEPATIA_PL_SDF) heepatia_top $(PWR_ANALYSIS_MODE); popd;
+	pushd implementation/power_analysis/; ./run_pwr_flow.sh $(PWR_VCD) $(HEEPATIA_PL_NET) $(HEEPATIA_PL_SDF) heepatia_top $(PWR_ANALYSIS_MODE); popd;
 # pushd implementation/power_analysis/; ./run_pwr_flow.sh $(PWR_VCD) $(HEEPATIA_PL_NET_PA) $(HEEPATIA_PL_SDF).gz heepatia_top; popd;
 
 # Software

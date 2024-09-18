@@ -17,9 +17,8 @@ echo "PWR ANALYSIS MODE: " $PWR_ANALYSIS_MODE
 set ANALYSIS_MODE $PWR_ANALYSIS_MODE
 echo "NETLIST FILE: " $NETLIST
 echo "TOP_MODULE: " $TOP_MODULE
-set VCD_FILE "$design(FLOW_ROOT)/$VCD_FILE"
 echo "VCD FILE: " $VCD_FILE
-set SDF_FILE "$design(FLOW_ROOT)/$SDF_FILE"
+# set SDF_FILE "$design(FLOW_ROOT)/$SDF_FILE"
 echo "SDF FILE: " $SDF_FILE
 
 if {$TOP_MODULE == "heepatia_top"} {
@@ -62,16 +61,6 @@ if { $PERFORM_STA == 1 } {
     report_clock -skew -attribute > $REPORTS_PATH/clock.rpt
     report_analysis_coverage -status_details {untested} > $REPORTS_PATH/analysis_coverage.rpt
     report_disable_timing > $REPORTS_PATH/disable_timing.rpt
-
-    # # Report worst slack for all clocks
-    # report_worst_slack > $REPORTS_PATH/worst_slack.rpt
-
-    # # Report frequency for each clock
-    # foreach clk [all_clocks] {
-    #     set freq [expr 1.0 / [get_attribute $clk period]]
-    #     puts "Frequency for clock $clk: $freq MHz"
-    #     puts [open "$REPORTS_PATH/clock_frequency.rpt" a] "Frequency for clock $clk: $freq MHz"
-    # }
 }
 
 # read sw activity

@@ -17,6 +17,7 @@ source ${SET_LIBS}
 # # Use only power switches from the HVT lib
 # set_attribute [get_lib_cells tcbn65lp*/FTR*HVT] dont_use false
 # set_attribute [get_lib_cells tcbn65lp*/HDR*HVT] dont_use false
+define_design_lib WORK -path ./work
 
 source ${READ_SOURCES}.tcl
 
@@ -27,7 +28,7 @@ write -f ddc -hierarchy -output ${REPORT_DIR}/precompiled.ddc
 
 source ${CONSTRAINTS}
 
-report_clocks > ${REPORT_DIR}/clocks.rpt
+report_clocks -attributes -skew > ${REPORT_DIR}/clocks.rpt
 report_timing -loop -max_paths 10 > ${REPORT_DIR}/timing_loop.rpt
 
 # Minimum number of bit required for clock gating and do not use Latches
