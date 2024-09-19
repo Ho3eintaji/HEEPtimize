@@ -40,9 +40,9 @@ source ${CONSTRAINTS}
 # # clock tree synthesis
 # set_propagated_clock [all_clocks]
 
-# read timings
-read_sdf -load_delay cell $SDF_FILE
-report_annotated_delay > $REPORTS_PATH/annotated_delay.rpt
+# # read timings
+# read_sdf -load_delay cell $SDF_FILE
+# report_annotated_delay > $REPORTS_PATH/annotated_delay.rpt
 
 # update timing
 update_timing -full
