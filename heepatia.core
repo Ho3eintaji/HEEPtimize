@@ -113,7 +113,7 @@ filesets:
     - epfl:heepatia:packages
     - epfl:heepatia:prim-gf22:0.1.0
     files:
-    - build/epfl_heepatia_heepatia_0.3.0/asic_synthesis-design_compiler/report/netlist.v
+    - implementation/synthesis/last_output/netlist.v
     file_type: verilogSource
 
   # postlayout netlist

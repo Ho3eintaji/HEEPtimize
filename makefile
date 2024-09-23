@@ -81,7 +81,7 @@ LOG_LEVEL			?= LOG_NORMAL
 BOOT_MODE			?= force # jtag: wait for JTAG (DPI module), flash: boot from flash, force: load firmware into SRAM
 FIRMWARE			?= $(ROOT_DIR)/build/sw/app/main.hex
 FIRMWARE_FLASH 		?= $(ROOT_DIR)/build/sw/app-flash/main.hex
-VCD_MODE			?= 0 # QuestaSim-only - 0: no dumo, 1: dump always active, 2: dump triggered by GPIO 0
+VCD_MODE			?= 2 # QuestaSim-only - 0: no dumo, 1: dump always active, 2: dump triggered by GPIO 0
 BYPASS_FLL          ?= 1 # 0: FLL enabled, 1: FLL bypassed (TODO: make FLL work and set this to 0 by default)
 MAX_CYCLES			?= 10000000
 FUSESOC_FLAGS		?=
@@ -94,11 +94,6 @@ FLASHWRITE_FILE		?= $(FIRMWARE)
 FLL_FOLDER_PATH := $(ROOT_DIR)/hw/asic/fll/rtl
 # ACCESSIBLE := $(shell if [ -d "$(FLL_FOLDER_PATH)" ] && [ -r "$(FLL_FOLDER_PATH)" ]; then echo true; else echo false; fi)
 FUSESOC_BUILD_DIR			= $(shell find $(BUILD_DIR) -type d -name 'epfl_heepatia_heepatia_*' 2>/dev/null | sort | head -n 1)
-# ifeq ($(ACCESSIBLE), true)
-# 	QUESTA_SIM_DIR=$(FUSESOC_BUILD_DIR)/sim-modelsim
-# else
-# 	QUESTA_SIM_DIR=$(FUSESOC_BUILD_DIR)/sim-nofll-modelsim
-# endif
 QUESTA_SIM_DIR=$(FUSESOC_BUILD_DIR)/sim-modelsim
 QUESTA_SIM_RTL_GF22_DIR	= $(FUSESOC_BUILD_DIR)/sim_rtl_gf22-modelsim
 QUESTA_SIM_POSTSYNTH_DIR 	?= $(FUSESOC_BUILD_DIR)/sim_postsynthesis-modelsim
@@ -148,7 +143,7 @@ CAESAR_PL_SDF := $(ROOT_DIR)/hw/vendor/nm-caesar-backend-opt/implementation/pnr/
 # Power analysis
 # ==============================================================================
 PWR_TYPE ?= postsynth
-SYNTH_DIR ?= $(ROOT_DIR)/build/epfl_heepatia_heepatia_0.3.0/asic_synthesis-design_compiler/report
+SYNTH_DIR ?= $(ROOT_DIR)/implementation/synthesis/last_output 
 HEEPATIA_PL_NET := $(SYNTH_DIR)/netlist.v
 HEEPATIA_PL_SDF := $(SYNTH_DIR)/netlist.sdf  # NOT REQUIRED
 PWR_VCD ?= $(QUESTA_SIM_POSTSYNTH_DIR)/logs/waves-0.vcd  # private/simcommons/log_carus-matmul_2ns/waves-0.vcd
@@ -228,6 +223,26 @@ $(MCU_GEN_LOCK): $(PAD_CFG) $(EXT_PAD_CFG) | $(BUILD_DIR)/
 else
 	$(error ### ERROR: Unsupported target implementation: $(TARGET))
 endif
+
+MAKE_DIR_RUN_SIM ?= "yes"
+
+.PHONY: run-sim
+run-sim: 
+	@echo "Running simulation for $(SIM_NAME)..."
+	@SIM_NAME=$(SIM_NAME) PROJECT=$(PROJECT) VCD_MODE=$(VCD_MODE) TB_SYSCLK_ns=$(TB_SYSCLK_ns) PWR_ANALYSIS_MODE=$(PWR_ANALYSIS_MODE) \
+  	bash ./scripts/sim/create-sim-dir.sh "$(MAKE_DIR_RUN_SIM)"
+
+TB_SYSCLK_ns ?= "10000" # ps values: 8200, 2880, 1730, or 1450
+.PHONY: set-tb-sysclk
+set-tb-sysclk:
+	@if [ -z "$(TB_SYSCLK_ns)" ]; then \
+		echo "Error: TB_SYSCLK is not defined. Please specify TB_SYSCLK when running this target."; \
+		exit 1; \
+	fi
+	@echo "Setting TB_SYSCLK_ns to $(TB_SYSCLK_ns) in tb/tb_top.sv..."
+	# Use sed to replace the line containing "const time SIM_CLK_PERIOD"
+	@sed -i 's/const time SIM_CLK_PERIOD = [^;]*/const time SIM_CLK_PERIOD = $(TB_SYSCLK_ns)ps/' tb/tb_top.sv
+	@echo "SIM_CLK_PERIOD has been set to $(TB_SYSCLK_ns)."
 
 .PHONY: heepatia-gen-force
 heepatia-gen-force:
@@ -483,7 +498,7 @@ questasim-gf22-gui: | $(QUESTA_SIM_RTL_GF22_DIR)/logs/
 
 # Questasim PostSynth Simulation (with no timing)
 .PHONY: questasim-postsynth-build
-questasim-postsynth-build: $(HEEPATIA_GEN_LOCK) $(DPI_LIBS)
+questasim-postsynth-build: set-tb-sysclk $(HEEPATIA_GEN_LOCK) $(DPI_LIBS)
 	fusesoc run --no-export --target sim_postsynthesis --tool modelsim --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		$(FUSESOC_ARGS);
 	cd $(QUESTA_SIM_POSTSYNTH_DIR) ; make opt | tee fusesoc_questasim_postsynthesis.log
