@@ -101,19 +101,11 @@ FUSESOC_BUILD_DIR			= $(shell find $(BUILD_DIR) -type d -name 'epfl_heepatia_hee
 # endif
 QUESTA_SIM_DIR=$(FUSESOC_BUILD_DIR)/sim-modelsim
 QUESTA_SIM_RTL_GF22_DIR	= $(FUSESOC_BUILD_DIR)/sim_rtl_gf22-modelsim
-QUESTA_SIM_POSTSYNTH_DIR 	= $(FUSESOC_BUILD_DIR)/sim_postsynthesis-modelsim
+QUESTA_SIM_POSTSYNTH_DIR 	?= $(FUSESOC_BUILD_DIR)/sim_postsynthesis-modelsim
 QUESTA_SIM_POSTLAYOUT_DIR 	= $(FUSESOC_BUILD_DIR)/sim_postlayout-modelsim
 
 # Waves
 SIM_VCD 			?= $(BUILD_DIR)/sim-common/questa-waves.fst
-
-# Default ANALYSIS_MODE value
-PWR_ANALYSIS_MODE ?= tt_0p80_25
-# ANALYSIS_MODE can be one of the following:
-# tt_0p50_25  -> Typical at 0.50V, 25C
-# tt_0p65_25  -> Typical at 0.65V, 25C
-# tt_0p80_25  -> Typical at 0.80V, 25C
-# tt_0p90_25  -> Typical at 0.90V, 25C
 
 # Application data generation
 # NOTE: the application makefile may accept additional parameters, e.g.:
@@ -121,25 +113,23 @@ PWR_ANALYSIS_MODE ?= tt_0p80_25
 # for carus-matmul.
 APP_MAKE 			:= $(wildcard sw/applications/$(PROJECT)/*akefile)
 
+TOOLCHAIN ?= GCC # OHW
+
 # Custom preprocessor definitions
 CDEFS				?=
 
 # Software build configuration
 SW_DIR		:= sw
+LINK_FOLDER := $(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")/sw/linker
 
 # Dummy target to force software rebuild
 PARAMS = $(PROJECT)
 
-# power analysis
-PWR_TYPE ?= postsynth
-# Conditional check to set PWR_VCD based on PWR_TYPE
-ifeq ($(PWR_TYPE),postlayout)
-    PWR_VCD ?= $(QUESTA_SIM_POSTLAYOUT_DIR)/logs/waves-0.vcd
-else ifeq ($(PWR_TYPE),postsynth)
-    PWR_VCD ?= $(QUESTA_SIM_POSTSYNTH_DIR)/logs/waves-0.vcd
-else
-    $(error "Unknown SIM_TYPE specified. Use 'postlayout' or 'postsynth'.")
-endif
+# Get the path of this Makefile to pass to the Makefile help generator
+MKFILE_PATH = $(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")
+export FILE_FOR_HELP = $(MKFILE_PATH)/makefile
+export XHEEP_DIR
+
 
 # Benchmarking configuration
 THR_TESTS ?= scripts/performance-analysis/throughput-tests.txt
@@ -153,22 +143,46 @@ CAESAR_PL_SDF := $(ROOT_DIR)/hw/vendor/nm-caesar-backend-opt/implementation/pnr/
 # HEEPATIA_PL_NET := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heepatia_pg.v
 # HEEPATIA_PL_SDF := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heepatia.sdf
 
-# Using post synthesis files
-# Conditional check of PWR_TYPE
-ifeq ($(PWR_TYPE),postlayout)
-    HEEPATIA_PL_NET := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heepatia_pg.v
-	HEEPATIA_PL_SDF := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heepatia.sdf
-else ifeq ($(PWR_TYPE),postsynth)
-	HEEPATIA_PL_NET := $(BUILD_DIR)/epfl_heepatia_heepatia_0.3.0/asic_synthesis-design_compiler/report/netlist.v
-	HEEPATIA_PL_SDF := $(BUILD_DIR)/epfl_heepatia_heepatia_0.3.0/asic_synthesis-design_compiler/report/netlist.sdf
-else
-    $(error "Unknown SIM_TYPE specified. Use 'postlayout' or 'postsynth'.")
-endif
 
-#for power analysis
-HEEPATIA_PL_NET_PA := $(ROOT_DIR)/implementation/power_analysis/heepatia_pg_power_analysis.v
-HEEPATIA_PL_SDF_PA := $(ROOT_DIR)/implementation/power_analysis/heepatia.sdf
-HEEPATIA_PL_SDF_PATCHED_PA := $(ROOT_DIR)/implementation/power_analysis/heepatia.patched.sdf
+# ==============================================================================
+# Power analysis
+# ==============================================================================
+PWR_TYPE ?= postsynth
+SYNTH_DIR ?= $(ROOT_DIR)/build/epfl_heepatia_heepatia_0.3.0/asic_synthesis-design_compiler/report
+HEEPATIA_PL_NET := $(SYNTH_DIR)/netlist.v
+HEEPATIA_PL_SDF := $(SYNTH_DIR)/netlist.sdf  # NOT REQUIRED
+PWR_VCD ?= $(QUESTA_SIM_POSTSYNTH_DIR)/logs/waves-0.vcd  # private/simcommons/log_carus-matmul_2ns/waves-0.vcd
+PWR_ANALYSIS_MODE ?= tt_0p80_25 # tt_0p50_25, tt_0p65_25, tt_0p80_25, tt_0p90_25, wc
+
+# # Using post synthesis files
+# ifeq ($(PWR_TYPE),postlayout)
+#     HEEPATIA_PL_NET := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heepatia_pg.v
+# 	HEEPATIA_PL_SDF := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heepatia.sdf
+# else ifeq ($(PWR_TYPE),postsynth)
+# 	HEEPATIA_PL_NET := $(SYNTH_DIR)/report/netlist.v
+# 	HEEPATIA_PL_SDF := $(SYNTH_DIR)/report/netlist.sdf
+# else
+#     $(error "Unknown PWR_TYPE specified. Use 'postlayout' or 'postsynth'.")
+# endif
+
+
+# # Conditional check to set PWR_VCD based on PWR_TYPE
+# ifeq ($(PWR_TYPE),postlayout)
+#     PWR_VCD ?= $(QUESTA_SIM_POSTLAYOUT_DIR)/logs/waves-0.vcd
+# else ifeq ($(PWR_TYPE),postsynth)
+#     # PWR_VCD ?= $(QUESTA_SIM_POSTSYNTH_DIR)/logs/waves-0.vcd 
+# 	PWR_VCD ?= private/simcommons/log_carus-matmul_2ns/waves-0.vcd
+# else
+#     $(error "Unknown SIM_TYPE specified. Use 'postlayout' or 'postsynth'.")
+# endif
+
+# #for power analysis
+# HEEPATIA_PL_NET_PA := $(ROOT_DIR)/implementation/power_analysis/heepatia_pg_power_analysis.v
+# HEEPATIA_PL_SDF_PA := $(ROOT_DIR)/implementation/power_analysis/heepatia.sdf
+# HEEPATIA_PL_SDF_PATCHED_PA := $(ROOT_DIR)/implementation/power_analysis/heepatia.patched.sdf
+
+# ==============================================================================
+
 
 # Dependent variables
 # -------------------
@@ -193,21 +207,21 @@ mcu-gen: $(MCU_GEN_LOCK)
 ifeq ($(TARGET), asic)
 $(MCU_GEN_LOCK): $(MCU_CFG) $(PAD_CFG) $(EXT_PAD_CFG) | $(BUILD_DIR)/
 	@echo "### Building X-HEEP MCU..."
-	$(MAKE) -f $(XHEEP_MAKE) mcu-gen
+	$(MAKE) -f $(XHEEP_MAKE) mcu-gen LINK_FOLDER=$(LINK_FOLDER)
 	touch $@
 	$(RM) -f $(HEEPATIA_GEN_LOCK)
 	@echo "### DONE! X-HEEP MCU generated successfully"
 else ifeq ($(TARGET), pynq-z2)
 $(MCU_GEN_LOCK): $(PAD_CFG) $(EXT_PAD_CFG) | $(BUILD_DIR)/
 	@echo "### Building X-HEEP MCU for PYNQ-Z2..."
-	$(MAKE) -f $(XHEEP_MAKE) mcu-gen X_HEEP_CFG=$(X_HEEP_CFG_FPGA) MCU_CFG_PERIPHERALS=$(MCU_CFG_PERIPHERALS)
+	$(MAKE) -f $(XHEEP_MAKE) mcu-gen LINK_FOLDER=$(LINK_FOLDER) X_HEEP_CFG=$(X_HEEP_CFG_FPGA) MCU_CFG_PERIPHERALS=$(MCU_CFG_PERIPHERALS)
 	touch $@
 	$(RM) -f $(HEEPATIA_GEN_LOCK)
 	@echo "### DONE! X-HEEP MCU generated successfully"
 else ifeq ($(TARGET), zcu104)
 $(MCU_GEN_LOCK): $(PAD_CFG) $(EXT_PAD_CFG) | $(BUILD_DIR)/
 	@echo "### Building X-HEEP MCU for zcu104..."
-	$(MAKE) -f $(XHEEP_MAKE) mcu-gen X_HEEP_CFG=$(X_HEEP_CFG_FPGA) MCU_CFG_PERIPHERALS=$(MCU_CFG_PERIPHERALS)
+	$(MAKE) -f $(XHEEP_MAKE) mcu-gen LINK_FOLDER=$(LINK_FOLDER) X_HEEP_CFG=$(X_HEEP_CFG_FPGA) MCU_CFG_PERIPHERALS=$(MCU_CFG_PERIPHERALS)
 	touch $@
 	$(RM) -f $(HEEPATIA_GEN_LOCK)
 	@echo "### DONE! X-HEEP MCU generated successfully"
@@ -582,37 +596,49 @@ charts: build/performance-analysis/power.csv build/performance-analysis/throughp
 
 # Power analysis
 # --------------
-.PHONY: patch-files-power-analysis
-patch-files-power-analysis: $(BUILD_DIR)/.patch-files-power-analysis.lock
-# TODO: is below correct?
-# $(BUILD_DIR)/.patch-files-power-analysis.lock: $(HEEPATIA_PL_NET) $(HEEPATIA_PL_SDF).gz 
-$(BUILD_DIR)/.patch-files-power-analysis.lock: $(HEEPATIA_PL_NET) $(HEEPATIA_PL_SDF)
-#   the LIB and LEF of the FLL are wrong as the VDDA power pin is missing, thus deleting it so that power analysis can be done
-	cp $(HEEPATIA_PL_NET) $(HEEPATIA_PL_NET_PA)
-# sed -i '/.VDDA(VDD)/d' $(HEEPATIA_PL_NET_PA)
-	touch $(BUILD_DIR)/.patch-files-power-analysis.lock
+# .PHONY: patch-files-power-analysis
+# patch-files-power-analysis: $(BUILD_DIR)/.patch-files-power-analysis.lock
+# # TODO: is below correct?
+# # $(BUILD_DIR)/.patch-files-power-analysis.lock: $(HEEPATIA_PL_NET) $(HEEPATIA_PL_SDF).gz 
+# $(BUILD_DIR)/.patch-files-power-analysis.lock: $(HEEPATIA_PL_NET) $(HEEPATIA_PL_SDF)
+# #   the LIB and LEF of the FLL are wrong as the VDDA power pin is missing, thus deleting it so that power analysis can be done
+# 	cp $(HEEPATIA_PL_NET) $(HEEPATIA_PL_NET_PA)
+# # sed -i '/.VDDA(VDD)/d' $(HEEPATIA_PL_NET_PA)
+# 	touch $(BUILD_DIR)/.patch-files-power-analysis.lock
 
 .PHONY: power-analysis
-power-analysis: $(BUILD_DIR)/.patch-files-power-analysis.lock $(PWR_VCD)
+power-analysis:
+# power-analysis: $(BUILD_DIR)/.patch-files-power-analysis.lock $(PWR_VCD)
 	@echo "### Running power analysis..."
 	rm -rf implementation/power_analysis/reports/*
 	pushd implementation/power_analysis/; ./run_pwr_flow.sh $(PWR_VCD) $(HEEPATIA_PL_NET) $(HEEPATIA_PL_SDF) heepatia_top $(PWR_ANALYSIS_MODE); popd;
-# pushd implementation/power_analysis/; ./run_pwr_flow.sh $(PWR_VCD) $(HEEPATIA_PL_NET_PA) $(HEEPATIA_PL_SDF).gz heepatia_top; popd;
 
 # Software
 # --------
 # heepatia applications
+# .PHONY: app
+# app: $(HEEPATIA_GEN_LOCK) | carus-sw $(BUILD_DIR)/sw/app/
+# ifneq ($(APP_MAKE),)
+# 	$(MAKE) -C $(dir $(APP_MAKE))
+# endif
+# 	@echo "### Building application for SRAM execution with GCC compiler..."
+# 	CDEFS=$(CDEFS) $(MAKE) -f $(XHEEP_MAKE) $(MAKECMDGOALS)
+# 	find sw/build/ -maxdepth 1 -type f -name "main.*" -exec cp '{}' $(BUILD_DIR)/sw/app/ \;
+
 .PHONY: app
-app: $(HEEPATIA_GEN_LOCK) | carus-sw $(BUILD_DIR)/sw/app/ $(BUILD_DIR)/sw/app-flash/
+app: $(HEEPATIA_GEN_LOCK) | carus-sw $(BUILD_DIR)/sw/app/
 ifneq ($(APP_MAKE),)
 	$(MAKE) -C $(dir $(APP_MAKE))
 endif
-	@echo "### Building application for SRAM execution..."
-	CDEFS=$(CDEFS) $(MAKE) -f $(XHEEP_MAKE) $(MAKECMDGOALS)
+ifeq ($(TOOLCHAIN), OHW)
+	@echo "### Building application with OHW compiler..."
+	CDEFS=$(CDEFS) $(MAKE) -f $(XHEEP_MAKE) $(MAKECMDGOALS) LINK_FOLDER=$(LINK_FOLDER) COMPILER_PREFIX=riscv32-corev- ARCH=rv32imfc_zicsr_zifencei_xcvhwlp_xcvmem_xcvmac_xcvbi_xcvalu_xcvsimd_xcvbitmanip
 	find sw/build/ -maxdepth 1 -type f -name "main.*" -exec cp '{}' $(BUILD_DIR)/sw/app/ \;
-	@echo "### Building application for flash load..."
-	CDEFS=$(CDEFS) $(MAKE) -f $(XHEEP_MAKE) LINKER=flash_load $(MAKECMDGOALS)
-	find sw/build/ -maxdepth 1 -type f -name "main.*" -exec cp '{}' $(BUILD_DIR)/sw/app-flash/ \;
+else
+	@echo "### Building application for SRAM execution with GCC compiler..."
+	CDEFS=$(CDEFS) $(MAKE) -f $(XHEEP_MAKE) $(MAKECMDGOALS) LINK_FOLDER=$(LINK_FOLDER) ARCH=rv32imc
+	find sw/build/ -maxdepth 1 -type f -name "main.*" -exec cp '{}' $(BUILD_DIR)/sw/app/ \;
+endif
 
 # NM-Carus kernels and startup code
 .PHONY: carus-sw
