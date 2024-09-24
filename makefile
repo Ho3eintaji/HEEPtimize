@@ -96,7 +96,7 @@ FLL_FOLDER_PATH := $(ROOT_DIR)/hw/asic/fll/rtl
 FUSESOC_BUILD_DIR			= $(shell find $(BUILD_DIR) -type d -name 'epfl_heepatia_heepatia_*' 2>/dev/null | sort | head -n 1)
 QUESTA_SIM_DIR=$(FUSESOC_BUILD_DIR)/sim-modelsim
 QUESTA_SIM_RTL_GF22_DIR	= $(FUSESOC_BUILD_DIR)/sim_rtl_gf22-modelsim
-QUESTA_SIM_POSTSYNTH_DIR 	?= $(FUSESOC_BUILD_DIR)/sim_postsynthesis-modelsim
+QUESTA_SIM_POSTSYNTH_DIR 	= $(FUSESOC_BUILD_DIR)/sim_postsynthesis-modelsim
 QUESTA_SIM_POSTLAYOUT_DIR 	= $(FUSESOC_BUILD_DIR)/sim_postlayout-modelsim
 
 # Waves
@@ -115,15 +115,15 @@ CDEFS				?=
 
 # Software build configuration
 SW_DIR		:= sw
-LINK_FOLDER := $(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")/sw/linker
+# LINK_FOLDER := $(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")/sw/linker
 
 # Dummy target to force software rebuild
 PARAMS = $(PROJECT)
 
-# Get the path of this Makefile to pass to the Makefile help generator
-MKFILE_PATH = $(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")
-export FILE_FOR_HELP = $(MKFILE_PATH)/makefile
-export XHEEP_DIR
+# # Get the path of this Makefile to pass to the Makefile help generator
+# MKFILE_PATH = $(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")
+# export FILE_FOR_HELP = $(MKFILE_PATH)/makefile
+# export XHEEP_DIR
 
 
 # Benchmarking configuration
@@ -202,21 +202,21 @@ mcu-gen: $(MCU_GEN_LOCK)
 ifeq ($(TARGET), asic)
 $(MCU_GEN_LOCK): $(MCU_CFG) $(PAD_CFG) $(EXT_PAD_CFG) | $(BUILD_DIR)/
 	@echo "### Building X-HEEP MCU..."
-	$(MAKE) -f $(XHEEP_MAKE) mcu-gen LINK_FOLDER=$(LINK_FOLDER)
+	$(MAKE) -f $(XHEEP_MAKE) mcu-gen
 	touch $@
 	$(RM) -f $(HEEPATIA_GEN_LOCK)
 	@echo "### DONE! X-HEEP MCU generated successfully"
 else ifeq ($(TARGET), pynq-z2)
 $(MCU_GEN_LOCK): $(PAD_CFG) $(EXT_PAD_CFG) | $(BUILD_DIR)/
 	@echo "### Building X-HEEP MCU for PYNQ-Z2..."
-	$(MAKE) -f $(XHEEP_MAKE) mcu-gen LINK_FOLDER=$(LINK_FOLDER) X_HEEP_CFG=$(X_HEEP_CFG_FPGA) MCU_CFG_PERIPHERALS=$(MCU_CFG_PERIPHERALS)
+	$(MAKE) -f $(XHEEP_MAKE) mcu-gen X_HEEP_CFG=$(X_HEEP_CFG_FPGA) MCU_CFG_PERIPHERALS=$(MCU_CFG_PERIPHERALS)
 	touch $@
 	$(RM) -f $(HEEPATIA_GEN_LOCK)
 	@echo "### DONE! X-HEEP MCU generated successfully"
 else ifeq ($(TARGET), zcu104)
 $(MCU_GEN_LOCK): $(PAD_CFG) $(EXT_PAD_CFG) | $(BUILD_DIR)/
 	@echo "### Building X-HEEP MCU for zcu104..."
-	$(MAKE) -f $(XHEEP_MAKE) mcu-gen LINK_FOLDER=$(LINK_FOLDER) X_HEEP_CFG=$(X_HEEP_CFG_FPGA) MCU_CFG_PERIPHERALS=$(MCU_CFG_PERIPHERALS)
+	$(MAKE) -f $(XHEEP_MAKE) mcu-gen X_HEEP_CFG=$(X_HEEP_CFG_FPGA) MCU_CFG_PERIPHERALS=$(MCU_CFG_PERIPHERALS)
 	touch $@
 	$(RM) -f $(HEEPATIA_GEN_LOCK)
 	@echo "### DONE! X-HEEP MCU generated successfully"
@@ -498,7 +498,7 @@ questasim-gf22-gui: | $(QUESTA_SIM_RTL_GF22_DIR)/logs/
 
 # Questasim PostSynth Simulation (with no timing)
 .PHONY: questasim-postsynth-build
-questasim-postsynth-build: set-tb-sysclk $(HEEPATIA_GEN_LOCK) $(DPI_LIBS)
+questasim-postsynth-build: $(HEEPATIA_GEN_LOCK) $(DPI_LIBS)
 	fusesoc run --no-export --target sim_postsynthesis --tool modelsim --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		$(FUSESOC_ARGS);
 	cd $(QUESTA_SIM_POSTSYNTH_DIR) ; make opt | tee fusesoc_questasim_postsynthesis.log
@@ -641,19 +641,16 @@ power-analysis:
 # 	find sw/build/ -maxdepth 1 -type f -name "main.*" -exec cp '{}' $(BUILD_DIR)/sw/app/ \;
 
 .PHONY: app
-app: $(HEEPATIA_GEN_LOCK) | carus-sw $(BUILD_DIR)/sw/app/
+app: $(HEEPATIA_GEN_LOCK) | carus-sw $(BUILD_DIR)/sw/app/ $(BUILD_DIR)/sw/app-flash/
 ifneq ($(APP_MAKE),)
 	$(MAKE) -C $(dir $(APP_MAKE))
 endif
-ifeq ($(TOOLCHAIN), OHW)
-	@echo "### Building application with OHW compiler..."
-	CDEFS=$(CDEFS) $(MAKE) -f $(XHEEP_MAKE) $(MAKECMDGOALS) LINK_FOLDER=$(LINK_FOLDER) COMPILER_PREFIX=riscv32-corev- ARCH=rv32imfc_zicsr_zifencei_xcvhwlp_xcvmem_xcvmac_xcvbi_xcvalu_xcvsimd_xcvbitmanip
+	@echo "### Building application for SRAM execution..."
+	CDEFS=$(CDEFS) $(MAKE) -f $(XHEEP_MAKE) $(MAKECMDGOALS)
 	find sw/build/ -maxdepth 1 -type f -name "main.*" -exec cp '{}' $(BUILD_DIR)/sw/app/ \;
-else
-	@echo "### Building application for SRAM execution with GCC compiler..."
-	CDEFS=$(CDEFS) $(MAKE) -f $(XHEEP_MAKE) $(MAKECMDGOALS) LINK_FOLDER=$(LINK_FOLDER) ARCH=rv32imc
-	find sw/build/ -maxdepth 1 -type f -name "main.*" -exec cp '{}' $(BUILD_DIR)/sw/app/ \;
-endif
+	@echo "### Building application for flash load..."
+	CDEFS=$(CDEFS) $(MAKE) -f $(XHEEP_MAKE) LINKER=flash_load $(MAKECMDGOALS)
+	find sw/build/ -maxdepth 1 -type f -name "main.*" -exec cp '{}' $(BUILD_DIR)/sw/app-flash/ \;
 
 # NM-Carus kernels and startup code
 .PHONY: carus-sw

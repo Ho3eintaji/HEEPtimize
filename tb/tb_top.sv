@@ -23,7 +23,7 @@ module tb_top;
   const time REF_CLK_PHASE_LO = REF_CLK_PERIOD / 2;
 
   // Simulation clock (100MHz)
-  const time SIM_CLK_PERIOD = 8200ps;
+  const time SIM_CLK_PERIOD = 8ns;
   const time SIM_CLK_PHASE_HI = SIM_CLK_PERIOD / 2;
   const time SIM_CLK_PHASE_LO = SIM_CLK_PERIOD / 2;
   localparam int unsigned ClkFrequencykHz = 100_000;  // KHz
