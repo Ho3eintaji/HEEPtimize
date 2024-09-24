@@ -224,25 +224,27 @@ else
 	$(error ### ERROR: Unsupported target implementation: $(TARGET))
 endif
 
-MAKE_DIR_RUN_SIM ?= "yes"
+.PHONY: extract-vcd-timing
+extract-vcd-timing: 
+	@echo "Running VCD timing extraction script..."
+	@./scripts/extract_vcd_timing.sh $(QUESTA_SIM_DIR) $(QUESTA_SIM_POSTSYNTH_DIR)
 
+MAKE_DIR_RUN_SIM ?= "yes"
 .PHONY: run-sim
 run-sim: 
 	@echo "Running simulation for $(SIM_NAME)..."
-	@SIM_NAME=$(SIM_NAME) PROJECT=$(PROJECT) VCD_MODE=$(VCD_MODE) TB_SYSCLK_ns=$(TB_SYSCLK_ns) PWR_ANALYSIS_MODE=$(PWR_ANALYSIS_MODE) \
+	@SIM_NAME=$(SIM_NAME) PROJECT=$(PROJECT) VCD_MODE=$(VCD_MODE) TB_SYSCLK=$(TB_SYSCLK) PWR_ANALYSIS_MODE=$(PWR_ANALYSIS_MODE) \
   	bash ./scripts/sim/create-sim-dir.sh "$(MAKE_DIR_RUN_SIM)"
 
-TB_SYSCLK_ns ?= "10000" # ps values: 8200, 2880, 1730, or 1450
+TB_SYSCLK ?=  1450ps # ps values: 8200ps, 2880ps, 1730ps, or 1450ps
 .PHONY: set-tb-sysclk
 set-tb-sysclk:
-	@if [ -z "$(TB_SYSCLK_ns)" ]; then \
+	@if [ -z "$(TB_SYSCLK)" ]; then \
 		echo "Error: TB_SYSCLK is not defined. Please specify TB_SYSCLK when running this target."; \
 		exit 1; \
 	fi
-	@echo "Setting TB_SYSCLK_ns to $(TB_SYSCLK_ns) in tb/tb_top.sv..."
-	# Use sed to replace the line containing "const time SIM_CLK_PERIOD"
-	@sed -i 's/const time SIM_CLK_PERIOD = [^;]*/const time SIM_CLK_PERIOD = $(TB_SYSCLK_ns)ps/' tb/tb_top.sv
-	@echo "SIM_CLK_PERIOD has been set to $(TB_SYSCLK_ns)."
+	@sed -i 's/const time SIM_CLK_PERIOD = [^;]*/const time SIM_CLK_PERIOD = $(TB_SYSCLK)/' tb/tb_top.sv
+	@echo "SIM_CLK_PERIOD has been set to $(TB_SYSCLK)."
 
 .PHONY: heepatia-gen-force
 heepatia-gen-force:
@@ -434,6 +436,7 @@ questasim-run: | $(QUESTA_SIM_DIR)/logs/
 		--max_cycles=$(MAX_CYCLES) \
 		$(FUSESOC_ARGS)
 	cat $(BUILD_DIR)/sim-common/uart.log
+	$(MAKE) extract-vcd-timing
 # else
 # 	fusesoc run --no-export --target sim-nofll --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 # 		--firmware=$(FIRMWARE) \
@@ -513,6 +516,7 @@ questasim-postsynth-run:
 		--max_cycles=$(MAX_CYCLES) \
 		$(FUSESOC_ARGS)
 	cat $(BUILD_DIR)/sim-common/uart.log
+	$(MAKE) extract-vcd-timing
 
 # Launch simulation in GUI mode
 .PHONY: questasim-postsynth-gui
