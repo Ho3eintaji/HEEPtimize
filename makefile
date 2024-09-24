@@ -236,7 +236,7 @@ run-sim:
 	@SIM_NAME=$(SIM_NAME) PROJECT=$(PROJECT) VCD_MODE=$(VCD_MODE) TB_SYSCLK=$(TB_SYSCLK) PWR_ANALYSIS_MODE=$(PWR_ANALYSIS_MODE) \
   	bash ./scripts/sim/create-sim-dir.sh "$(MAKE_DIR_RUN_SIM)"
 
-TB_SYSCLK ?=  1450ps # ps values: 8200ps, 2880ps, 1730ps, or 1450ps
+TB_SYSCLK ?=  1450 ps # ps values: 8200ps, 2880ps, 1730ps, or 1450ps
 .PHONY: set-tb-sysclk
 set-tb-sysclk:
 	@if [ -z "$(TB_SYSCLK)" ]; then \
@@ -245,6 +245,28 @@ set-tb-sysclk:
 	fi
 	@sed -i 's/const time SIM_CLK_PERIOD = [^;]*/const time SIM_CLK_PERIOD = $(TB_SYSCLK)/' tb/tb_top.sv
 	@echo "SIM_CLK_PERIOD has been set to $(TB_SYSCLK)."
+
+.PHONY: read-tb-sysclk
+read-tb-sysclk:
+	@if [ -z "$(TB_SYSCLK)" ]; then \
+		echo "Error: TB_SYSCLK is not defined. Please specify TB_SYSCLK when running this target."; \
+		exit 1; \
+	fi
+	@echo "TB_SYSCLK is set to $(TB_SYSCLK)."
+	@TB_SYSCLK_VALUE=$$(echo "$(TB_SYSCLK)" | sed 's/[a-zA-Z]*//g' | tr -d ' '); \
+	TB_SYSCLK_UNIT=$$(echo "$(TB_SYSCLK)" | sed 's/[0-9. ]*//g'); \
+	if [ "$$TB_SYSCLK_UNIT" = "ps" ]; then \
+		clk_ns=$$(echo "scale=3; $$TB_SYSCLK_VALUE / 1000" | bc); \
+		echo "Converted TB_SYSCLK from ps to ns: $$clk_ns"; \
+	elif [ "$$TB_SYSCLK_UNIT" = "ns" ]; then \
+		clk_ns=$$TB_SYSCLK_VALUE; \
+		echo "TB_SYSCLK is already in ns: $$clk_ns"; \
+	else \
+		echo "Error: TB_SYSCLK must be specified in either ns or ps."; \
+		exit 1; \
+	fi; \
+	echo "$$clk_ns" >  $(BUILD_DIR)/sim-common/clk_ns.txt
+
 
 .PHONY: heepatia-gen-force
 heepatia-gen-force:
@@ -508,15 +530,17 @@ questasim-postsynth-build: $(HEEPATIA_GEN_LOCK) $(DPI_LIBS)
 
 .PHONY: questasim-postsynth-run
 questasim-postsynth-run:
-	fusesoc run --no-export --target sim_postsynthesis --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
-		--firmware=$(FIRMWARE) \
-		--bypass_fll_opt=$(BYPASS_FLL) \
-		--boot_mode=$(BOOT_MODE) \
-		--vcd_mode=$(VCD_MODE) \
-		--max_cycles=$(MAX_CYCLES) \
-		$(FUSESOC_ARGS)
+	# fusesoc run --no-export --target sim_postsynthesis --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
+	# 	--firmware=$(FIRMWARE) \
+	# 	--bypass_fll_opt=$(BYPASS_FLL) \
+	# 	--boot_mode=$(BOOT_MODE) \
+	# 	--vcd_mode=$(VCD_MODE) \
+	# 	--max_cycles=$(MAX_CYCLES) \
+	# 	$(FUSESOC_ARGS)
 	cat $(BUILD_DIR)/sim-common/uart.log
 	$(MAKE) extract-vcd-timing
+	$(MAKE) read-tb-sysclk
+	@cp $(BUILD_DIR)/sim-common/clk_ns.txt $(QUESTA_SIM_POSTSYNTH_DIR)/logs/
 
 # Launch simulation in GUI mode
 .PHONY: questasim-postsynth-gui
