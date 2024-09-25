@@ -143,7 +143,7 @@ CAESAR_PL_SDF := $(ROOT_DIR)/hw/vendor/nm-caesar-backend-opt/implementation/pnr/
 # Power analysis
 # ==============================================================================
 PWR_TYPE ?= postsynth
-SYNTH_DIR ?= $(ROOT_DIR)/implementation/synthesis/last_output 
+SYNTH_DIR ?= $(ROOT_DIR)/implementation/synthesis/last_output
 HEEPATIA_PL_NET := $(SYNTH_DIR)/netlist.v
 HEEPATIA_PL_SDF := $(SYNTH_DIR)/netlist.sdf  # NOT REQUIRED
 PWR_VCD ?= $(QUESTA_SIM_POSTSYNTH_DIR)/logs/waves-0.vcd  # private/simcommons/log_carus-matmul_2ns/waves-0.vcd
@@ -248,13 +248,15 @@ set-tb-sysclk:
 
 .PHONY: read-tb-sysclk
 read-tb-sysclk:
-	@if [ -z "$(TB_SYSCLK)" ]; then \
-		echo "Error: TB_SYSCLK is not defined. Please specify TB_SYSCLK when running this target."; \
+	# Extract the TB_SYSCLK value directly from tb/tb_top.sv
+	@TB_SYSCLK=$$(grep -E 'const time SIM_CLK_PERIOD = [0-9]+[ ]*(ps|ns)' tb/tb_top.sv | sed -E 's/.*= *([0-9]+[ ]*(ps|ns));.*/\1/'); \
+	if [ -z "$$TB_SYSCLK" ]; then \
+		echo "Error: Could not read TB_SYSCLK from tb/tb_top.sv."; \
 		exit 1; \
-	fi
-	@echo "TB_SYSCLK is set to $(TB_SYSCLK)."
-	@TB_SYSCLK_VALUE=$$(echo "$(TB_SYSCLK)" | sed 's/[a-zA-Z]*//g' | tr -d ' '); \
-	TB_SYSCLK_UNIT=$$(echo "$(TB_SYSCLK)" | sed 's/[0-9. ]*//g'); \
+	fi; \
+	echo "Read TB_SYSCLK from file: $$TB_SYSCLK"; \
+	TB_SYSCLK_VALUE=$$(echo "$$TB_SYSCLK" | sed 's/[a-zA-Z]*//g' | tr -d ' '); \
+	TB_SYSCLK_UNIT=$$(echo "$$TB_SYSCLK" | sed 's/[0-9. ]*//g'); \
 	if [ "$$TB_SYSCLK_UNIT" = "ps" ]; then \
 		clk_ns=$$(echo "scale=3; $$TB_SYSCLK_VALUE / 1000" | bc); \
 		echo "Converted TB_SYSCLK from ps to ns: $$clk_ns"; \
@@ -265,7 +267,7 @@ read-tb-sysclk:
 		echo "Error: TB_SYSCLK must be specified in either ns or ps."; \
 		exit 1; \
 	fi; \
-	echo "$$clk_ns" >  $(BUILD_DIR)/sim-common/clk_ns.txt
+	echo "$$clk_ns" > $(BUILD_DIR)/sim-common/clk_ns.txt
 
 
 .PHONY: heepatia-gen-force
@@ -410,7 +412,7 @@ verilator-waves: $(BUILD_DIR)/sim-common/waves.fst | .check-gtkwave
 # ------------------------
 # Build simulation model
 .PHONY: questasim-build
-questasim-build: $(HEEPATIA_GEN_LOCK) $(DPI_LIBS)
+questasim-build: set-tb-sysclk $(HEEPATIA_GEN_LOCK) $(DPI_LIBS)
 # ifeq ($(ACCESSIBLE), true)
 	@echo "### Building simulation model with FLL..."
 	$(FUSESOC) run --no-export --target sim --tool modelsim --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
@@ -459,6 +461,8 @@ questasim-run: | $(QUESTA_SIM_DIR)/logs/
 		$(FUSESOC_ARGS)
 	cat $(BUILD_DIR)/sim-common/uart.log
 	$(MAKE) extract-vcd-timing
+	$(MAKE) read-tb-sysclk
+	@cp $(BUILD_DIR)/sim-common/clk_ns.txt $(QUESTA_SIM_DIR)/logs/
 # else
 # 	fusesoc run --no-export --target sim-nofll --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 # 		--firmware=$(FIRMWARE) \
@@ -523,20 +527,20 @@ questasim-gf22-gui: | $(QUESTA_SIM_RTL_GF22_DIR)/logs/
 
 # Questasim PostSynth Simulation (with no timing)
 .PHONY: questasim-postsynth-build
-questasim-postsynth-build: $(HEEPATIA_GEN_LOCK) $(DPI_LIBS)
+questasim-postsynth-build: set-tb-sysclk $(HEEPATIA_GEN_LOCK) $(DPI_LIBS)
 	fusesoc run --no-export --target sim_postsynthesis --tool modelsim --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		$(FUSESOC_ARGS);
 	cd $(QUESTA_SIM_POSTSYNTH_DIR) ; make opt | tee fusesoc_questasim_postsynthesis.log
 
 .PHONY: questasim-postsynth-run
 questasim-postsynth-run:
-	# fusesoc run --no-export --target sim_postsynthesis --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
-	# 	--firmware=$(FIRMWARE) \
-	# 	--bypass_fll_opt=$(BYPASS_FLL) \
-	# 	--boot_mode=$(BOOT_MODE) \
-	# 	--vcd_mode=$(VCD_MODE) \
-	# 	--max_cycles=$(MAX_CYCLES) \
-	# 	$(FUSESOC_ARGS)
+	fusesoc run --no-export --target sim_postsynthesis --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
+		--firmware=$(FIRMWARE) \
+		--bypass_fll_opt=$(BYPASS_FLL) \
+		--boot_mode=$(BOOT_MODE) \
+		--vcd_mode=$(VCD_MODE) \
+		--max_cycles=$(MAX_CYCLES) \
+		$(FUSESOC_ARGS)
 	cat $(BUILD_DIR)/sim-common/uart.log
 	$(MAKE) extract-vcd-timing
 	$(MAKE) read-tb-sysclk

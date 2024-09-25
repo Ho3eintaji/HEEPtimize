@@ -43,10 +43,14 @@
 /**                                                                        **/
 /****************************************************************************/
 
-#define PRINT_TIMING_DETAILS
-
-// Size of the input buffer for the CGRA
+// #define CHECK_RESULTS
+#define VCD
+// #define PRINT_TIMING_DETAILS
 #define CGRA_COL_INPUT_SIZE 4
+
+#ifdef PRINT_TIMING_DETAILS
+    #define TIMER_ENABLED
+#endif
 
 /****************************************************************************/
 /**                                                                        **/
@@ -94,10 +98,15 @@ void __attribute__((noinline, aligned(4))) cpuMatMul(data_t *A, data_t *B, data_
 
 void main()
 {
-    // write a  proper start of app
+#ifdef PRINT_TIMING_DETAILS
     printf("========================================\n");
     printf("Multi-Accelerators Matrix Multiplication\n");
     printf("========================================\n");
+#endif
+
+#ifdef VCD
+    if (vcd_init() != 0) return 1;
+#endif
 
     carus_cfg_t cfg = CARUS_CFG_INIT; // NM-Carus configuration
     dma_data_type_t dma_type = DMA_DATA_TYPE_WORD;
@@ -123,7 +132,10 @@ void main()
     uint32_t caesar_load_cycles = 0;
     uint32_t caesar_data_move_cycles = 0;
     uint32_t caesar_compute_cycles = 0;
+
+#ifdef TIMER_ENABLED
     timer_init();
+#endif
 
     // Enable fast interrupts for DMA and PLIC
     if (enable_fast_interrupt(kDma_fic_e, true) != kFastIntrCtrlOk_e)
@@ -150,12 +162,18 @@ void main()
     // --- NM-Carus ---
     // -------------------------------- 
     // carus, initialize
+#ifdef TIMER_ENABLED
     timer_start();
+#endif
     if (carus_init(0) != 0) return 1;
+#ifdef TIMER_ENABLED
     carus_init_cycles = timer_stop();
+#endif
 
     // carus, load kernel
+#ifdef TIMER_ENABLED
     timer_start();
+#endif
     // Load kernel
     if (carus_load_kernel(0, carus_matmul, CARUS_MATMUL_SIZE, NULL) != 0) return 1;
     // Set kernel configuration configuration
@@ -181,10 +199,17 @@ void main()
     // Write kernel configuration
     if (carus_set_cfg(0, &cfg) != 0)
         return 1;
+#ifdef TIMER_ENABLED
     carus_load_cycles = timer_stop();
+#endif
 
     // carus, data transfer
+#ifdef TIMER_ENABLED
     timer_start();
+#endif
+#ifdef VCD
+    vcd_enable();
+#endif
     // Copy flattened matrix A
     row_ptr = (data_t *) (CARUS0_START_ADDRESS + vregs[CARUS_MATMUL_A_VREG]);
     if (dma_copy((uint8_t *) row_ptr, (uint8_t *) A, A_SIZE, dma_type) != 0) return 1;
@@ -194,18 +219,27 @@ void main()
         if (dma_copy((uint8_t *) row_ptr, (uint8_t *) (B+i*B_COLS), B_COLS * ELEM_SIZE, dma_type) != 0)
             return 1;
     }
+#ifdef TIMER_ENABLED
     carus_data_move_cycles = timer_stop();
+#endif
 
     // carus, running the kernel
+#ifdef TIMER_ENABLED
     timer_start();
+#endif
     // Run the kernel
     if (carus_run_kernel(0) != 0) return 1;
     // Wait for the kernel to complete
     if (carus_wait_done(0) != 0) return 1;
+#ifdef VCD
+    vcd_disable();
+#endif
+#ifdef TIMER_ENABLED
     carus_compute_cycles = timer_stop();
-
+#endif
+#ifdef TIMER_ENABLED
     carus_cycles = carus_load_cycles + carus_data_move_cycles + carus_compute_cycles;
-
+#endif
     // --------------------------------
     // --- NM-Caesar ---
     // --------------------------------
@@ -218,23 +252,37 @@ void main()
     }
 
     // caesar, data transfer
+#ifdef TIMER_ENABLED
     timer_start();
+#endif
+#ifdef VCD
+    vcd_enable();
+#endif
     data_t* matrix_caesar_A = (data_t*) (CAESAR0_START_ADDRESS + CAESAR_A_OFFS);
     data_t* matrix_caesar_B = (data_t*) (CAESAR0_START_ADDRESS + CAESAR_B_OFFS);
     if (dma_copy((uint8_t *) matrix_caesar_A, (uint8_t *) A, A_SIZE, dma_type) != 0) return -1;
     if (dma_copy((uint8_t *) matrix_caesar_B, (uint8_t *) B, B_SIZE, dma_type) != 0) return -1;
+#ifdef TIMER_ENABLED
     caesar_data_move_cycles = timer_stop();
+#endif
 
     // caesar, running the kernel
+#ifdef TIMER_ENABLED
     timer_start();
+#endif
     // Set NM-Caesar in computing mode
     if (caesar_set_mode(0, CAESAR_MODE_COMP) != 0) return -1;
     //Use the DMA to send commands - performing matmul M * A
     dma_copy_to_addr_32b(caesar_cmds_matmul_addr, caesar_cmds_matmul, CAESAR_CMDS_MATMUL_SIZE >> 2);
+#ifdef TIMER_ENABLED
     caesar_compute_cycles = timer_stop();
     caesar_cycles  =  caesar_load_cycles + caesar_data_move_cycles + caesar_compute_cycles;
+#endif
     // Set NM-Caesar in memory mode
     if (caesar_set_mode(0, CAESAR_MODE_MEM) != 0) return -1;
+#ifdef VCD
+    vcd_disable();
+#endif
 
     //set the pointer back
     uint32_t* R_caesar = (uint32_t*)(CAESAR0_START_ADDRESS + CAESAR_R_OFFS);
@@ -244,11 +292,17 @@ void main()
     // --- OE-CGRA ---
     // --------------------------------
     // oecgra, load kernel
+#ifdef TIMER_ENABLED
     timer_start();
+#endif
 
     cgra_cmem_init(cgra_imem_bitstream, cgra_kmem_bitstream);
     cgra.base_addr = mmio_region_from_addr((uintptr_t)OECGRA_CONFIG_REGS_START_ADDRESS);
     cgra_slot = cgra_get_slot(&cgra);
+
+#ifdef VCD
+    vcd_enable();
+#endif
 
     // Col 0: &B[0][0], nItLoopColsC, &A[0][0], &C[0][3]
     cgra_input[0][0] = &B[0];
@@ -275,26 +329,46 @@ void main()
     for(int col_idx = 0 ; col_idx < CGRA_N_COLS ; col_idx++){
       cgra_set_read_ptr ( &cgra, cgra_slot, (uint32_t) cgra_input[col_idx], col_idx );
     }
+#ifdef TIMER_ENABLED
     cgra_load_cycles = timer_stop();
+#endif
 
     // oe-cgra, running the kernel
+#ifdef TIMER_ENABLED
     timer_start();
+#endif
     cgra_intr_flag = 0;
     cgra_set_kernel( &cgra, cgra_slot, TRANSFORMER );
     // Wait until CGRA is done
     while(cgra_intr_flag==0) {
       wait_for_interrupt();
     }
+#ifdef TIMER_ENABLED
     cgra_compute_cycles = timer_stop();
     cgra_cycles = cgra_load_cycles + cgra_data_move_cycles + cgra_compute_cycles;
+#endif
+#ifdef VCD
+    vcd_disable();
+#endif
   
     // --------------------------------
     // --- CPU ---
     // --------------------------------
+#ifdef VCD
+    vcd_enable();
+#endif
+#ifdef TIMER_ENABLED
     timer_start();
+#endif
     cpuMatMul(A, B, R_cpu, A_ROWS, A_COLS, B_COLS);
+#ifdef TIMER_ENABLED
     cpu_cycles = timer_stop();
+#endif
+#ifdef VCD
+    vcd_disable();
+#endif
 
+#ifdef CHECK_RESULTS
     // check carus, oe-cgra, and cput results to be the same as the golden result
     for (unsigned int i = 0; i < R_ROWS; i++) {
         row_ptr = (data_t *) (CARUS0_START_ADDRESS + vregs[CARUS_MATMUL_R_VREG + i]);
@@ -315,10 +389,10 @@ void main()
                 printf("NM-Caesar|gold R[%u,%u]: %x %x\n", i, j, R_caesar[i*R_COLS+j], R[i*R_COLS+j]);
                 return -1;
             }
-
-            
         }
     }
+    printf("Results are correct\n");
+#endif
 
   #ifdef PRINT_TIMING_DETAILS
     printf("----------------------------------------\n");
