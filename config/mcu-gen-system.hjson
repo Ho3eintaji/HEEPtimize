@@ -2,20 +2,20 @@
     bus_type: "NtoM",
     ram_banks: {
         code: {
-            type: interleaved
-            num: 2
-            size: 32
+            // type: interleaved
+            num: 1
+            sizes: 32
         }
         data: {
             type: interleaved
-            num: 2
+            num: 8
             size: 32
         }
         data_interleaved: {
-            auto_section: auto
+            // auto_section: auto
             type: interleaved
             num: 4
-            size: 32
+            size: 16
         }
     }
 
