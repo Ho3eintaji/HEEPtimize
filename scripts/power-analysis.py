@@ -1,14 +1,63 @@
+"""
+Matmul Simulation Data Extraction and Analysis Script
+Author: Hossein Taji
+
+This script extracts simulation data from specified directories, processes power consumption data,
+and provides methods for querying and analyzing the data. It also includes a data analysis class
+to generate graphs based on various parameters.
+
+Key Features:
+- Extracts power consumption data for matrix multiplication operations across different PEs (Processing Elements).
+- Supports querying power consumption based on PE type, matrix sizes, voltage, frequency, and power domains.
+- Integrates maximum frequency constraints based on voltage levels.
+- Provides data analysis capabilities to generate graphs for various scenarios.
+
+Usage:
+- Instantiate the MatmulSimulationData class and extract data.
+- Use the query_power method to obtain power consumption data.
+- Use the MatmulDataAnalysis class to generate graphs.
+
+Dependencies:
+- Python 3.x
+- matplotlib (for plotting graphs)
+- pickle (for data serialization)
+
+"""
+
 import os
 import re
 import csv
 import pickle
+import matplotlib.pyplot as plt
+
 
 class MatmulSimulationData:
+    """
+    A class to extract, store, and query matrix multiplication simulation data.
+    """
+
     def __init__(self):
+        """
+        Initializes the MatmulSimulationData object with an empty data list and max frequency constraints.
+        """
         # Data storage: a list of dictionaries
         self.data_list = []
 
+        # Max frequency constraints based on voltage (MHz)
+        self.max_frequency = {
+            0.5: 122,  # Corresponds to 8.2ns
+            0.65: 347,  # Corresponds to 2.88ns
+            0.8: 578,  # Corresponds to 1.73ns
+            0.9: 690,  # Corresponds to 1.45ns
+        }
+
     def extract_data(self, root_dir='private/matmul_postsynth_sims'):
+        """
+        Extracts data from simulation files in the specified root directory.
+
+        Args:
+            root_dir (str): The root directory containing simulation data.
+        """
         # Allow specifying root directory
         self.root_dir = root_dir
 
@@ -189,16 +238,44 @@ class MatmulSimulationData:
                     continue
 
     def save_data(self, filename='simulation_data.pkl'):
+        """
+        Saves the extracted data to a file for future use.
+
+        Args:
+            filename (str): The file name to save the data.
+        """
         with open(filename, 'wb') as f:
             pickle.dump(self.data_list, f)
         print(f"Data saved to {filename}")
 
     def load_data(self, filename='simulation_data.pkl'):
+        """
+        Loads data from a file.
+
+        Args:
+            filename (str): The file name from which to load the data.
+        """
         with open(filename, 'rb') as f:
             self.data_list = pickle.load(f)
         print(f"Data loaded from {filename}")
 
     def query_power(self, PE, row_a, col_a, col_b, voltage, frequency_MHz=None, power_type='total', domains=None):
+        """
+        Queries power consumption data based on specified parameters.
+
+        Args:
+            PE (str): The processing element ('carus', 'caesar', 'cgra', 'cpu').
+            row_a (int): Number of rows in matrix A.
+            col_a (int): Number of columns in matrix A.
+            col_b (int): Number of columns in matrix B.
+            voltage (float): Voltage level (e.g., 0.5, 0.65, 0.8, 0.9).
+            frequency_MHz (float): Frequency in MHz (optional).
+            power_type (str): 'total', 'dynamic', 'static', 'dyn', or 'stat' (default is 'total').
+            domains (list): List of power domains to include (optional).
+
+        Returns:
+            dict: A dictionary containing the queried data.
+        """
         # Find matching data entries
         matches = [d for d in self.data_list if
                    d['PE'] == PE and
@@ -222,6 +299,14 @@ class MatmulSimulationData:
 
         # Determine scaling factor
         if frequency_MHz is not None:
+            # Check max frequency constraint
+            max_freq = self.max_frequency.get(voltage, None)
+            if max_freq is None:
+                print(f"No max frequency data for voltage {voltage}V.")
+                return None
+            if frequency_MHz > max_freq:
+                print(f"Frequency {frequency_MHz} MHz exceeds max frequency {max_freq} MHz at {voltage}V.")
+                return None
             original_frequency = data['clock_frequency_MHz']
             scaling_factor = frequency_MHz / original_frequency
             scaled_execution_time_ns = data['execution_time_ns'] / scaling_factor
@@ -313,6 +398,19 @@ class MatmulSimulationData:
         return result
 
     def print_power_report(self, PE, row_a, col_a, col_b, voltage, frequency_MHz=None, power_type='total', domains=None):
+        """
+        Prints a power consumption report based on specified parameters.
+
+        Args:
+            PE (str): The processing element ('carus', 'caesar', 'cgra', 'cpu').
+            row_a (int): Number of rows in matrix A.
+            col_a (int): Number of columns in matrix A.
+            col_b (int): Number of columns in matrix B.
+            voltage (float): Voltage level.
+            frequency_MHz (float): Frequency in MHz (optional).
+            power_type (str): 'total', 'dynamic', 'static', 'dyn', or 'stat' (default is 'total').
+            domains (list): List of power domains to include (optional).
+        """
         result = self.query_power(PE, row_a, col_a, col_b, voltage, frequency_MHz, power_type, domains)
         if result:
             print("Power Consumption Report:")
@@ -329,6 +427,480 @@ class MatmulSimulationData:
             print(f"{power_label}: {result['power_mW']} mW")
         else:
             print("No data to report.")
+    
+
+
+
+class MatmulDataAnalysis:
+    """
+    A class for analyzing and plotting matrix multiplication simulation data.
+    """
+
+    def __init__(self, simulation_data):
+        """
+        Initializes the MatmulDataAnalysis object.
+
+        Args:
+            simulation_data (MatmulSimulationData): An instance of MatmulSimulationData.
+        """
+        self.sim_data = simulation_data
+
+    def plot_power_vs_voltage(self, PE, row_a, col_a, col_b):
+        """
+        Plots execution time and average power versus voltage at max frequency for the given PE and matrix size.
+
+        Args:
+            PE (str): The processing element.
+            row_a (int): Number of rows in matrix A.
+            col_a (int): Number of columns in matrix A.
+            col_b (int): Number of columns in matrix B.
+        """
+        voltages = sorted(self.sim_data.max_frequency.keys())
+        times = []
+        powers = []
+        energies = []
+
+        for voltage in voltages:
+            max_freq = self.sim_data.max_frequency[voltage]
+            result = self.sim_data.query_power(
+                PE=PE,
+                row_a=row_a,
+                col_a=col_a,
+                col_b=col_b,
+                voltage=voltage,
+                frequency_MHz=max_freq
+            )
+            if result:
+                execution_time_s = result['execution_time_ns'] * 1e-9
+                power_W = result['power_mW'] * 1e-3
+                energy_J = execution_time_s * power_W
+                times.append(execution_time_s)
+                powers.append(power_W)
+                energies.append(energy_J)
+            else:
+                times.append(None)
+                powers.append(None)
+                energies.append(None)
+
+        fig, ax1 = plt.subplots(figsize=(12, 7))
+        # First plot - Execution Time vs Voltage
+        ax1.plot(voltages, times, marker='o', linestyle='-', color='b', markersize=8, linewidth=2, label='Execution Time (s)')
+        ax1.set_xlabel('Voltage (V)', fontsize=14)
+        ax1.set_ylabel('Execution Time (s)', color='b', fontsize=14)
+        ax1.tick_params(axis='y', labelcolor='b', labelsize=12)
+        # Second y-axis - Average Power vs Voltage
+        ax2 = ax1.twinx()
+        ax2.plot(voltages, powers, marker='o', linestyle='-', color='g', markersize=8, linewidth=2, label='Power (W)')
+        ax2.set_ylabel('Power (W)', color='g', fontsize=14)
+        ax2.tick_params(axis='y', labelcolor='g', labelsize=12)
+        # Third y-axis - Energy vs Voltage
+        ax3 = ax1.twinx()
+        ax3.spines['right'].set_position(('outward', 60))  # Offset the third axis
+        ax3.plot(voltages, energies, marker='o', linestyle='-', color='r', markersize=8, linewidth=2, label='Energy (J)')
+        ax3.set_ylabel('Energy (J)', color='r', fontsize=14)
+        ax3.tick_params(axis='y', labelcolor='r', labelsize=12)
+        plt.title(f'Execution Time, Power, and Energy vs Voltage for {PE} PE, {row_a}x{col_a} * {col_a}x{col_b}', fontsize=16, fontweight='bold')
+        ax1.grid(True, which='both', linestyle='--', linewidth=0.5)
+        plt.tight_layout()
+        plt.savefig('power_vs_voltage.pdf', bbox_inches='tight')
+
+    def plot_energy_vs_frequency(self, PE, row_a, col_a, col_b, voltage):
+        """
+        Plots total energy versus frequency for the given PE, matrix size, and voltage.
+
+        Args:
+            PE (str): The processing element.
+            row_a (int): Number of rows in matrix A.
+            col_a (int): Number of columns in matrix A.
+            col_b (int): Number of columns in matrix B.
+            voltage (float): Voltage level.
+        """
+        max_freq = self.sim_data.max_frequency.get(voltage, None)
+        if max_freq is None:
+            print(f"No max frequency data for voltage {voltage}V.")
+            return
+
+        frequencies = []
+        energies = []
+
+        # Generate frequencies from a low value to max frequency
+        freq_values = [max_freq * x / 10 for x in range(1, 11)]
+
+        for freq in freq_values:
+            result = self.sim_data.query_power(
+                PE=PE,
+                row_a=row_a,
+                col_a=col_a,
+                col_b=col_b,
+                voltage=voltage,
+                frequency_MHz=freq
+            )
+            if result:
+                execution_time_s = result['execution_time_ns'] * 1e-9
+                power_W = result['power_mW'] * 1e-3
+                energy_J = execution_time_s * power_W
+                frequencies.append(freq)
+                energies.append(energy_J)
+            else:
+                frequencies.append(None)
+                energies.append(None)
+
+        # Plotting
+        plt.figure(figsize=(10, 7))
+
+        # Plot the data with enhanced markers and line style
+        plt.plot(frequencies, energies, marker='o', linestyle='-', color='b', markersize=8, linewidth=2)
+
+        # Add title and labels with enhanced font sizes
+        # shows also selected PE, matrix size, and voltage
+        # plt.title(f'Energy vs Frequency at {voltage}V for {row_a}x{col_a} * {col_a}x{col_b}', fontsize=16, fontweight='bold')
+        plt.title(f'Energy vs Frequency at {voltage}V for {PE} PE, {row_a}x{col_a} * {col_a}x{col_b}', fontsize=16, fontweight='bold')
+        plt.xlabel('Frequency (MHz)', fontsize=14)
+        plt.ylabel('Energy (J)', fontsize=14)
+
+        # Add grid and improve readability with larger ticks
+        plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+
+        # Optional minor grid lines
+        plt.minorticks_on()
+        plt.grid(which='minor', linestyle=':', linewidth=0.5)
+
+        # Save the plot
+        plt.savefig('energy_vs_frequency.pdf', bbox_inches='tight')
+
+    def plot_power_vs_size(self, ra, ca, voltage, PEs=None):
+        """
+        Plots energy versus matrix size (varying cb) for specified PEs at the given voltage and max frequency.
+
+        Args:
+            ra (int): Number of rows in matrix A.
+            ca (int): Number of columns in matrix A.
+            voltage (float): Voltage level.
+            PEs (list, optional): List of PEs to include in the plot. Defaults to ['carus', 'caesar', 'cgra', 'cpu'].
+        """
+        max_freq = self.sim_data.max_frequency.get(voltage, None)
+        if max_freq is None:
+            print(f"No max frequency data for voltage {voltage}V.")
+            return
+
+        if PEs is None:
+            PEs = ['carus', 'caesar', 'cgra', 'cpu']
+
+        # Collect cb values for which data is available for the given ra, ca, and voltage
+        cb_values = set()
+        for data in self.sim_data.data_list:
+            if data['row_a'] == ra and data['col_a'] == ca and data['voltage'] == voltage and data['PE'] in PEs:
+                cb_values.add(data['col_b'])
+        cb_values = sorted(cb_values)
+
+        if not cb_values:
+            print(f"No data available for ra={ra}, ca={ca}, voltage={voltage}V.")
+            return
+
+        power_data = {PE: [] for PE in PEs}
+
+        for cb in cb_values:
+            for PE in PEs:
+                result = self.sim_data.query_power(
+                    PE=PE,
+                    row_a=ra,
+                    col_a=ca,
+                    col_b=cb,
+                    voltage=voltage,
+                    frequency_MHz=max_freq
+                )
+                if result:
+                    power_W = result['power_mW'] * 1e-3
+                    power_data[PE].append(power_W)
+                else:
+                    power_data[PE].append(None)
+
+
+        # Plotting
+        plt.figure(figsize=(10, 7))
+
+        for PE in PEs:
+            # Filter out None values
+            power_values = power_data[PE]
+            if any(power_values):
+                plt.plot(cb_values, power_values, marker='o', linestyle='-', markersize=8, linewidth=2, label=PE)
+
+        pe_labels = ', '.join(PEs)
+        plt.title(
+            f'Power vs Matrix Size (cb) at {voltage}V and max frequency\n'
+            f'for {ra}x{ca} * {ca}x(cb)',
+            fontsize=16, fontweight='bold'
+        )
+        plt.xlabel('cb', fontsize=14)
+        plt.ylabel('Power (W)', fontsize=14)
+        plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+        plt.legend(fontsize=12)
+        plt.xticks(cb_values, fontsize=12)  # Show only the cb_values we have data for
+        plt.yticks(fontsize=12)
+        plt.minorticks_on()
+        plt.grid(which='minor', linestyle=':', linewidth=0.5)
+        plt.savefig(f'power_vs_size_ra{ra}xca{ca}_{voltage}V.pdf', bbox_inches='tight')
+        plt.show()
+
+    
+    # add a plot for showing max frequency in each voltage
+    def plot_max_frequency(self):
+        """
+        Plots maximum frequency versus voltage.
+        """
+        voltages = sorted(self.sim_data.max_frequency.keys())
+        frequencies = [self.sim_data.max_frequency[v] for v in voltages]
+
+        # Create the figure and set the size
+        plt.figure(figsize=(10, 7))
+
+        # Plot the data with enhanced markers and line style
+        plt.plot(voltages, frequencies, marker='o', linestyle='-', color='b', markersize=8, linewidth=2)
+        # in the points I have value, show max frequency values explicitly
+        for i, freq in enumerate(frequencies):
+            plt.text(voltages[i], freq, f"{freq} MHz", fontsize=12, va='bottom', ha='center')
+        
+
+        # Add title and labels with increased font sizes
+        plt.title('Maximum Frequency vs Voltage', fontsize=16, fontweight='bold')
+        plt.xlabel('Voltage (V)', fontsize=14)
+        plt.ylabel('Frequency (MHz)', fontsize=14)
+
+        # Add grid for better visibility
+        plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+
+        # Make ticks larger for better readability
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+
+        # Optional: Adding minor grid lines
+        plt.minorticks_on()
+        plt.grid(which='minor', linestyle=':', linewidth=0.5)
+
+        # Save the plot as a PDF
+        plt.savefig('max_frequency_vs_voltage.pdf', bbox_inches='tight')
+
+    def plot_energy_vs_size(self, ra, ca, voltage, PEs=None):
+        """
+        Plots power versus matrix size (varying cb) for specified PEs at the given voltage and max frequency.
+
+        Args:
+            ra (int): Number of rows in matrix A.
+            ca (int): Number of columns in matrix A.
+            voltage (float): Voltage level.
+            PEs (list, optional): List of PEs to include in the plot. Defaults to ['carus', 'caesar', 'cgra', 'cpu'].
+        """
+        max_freq = self.sim_data.max_frequency.get(voltage, None)
+        if max_freq is None:
+            print(f"No max frequency data for voltage {voltage}V.")
+            return
+
+        if PEs is None:
+            PEs = ['carus', 'caesar', 'cgra', 'cpu']
+
+        # Collect cb values for which data is available for the given ra, ca, and voltage
+        cb_values = set()
+        for data in self.sim_data.data_list:
+            if data['row_a'] == ra and data['col_a'] == ca and data['voltage'] == voltage and data['PE'] in PEs:
+                cb_values.add(data['col_b'])
+        cb_values = sorted(cb_values)
+
+        if not cb_values:
+            print(f"No data available for ra={ra}, ca={ca}, voltage={voltage}V.")
+            return
+
+        energy_data = {PE: [] for PE in PEs}
+
+        for cb in cb_values:
+            for PE in PEs:
+                result = self.sim_data.query_power(
+                    PE=PE,
+                    row_a=ra,
+                    col_a=ca,
+                    col_b=cb,
+                    voltage=voltage,
+                    frequency_MHz=max_freq
+                )
+                if result:
+                    execution_time_s = result['execution_time_ns'] * 1e-9
+                    power_W = result['power_mW'] * 1e-3
+                    energy_J = execution_time_s * power_W
+                    energy_data[PE].append(energy_J)
+                else:
+                    energy_data[PE].append(None)
+
+        # Plotting
+        plt.figure(figsize=(10, 7))
+
+        for PE in PEs:
+            # Filter out None values
+            energy_values = energy_data[PE]
+            if any(energy_values):
+                plt.plot(cb_values, energy_values, marker='o', linestyle='-', markersize=8, linewidth=2, label=PE)
+
+        pe_labels = ', '.join(PEs)
+        plt.title(
+            f'Energy vs Matrix Size (cb) at {voltage}V and max frequency\n'
+            f'for {ra}x{ca} * {ca}x(cb)',
+            fontsize=16, fontweight='bold'
+        )
+        plt.xlabel('cb', fontsize=14)
+        plt.ylabel('Energy (J)', fontsize=14)
+        plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+        plt.legend(fontsize=12)
+        plt.xticks(cb_values, fontsize=12)  # Show only the cb_values we have data for
+        plt.yticks(fontsize=12)
+        plt.minorticks_on()
+        plt.grid(which='minor', linestyle=':', linewidth=0.5)
+        plt.savefig(f'energy_vs_size_ra{ra}xca{ca}_{voltage}V.pdf', bbox_inches='tight')
+        # plt.show()
+    
+    def plot_metric_vs_size(self, sweep_params, fixed_params, voltage, metrics=['energy'], PEs=None, domains=None):
+        """
+        Plots specified metrics versus matrix sizes, sweeping over given parameters for specified PEs at given voltage.
+        
+        Args:
+            sweep_params (list): List of parameters to sweep over, e.g., ['col_b'], ['row_a', 'col_a'].
+            fixed_params (dict): Dictionary of fixed parameters, e.g., {'row_a': 8, 'col_a': 8}.
+            voltage (float): Voltage level.
+            metrics (list): List of metrics to plot. Options are 'power', 'time', 'energy'.
+            PEs (list, optional): List of PEs to include in the plot. Defaults to ['carus', 'caesar', 'cgra', 'cpu'].
+            domains (dict, optional): Dictionary mapping PEs to lists of domains to include in power calculation.
+        """
+        max_freq = self.sim_data.max_frequency.get(voltage, None)
+        if max_freq is None:
+            print(f"No max frequency data for voltage {voltage}V.")
+            return
+
+        if PEs is None:
+            PEs = ['carus', 'caesar', 'cgra', 'cpu']
+
+        # Collect all unique values for sweep parameters from data_list
+        param_values = {param: set() for param in sweep_params}
+        for data in self.sim_data.data_list:
+            if data['voltage'] == voltage and data['PE'] in PEs:
+                match = True
+                for fixed_param, fixed_value in fixed_params.items():
+                    if data.get(fixed_param) != fixed_value:
+                        match = False
+                        break
+                if match:
+                    for param in sweep_params:
+                        param_values[param].add(data[param])
+
+        # Check if we have data
+        if not all(param_values.values()):
+            print("No data available for the given parameters.")
+            return
+
+        # Sort the values
+        for param in sweep_params:
+            param_values[param] = sorted(param_values[param])
+
+        # Create all combinations of sweep parameters
+        from itertools import product
+        sweep_param_combinations = list(product(*[param_values[param] for param in sweep_params]))
+
+        # Prepare data structure for metrics
+        metric_data = {metric: {PE: [] for PE in PEs} for metric in metrics}
+
+        # Prepare x-axis labels
+        x_labels = []
+        x_values = []  # For numeric x-axis if needed
+
+        for idx, combination in enumerate(sweep_param_combinations):
+            params = dict(zip(sweep_params, combination))
+            params.update(fixed_params)
+            # Simplify x-labels by showing parameter values only
+            x_label = ','.join([str(v) for k, v in params.items() if k in sweep_params])
+            x_labels.append(x_label)
+            x_values.append(idx)
+
+            for PE in PEs:
+                # Get domains for this PE
+                pe_domains = domains.get(PE) if domains else None
+                result = self.sim_data.query_power(
+                    PE=PE,
+                    row_a=params.get('row_a'),
+                    col_a=params.get('col_a'),
+                    col_b=params.get('col_b'),
+                    voltage=voltage,
+                    frequency_MHz=max_freq,
+                    power_type='total',
+                    domains=pe_domains
+                )
+                if result:
+                    execution_time_s = result['execution_time_ns'] * 1e-9
+                    power_W = result['power_mW'] * 1e-3
+                    energy_J = execution_time_s * power_W
+
+                    for metric in metrics:
+                        if metric == 'power':
+                            metric_data[metric][PE].append(power_W)
+                        elif metric == 'time':
+                            metric_data[metric][PE].append(execution_time_s)
+                        elif metric == 'energy':
+                            metric_data[metric][PE].append(energy_J)
+                else:
+                    for metric in metrics:
+                        metric_data[metric][PE].append(None)
+
+        # Remove data points where all PEs have None (no data)
+        valid_indices = []
+        for idx in range(len(x_labels)):
+            is_valid = False
+            for metric in metrics:
+                for PE in PEs:
+                    if metric_data[metric][PE][idx] is not None:
+                        is_valid = True
+                        break
+                if is_valid:
+                    break
+            if is_valid:
+                valid_indices.append(idx)
+
+        # Filter data to include only valid indices
+        x_labels = [x_labels[i] for i in valid_indices]
+        x_values = [x_values[i] for i in valid_indices]
+        for metric in metrics:
+            for PE in PEs:
+                metric_data[metric][PE] = [metric_data[metric][PE][i] for i in valid_indices]
+
+        # Plotting
+        import matplotlib.pyplot as plt
+        num_metrics = len(metrics)
+        plt.figure(figsize=(8 * num_metrics, 6))
+
+        for idx, metric in enumerate(metrics):
+            plt.subplot(1, num_metrics, idx + 1)
+            for PE in PEs:
+                metric_values = metric_data[metric][PE]
+                if any(metric_values):
+                    plt.plot(x_values, metric_values, marker='o', linestyle='-', markersize=8, linewidth=2, label=PE)
+            plt.title(f'{metric.capitalize()} vs Sizes at {voltage}V', fontsize=16, fontweight='bold')
+            plt.xlabel('Sizes', fontsize=14)
+            plt.ylabel(f'{metric.capitalize()}', fontsize=14)
+            plt.xticks(x_values, x_labels, rotation=45, ha='right', fontsize=12)
+            plt.yticks(fontsize=12)
+            plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+            plt.minorticks_on()
+            plt.grid(which='minor', linestyle=':', linewidth=0.5)
+            plt.legend(fontsize=12)
+            plt.tight_layout()
+
+        # Save the plot as PDF
+        # Generate a relevant filename
+        sweep_params_str = '_'.join(sweep_params)
+        metrics_str = '_'.join(metrics)
+        PEs_str = '_'.join(PEs)
+        filename = f'plot_{metrics_str}_vs_{sweep_params_str}_at_{voltage}V_PEs_{PEs_str}.pdf'
+        plt.savefig(filename, bbox_inches='tight')
+        print(f"Plot saved as {filename}")
+        plt.close()
+
+
 
 # Example usage:
 
@@ -344,77 +916,41 @@ simulation_data.save_data('simulation_data.pkl')
 # Load data from a file (in future runs)
 # simulation_data.load_data('simulation_data.pkl')
 
-# # Query total power consumption (default behavior)
-# simulation_data.print_power_report(
-#     PE='carus',
-#     row_a=8,
-#     col_a=8,
-#     col_b=256,
-#     voltage=0.5,
-#     frequency_MHz=200  # New frequency, for scaling
+# Instantiate the data analysis class
+data_analysis = MatmulDataAnalysis(simulation_data)
+
+# data_analysis.plot_power_vs_voltage(PE='carus', row_a=8, col_a=8, col_b=256)
+# data_analysis.plot_energy_vs_frequency(PE='carus', row_a=8, col_a=8, col_b=256, voltage=0.8)
+# data_analysis.plot_max_frequency()
+
+# data_analysis.plot_energy_vs_size(ra=4, ca=4, voltage=0.9, PEs=['carus', 'caesar','cgra'])
+# data_analysis.plot_power_vs_size(ra=4, ca=4, voltage=0.9, PEs=['carus', 'caesar','cgra'])
+
+# # Example 1: Sweep over 'col_b', fixed 'row_a' and 'col_a', plot 'energy' for specified PEs and domains
+# data_analysis.plot_metric_vs_size(
+#     sweep_params=['col_b'],
+#     fixed_params={'row_a': 8, 'col_a': 8},
+#     voltage=0.8,
+#     metrics=['energy'],
+#     PEs=['carus', 'cgra'],
+#     domains={
+#         'carus': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_carus'],
+#         'cgra': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_cgra']
+#     }
 # )
 
-# # Query dynamic power only
-# simulation_data.print_power_report(
-#     PE='carus',
-#     row_a=8,
-#     col_a=8,
-#     col_b=256,
-#     voltage=0.5,
-#     frequency_MHz=200,
-#     power_type='dynamic'
-# )
+# =================================================================================================
 
-# # Query static power only
-# simulation_data.print_power_report(
-#     PE='carus',
-#     row_a=8,
-#     col_a=8,
-#     col_b=256,
-#     voltage=0.5,
-#     frequency_MHz=200,
-#     power_type='static'
-# )
-
-# # Query power for a specific domain (e.g., 'pow_mem')
-# simulation_data.print_power_report(
-#     PE='carus',
-#     row_a=8,
-#     col_a=8,
-#     col_b=256,
-#     voltage=0.5,
-#     frequency_MHz=200,
-#     domains=['pow_mem']
-# )
-
-# # Query dynamic power for a specific domain
-# simulation_data.print_power_report(
-#     PE='carus',
-#     row_a=8,
-#     col_a=8,
-#     col_b=256,
-#     voltage=0.5,
-#     frequency_MHz=200,
-#     power_type='dynamic',
-#     domains=['pow_mem']
-# )
-
-# simulation_data.print_power_report(
-#     PE='carus',
-#     row_a=8,
-#     col_a=8,
-#     col_b=256,
-#     voltage=0.5,
-#     frequency_MHz=200
-# )
-
-simulation_data.print_power_report(
-    PE='carus',
-    row_a=8,
-    col_a=8,
-    col_b=256,
-    voltage=0.5,
-    frequency_MHz=100,
-    power_type='static',
-    domains=['pow_carus']
+# Example: Sweep over 'col_b', fixed 'row_a' and 'col_a', plot 'energy' for specified PEs and domains
+data_analysis.plot_metric_vs_size(
+    sweep_params=['col_b', 'col_a'],
+    fixed_params={'row_a': 8},
+    voltage=0.9,
+    metrics=['energy', 'time', 'power'],
+    PEs=['carus', 'caesar', 'cgra'],
+    domains={
+        'carus': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_carus'],
+        'caesar': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_caesar'],
+        'cgra': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_cgra']
+    }
 )
