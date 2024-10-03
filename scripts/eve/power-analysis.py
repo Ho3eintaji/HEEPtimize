@@ -36,6 +36,7 @@ import matplotlib.pyplot as plt
 from itertools import product
 import matplotlib.pyplot as plt
 import numpy as np
+import argparse
 
 
 class MatmulSimulationData:
@@ -443,7 +444,7 @@ class MatmulDataAnalysis:
     A class for analyzing and plotting matrix multiplication simulation data.
     """
 
-    def __init__(self, simulation_data):
+    def __init__(self, simulation_data, output_dir):
         """
         Initializes the MatmulDataAnalysis object.
 
@@ -451,6 +452,11 @@ class MatmulDataAnalysis:
             simulation_data (MatmulSimulationData): An instance of MatmulSimulationData.
         """
         self.sim_data = simulation_data
+        self.output_dir = output_dir
+
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
+        
 
     def plot_power_vs_voltage(self, PE, row_a, col_a, col_b):
         """
@@ -461,6 +467,9 @@ class MatmulDataAnalysis:
             row_a (int): Number of rows in matrix A.
             col_a (int): Number of columns in matrix A.
             col_b (int): Number of columns in matrix B.
+
+        Example:
+        data_analysis.plot_power_vs_voltage(PE='carus', row_a=8, col_a=8, col_b=256)
         """
         voltages = sorted(self.sim_data.max_frequency.keys())
         times = []
@@ -509,7 +518,7 @@ class MatmulDataAnalysis:
         plt.title(f'Execution Time, Power, and Energy vs Voltage for {PE} PE, {row_a}x{col_a} * {col_a}x{col_b}', fontsize=16, fontweight='bold')
         ax1.grid(True, which='both', linestyle='--', linewidth=0.5)
         plt.tight_layout()
-        plt.savefig('power_vs_voltage.pdf', bbox_inches='tight')
+        plt.savefig(f'{self.output_dir}/power_vs_voltage.pdf', bbox_inches='tight')
 
     def plot_energy_vs_frequency(self, PE, row_a, col_a, col_b, voltage):
         """
@@ -521,6 +530,9 @@ class MatmulDataAnalysis:
             col_a (int): Number of columns in matrix A.
             col_b (int): Number of columns in matrix B.
             voltage (float): Voltage level.
+
+        Example:
+        data_analysis.plot_energy_vs_frequency(PE='carus', row_a=8, col_a=8, col_b=256, voltage=0.8)
         """
         max_freq = self.sim_data.max_frequency.get(voltage, None)
         if max_freq is None:
@@ -575,9 +587,9 @@ class MatmulDataAnalysis:
         plt.grid(which='minor', linestyle=':', linewidth=0.5)
 
         # Save the plot
-        plt.savefig('energy_vs_frequency.pdf', bbox_inches='tight')
+        plt.savefig(f'{self.output_dir}/energy_vs_frequency.pdf', bbox_inches='tight')
 
-    def plot_power_vs_size(self, ra, ca, voltage, PEs=None):
+    def plot_power_vs_size_1d(self, ra, ca, voltage, PEs=None):
         """
         Plots energy versus matrix size (varying cb) for specified PEs at the given voltage and max frequency.
 
@@ -586,6 +598,9 @@ class MatmulDataAnalysis:
             ca (int): Number of columns in matrix A.
             voltage (float): Voltage level.
             PEs (list, optional): List of PEs to include in the plot. Defaults to ['carus', 'caesar', 'cgra', 'cpu'].
+        
+        Example:
+        data_analysis.plot_power_vs_size_1d(ra=4, ca=4, voltage=0.9, PEs=['carus', 'caesar','cgra'])
         """
         max_freq = self.sim_data.max_frequency.get(voltage, None)
         if max_freq is None:
@@ -648,14 +663,15 @@ class MatmulDataAnalysis:
         plt.yticks(fontsize=12)
         plt.minorticks_on()
         plt.grid(which='minor', linestyle=':', linewidth=0.5)
-        plt.savefig(f'power_vs_size_ra{ra}xca{ca}_{voltage}V.pdf', bbox_inches='tight')
+        plt.savefig(f'{self.output_dir}/power_vs_size_ra{ra}xca{ca}_{voltage}V.pdf', bbox_inches='tight')
         plt.show()
 
-    
-    # add a plot for showing max frequency in each voltage
     def plot_max_frequency(self):
         """
         Plots maximum frequency versus voltage.
+
+        Example:
+        data_analysis.plot_max_frequency()
         """
         voltages = sorted(self.sim_data.max_frequency.keys())
         frequencies = [self.sim_data.max_frequency[v] for v in voltages]
@@ -687,9 +703,9 @@ class MatmulDataAnalysis:
         plt.grid(which='minor', linestyle=':', linewidth=0.5)
 
         # Save the plot as a PDF
-        plt.savefig('max_frequency_vs_voltage.pdf', bbox_inches='tight')
+        plt.savefig(f'{self.output_dir}/max_frequency_vs_voltage.pdf', bbox_inches='tight')
 
-    def plot_energy_vs_size(self, ra, ca, voltage, PEs=None):
+    def plot_energy_vs_size_1d(self, ra, ca, voltage, PEs=None):
         """
         Plots power versus matrix size (varying cb) for specified PEs at the given voltage and max frequency.
 
@@ -698,6 +714,9 @@ class MatmulDataAnalysis:
             ca (int): Number of columns in matrix A.
             voltage (float): Voltage level.
             PEs (list, optional): List of PEs to include in the plot. Defaults to ['carus', 'caesar', 'cgra', 'cpu'].
+
+        Example:
+        data_analysis.plot_energy_vs_size_1d(ra=4, ca=4, voltage=0.9, PEs=['carus', 'caesar','cgra'])
         """
         max_freq = self.sim_data.max_frequency.get(voltage, None)
         if max_freq is None:
@@ -761,7 +780,7 @@ class MatmulDataAnalysis:
         plt.yticks(fontsize=12)
         plt.minorticks_on()
         plt.grid(which='minor', linestyle=':', linewidth=0.5)
-        plt.savefig(f'energy_vs_size_ra{ra}xca{ca}_{voltage}V.pdf', bbox_inches='tight')
+        plt.savefig(f'{self.output_dir}/energy_vs_size_ra{ra}xca{ca}_{voltage}V.pdf', bbox_inches='tight')
         # plt.show()
     
     def plot_metric_vs_size(self, sweep_params, fixed_params, voltage, metrics=['energy'], PEs=None, domains=None):
@@ -775,6 +794,36 @@ class MatmulDataAnalysis:
             metrics (list): List of metrics to plot. Options are 'power', 'time', 'energy'.
             PEs (list, optional): List of PEs to include in the plot. Defaults to ['carus', 'caesar', 'cgra', 'cpu'].
             domains (dict, optional): Dictionary mapping PEs to lists of domains to include in power calculation.
+
+        Example:
+
+        # Example 1: Sweep over 'col_b', fixed 'row_a' and 'col_a', plot 'energy' for specified PEs and domains
+        data_analysis.plot_metric_vs_size(
+            sweep_params=['col_b'],
+            fixed_params={'row_a': 8, 'col_a': 8},
+            voltage=0.8,
+            metrics=['energy'],
+            PEs=['carus', 'cgra'],
+            domains={
+                'carus': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_carus'],
+                'cgra': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_cgra']
+            }
+        )
+
+        # Example: Sweep over 'col_b', fixed 'row_a' and 'col_a', plot 'energy' for specified PEs and domains
+        data_analysis.plot_metric_vs_size(
+            sweep_params=['row_a', 'col_a', 'col_b'],
+            fixed_params={},
+            voltage=0.5,
+            metrics=['energy', 'time', 'power'],
+            PEs=['carus', 'caesar', 'cgra'],
+            domains={
+                'carus': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_carus'],
+                'caesar': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_caesar'],
+                'cgra': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_cgra']
+            }
+        )
+
         """
         max_freq = self.sim_data.max_frequency.get(voltage, None)
         if max_freq is None:
@@ -916,12 +965,11 @@ class MatmulDataAnalysis:
         sweep_params_str = '_'.join(sweep_params)
         metrics_str = '_'.join(metrics)
         PEs_str = '_'.join(PEs)
-        filename = f'plot_{metrics_str}_vs_{sweep_params_str}_at_{voltage}V_PEs_{PEs_str}.pdf'
+        filename = f'{self.output_dir}/plot_{metrics_str}_vs_{sweep_params_str}_at_{voltage}V_PEs_{PEs_str}.pdf'
         plt.savefig(filename, bbox_inches='tight')
         print(f"Plot saved as {filename}")
         plt.close()
     
-    # write another function to shows breakdown of energy consumed in each voltage on different domains
     def plot_power_breakdown(self, PE, voltage, row_a, col_a, col_b, metrics=['energy'], domains=None):
         """
         Plots the breakdown of power or energy consumption across different domains for the specified PE(s) at given voltage(s) and sizes.
@@ -1092,74 +1140,35 @@ class MatmulDataAnalysis:
             metric_str = '_'.join(metrics)
             PEs_str = '_'.join(PEs)
             volts_str = '_'.join([str(v) for v in voltages])
-            filename = f'{metric}_breakdown_{PEs_str}_volts_{volts_str}_ra{row_a}_ca{col_a}_cb{col_b}.pdf'
+            filename = f'{self.output_dir}/{metric}_breakdown_{PEs_str}_volts_{volts_str}_ra{row_a}_ca{col_a}_cb{col_b}.pdf'
             plt.savefig(filename, bbox_inches='tight')
             plt.close()
 
 
 
-# Example usage:
 
-# Create an instance of the data class
-simulation_data = MatmulSimulationData()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Matmul Simulation Data Analysis')
+    parser.add_argument('--data_dir', type=str, default='private/matmul_postsynth_sims', help='Directory of simulation data')
+    parser.add_argument('--root_dir', type=str, default='.', help='Root directory of project')
+    parser.add_argument('--eve_dir', type=str, default='scripts/eve', help='EVE directory (where this script is located)')
+    args = parser.parse_args()
 
-# Extract data from files (this needs to be done once)
-simulation_data.extract_data(root_dir='../private/matmul_postsynth_sims')
+    output_dir = args.eve_dir + '/output'
 
-# Save data to a file for future use
-simulation_data.save_data('simulation_data.pkl')
+    simulation_data = MatmulSimulationData()
+    simulation_data.extract_data(root_dir=args.data_dir)
+    # simulation_data.save_data(filename=f'{output_dir}/matmul_simulation_data.pkl')
+    # simulation_data.load_data(filename=f'{output_dir}/matmul_simulation_data.pkl')
+    data_analysis = MatmulDataAnalysis(simulation_data, output_dir=output_dir)
 
-# Load data from a file (in future runs)
-# simulation_data.load_data('simulation_data.pkl')
+    data_analysis.plot_power_vs_voltage(PE='carus', row_a=8, col_a=8, col_b=256)
 
-# Instantiate the data analysis class
-data_analysis = MatmulDataAnalysis(simulation_data)
-
-# data_analysis.plot_power_vs_voltage(PE='carus', row_a=8, col_a=8, col_b=256)
-# data_analysis.plot_energy_vs_frequency(PE='carus', row_a=8, col_a=8, col_b=256, voltage=0.8)
-# data_analysis.plot_max_frequency()
-
-# data_analysis.plot_energy_vs_size(ra=4, ca=4, voltage=0.9, PEs=['carus', 'caesar','cgra'])
-# data_analysis.plot_power_vs_size(ra=4, ca=4, voltage=0.9, PEs=['carus', 'caesar','cgra'])
-
-# # Example 1: Sweep over 'col_b', fixed 'row_a' and 'col_a', plot 'energy' for specified PEs and domains
-# data_analysis.plot_metric_vs_size(
-#     sweep_params=['col_b'],
-#     fixed_params={'row_a': 8, 'col_a': 8},
-#     voltage=0.8,
-#     metrics=['energy'],
-#     PEs=['carus', 'cgra'],
-#     domains={
-#         'carus': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_carus'],
-#         'cgra': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_cgra']
-#     }
-# )
-
-# =================================================================================================
-
-# Example: Sweep over 'col_b', fixed 'row_a' and 'col_a', plot 'energy' for specified PEs and domains
-# data_analysis.plot_metric_vs_size(
-#     sweep_params=['row_a', 'col_a', 'col_b'],
-#     fixed_params={},
-#     voltage=0.5,
-#     metrics=['energy', 'time', 'power'],
-#     PEs=['carus', 'caesar', 'cgra'],
-#     domains={
-#         'carus': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_carus'],
-#         'caesar': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_caesar'],
-#         'cgra': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_cgra']
-#     }
-# )
-
-# data_analysis.plot_metric_vs_size(
-#     sweep_params=['row_a', 'col_a', 'col_b'],
-#     fixed_params={},
-#     voltage=0.9,
-#     metrics=['energy', 'time', 'power'],
-#     PEs=['carus', 'caesar', 'cgra'],
-#     domains={
-#         'carus': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_carus'],
-#         'caesar': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_caesar'],
-#         'cgra': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_cgra']
-#     }
-# )
+    data_analysis.plot_power_breakdown(
+                PE=['carus', 'caesar', 'cgra'],
+                voltage=[0.8,0.9],
+                row_a=4,
+                col_a=8,
+                col_b=256,
+                metrics=['power']
+            )

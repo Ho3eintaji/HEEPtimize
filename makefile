@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 #
 # File: makefile
-# Author: Michele Caon, Luigi Giuffrida, Hossein Taji
+# Author: Hossein Taji
 # Date: 29/04/2024
 # Description: Top-level makefile for heepatia
 
@@ -137,6 +137,11 @@ CAESAR_PL_SDF := $(ROOT_DIR)/hw/vendor/nm-caesar-backend-opt/implementation/pnr/
 #HEEPATIA PL Netlist and SDF
 # HEEPATIA_PL_NET := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heepatia_pg.v
 # HEEPATIA_PL_SDF := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heepatia.sdf
+
+
+# ==============================================================================
+# EVE analysis
+# ==============================================================================
 
 
 # ==============================================================================
@@ -615,6 +620,24 @@ flash-prog:
 	@echo "### Programming the flash..."
 	cd $(XHEEP_DIR)/sw/vendor/yosyshq_icestorm/iceprog && make; \
 	./iceprog -d i:0x0403:0x6011 -I B $(ROOT_DIR)/$(BUILD_DIR)/sw/app-flash/main.hex;
+
+# ==============================================================================
+# EVE analysis
+# ==============================================================================
+EVE_DIR  := $(ROOT_DIR)/scripts/eve
+EVE_DATA_DIR  ?= $(ROOT_DIR)/private/matmul_postsynth_sims
+# SCRIPT      := $(SCRIPT_DIR)/power-analysis.py
+# EVE_OUTPUT_DIR  := $(EVE_DIR)/output
+
+.PHONY: eve_power_analysis
+eve_power_analysis:
+	@echo "### Running EVE power analysis..."
+	python3 $(EVE_DIR)/power-analysis.py \
+	--data_dir=$(EVE_DATA_DIR) \
+	--root_dir=$(ROOT_DIR) \
+	--eve_dir=$(EVE_DIR) 
+
+# ==============================================================================`
 
 # Benchmarks
 # ----------
