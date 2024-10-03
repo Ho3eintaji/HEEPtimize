@@ -190,6 +190,11 @@ ifeq ($(BOOT_MODE),flash)
 	FIRMWARE		:= $(FIRMWARE_FLASH)
 endif
 
+## @section Conda
+conda: 
+	conda env create -f environment.yml
+
+
 ###########################
 # ----- BUILD RULES ----- #
 ###########################

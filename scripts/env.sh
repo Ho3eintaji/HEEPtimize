@@ -1,5 +1,5 @@
 # Activate conda environment
-conda activate core-v-mini-mcu
+conda activate heeptimize
 
 # Verilator
 if [ -d "/softs/verilator/v4.220/bin" ]; then
