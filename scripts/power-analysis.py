@@ -1,6 +1,10 @@
 """
-Matmul Simulation Data Extraction and Analysis Script
-Author: Hossein Taji
+Copyright 2024 EPFL
+
+File: power-analysis.python
+Author:Hossein Taji
+Date: 03/10/2024
+Description: Matmul Simulation Data Extraction and Analysis Script
 
 This script extracts simulation data from specified directories, processes power consumption data,
 and provides methods for querying and analyzing the data. It also includes a data analysis class
@@ -29,6 +33,9 @@ import re
 import csv
 import pickle
 import matplotlib.pyplot as plt
+from itertools import product
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 class MatmulSimulationData:
@@ -800,7 +807,6 @@ class MatmulDataAnalysis:
             param_values[param] = sorted(param_values[param])
 
         # Create all combinations of sweep parameters
-        from itertools import product
         sweep_param_combinations = list(product(*[param_values[param] for param in sweep_params]))
 
         # Prepare data structure for metrics
@@ -813,8 +819,16 @@ class MatmulDataAnalysis:
         for idx, combination in enumerate(sweep_param_combinations):
             params = dict(zip(sweep_params, combination))
             params.update(fixed_params)
-            # Simplify x-labels by showing parameter values only
-            x_label = ','.join([str(v) for k, v in params.items() if k in sweep_params])
+
+            # Map parameter names to their short forms
+            param_short_names = {
+                'row_a': 'ra',
+                'col_a': 'ca',
+                'col_b': 'cb',
+            }
+
+            # Generate x-labels with short parameter names
+            x_label = ','.join([f"{param_short_names.get(k, k)}={v}" for k, v in params.items() if k in sweep_params])
             x_labels.append(x_label)
             x_values.append(idx)
 
@@ -863,13 +877,20 @@ class MatmulDataAnalysis:
 
         # Filter data to include only valid indices
         x_labels = [x_labels[i] for i in valid_indices]
+        # x_labels = []
+        # for idx, combination in enumerate(sweep_param_combinations):
+        #     params = dict(zip(sweep_params, combination))
+        #     params.update(fixed_params)
+        #     # Use abbreviations for parameter names and combine with their values
+        #     abbrev_map = {'row_a': 'ra', 'col_a': 'ca', 'col_b': 'cb'}
+        #     x_label = ','.join([f"{abbrev_map.get(k, k)}={v}" for k, v in params.items() if k in sweep_params])
+        #     x_labels.append(x_label)
         x_values = [x_values[i] for i in valid_indices]
         for metric in metrics:
             for PE in PEs:
                 metric_data[metric][PE] = [metric_data[metric][PE][i] for i in valid_indices]
 
         # Plotting
-        import matplotlib.pyplot as plt
         num_metrics = len(metrics)
         plt.figure(figsize=(8 * num_metrics, 6))
 
@@ -899,6 +920,181 @@ class MatmulDataAnalysis:
         plt.savefig(filename, bbox_inches='tight')
         print(f"Plot saved as {filename}")
         plt.close()
+    
+    # write another function to shows breakdown of energy consumed in each voltage on different domains
+    def plot_power_breakdown(self, PE, voltage, row_a, col_a, col_b, metrics=['energy'], domains=None):
+        """
+        Plots the breakdown of power or energy consumption across different domains for the specified PE(s) at given voltage(s) and sizes.
+        
+        Args:
+            PE (str or list): The processing element(s) to analyze.
+            voltage (float or list): Voltage level(s) to consider.
+            row_a (int): Number of rows in matrix A.
+            col_a (int): Number of columns in matrix A.
+            col_b (int): Number of columns in matrix B.
+            metrics (list): List of metrics to plot. Options are 'power', 'energy'.
+            domains (dict, optional): Dictionary mapping PEs to lists of domains to include in the breakdown.
+                                    If not provided, uses the default domains for each PE.
+
+            # Example: Plot energy breakdown for 'carus' and 'cgra' at 0.8V for sizes ra=8, ca=8, cb=256
+            data_analysis.plot_power_breakdown(
+                PE=['carus', 'cgra'],
+                voltage=0.8,
+                row_a=8,
+                col_a=8,
+                col_b=256,
+                metrics=['energy']
+            )
+        """
+
+        # Ensure PE and voltage are lists
+        PEs = [PE] if isinstance(PE, str) else PE
+        voltages = [voltage] if isinstance(voltage, (float, int)) else voltage
+
+        # Prepare data structure for metrics
+        breakdown_data = {pe: {v: {} for v in voltages} for pe in PEs}
+
+        for pe in PEs:
+            for v in voltages:
+                max_freq = self.sim_data.max_frequency.get(v, None)
+                if max_freq is None:
+                    print(f"No max frequency data for voltage {v}V.")
+                    continue
+
+                # Use provided domains or default ones based on PE
+                if domains and pe in domains:
+                    pe_domains = domains[pe]
+                else:
+                    # Default domains based on PE
+                    if pe == 'carus':
+                        pe_domains = ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_carus']
+                    elif pe == 'caesar':
+                        pe_domains = ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_caesar']
+                    elif pe == 'cgra':
+                        pe_domains = ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_cgra']
+                    elif pe == 'cpu':
+                        pe_domains = ['pow_sys', 'pow_cpu', 'pow_mem']
+                    else:
+                        print(f"Unknown PE type: {pe}")
+                        continue
+
+                # Find data entries matching the PE, voltage, and sizes
+                data_entries = [d for d in self.sim_data.data_list if d['PE'] == pe and d['voltage'] == v and d['row_a'] == row_a and d['col_a'] == col_a and d['col_b'] == col_b]
+                if not data_entries:
+                    print(f"No data available for PE={pe} at voltage={v}V with sizes ra={row_a}, ca={col_a}, cb={col_b}.")
+                    continue
+
+                # Use the first data entry
+                data = data_entries[0]
+
+                # Get the power or energy for each domain
+                domain_values = {}
+                scaling_factor = max_freq / data['clock_frequency_MHz']
+                scaled_execution_time_ns = data['execution_time_ns'] / scaling_factor
+                execution_time_s = scaled_execution_time_ns * 1e-9  # Convert ns to s
+
+                total_power_mW = 0.0  # Total power for calculating percentages
+                total_energy_J = 0.0  # Total energy for calculating percentages
+
+                domain_powers = {}  # For storing domain powers
+                domain_energies = {}  # For storing domain energies
+
+                for domain in pe_domains:
+                    dyn_key = domain + '_dyn'
+                    static_key = domain + '_static'
+
+                    total_dyn_power = data.get(dyn_key, 0.0)
+                    total_static_power = data.get(static_key, 0.0)
+                    # Scale dynamic power with frequency
+                    scaled_dyn_power = total_dyn_power * scaling_factor
+                    # Total power for the domain
+                    domain_power_mW = scaled_dyn_power + total_static_power
+                    domain_powers[domain] = domain_power_mW
+                    total_power_mW += domain_power_mW
+
+                    # Calculate energy in Joules
+                    power_W = domain_power_mW * 1e-3  # Convert mW to W
+                    energy_J = execution_time_s * power_W
+                    domain_energies[domain] = energy_J
+                    total_energy_J += energy_J
+
+                # Store the breakdown data
+                if 'power' in metrics:
+                    breakdown_data[pe][v]['domain_values'] = domain_powers
+                    breakdown_data[pe][v]['total_value'] = total_power_mW
+                if 'energy' in metrics:
+                    breakdown_data[pe][v]['domain_values'] = domain_energies
+                    breakdown_data[pe][v]['total_value'] = total_energy_J
+
+        # Plotting
+        for metric in metrics:
+            num_PEs = len(PEs)
+            num_voltages = len(voltages)
+            total_bars = num_PEs * num_voltages
+            indices = np.arange(total_bars)
+            bar_width = 0.5
+
+            fig, ax = plt.subplots(figsize=(10, 7))
+
+            # Initialize bottom positions for stacking
+            bottoms = np.zeros(total_bars)
+            domain_names = pe_domains  # Assuming same domains for all PEs
+
+            # Stack the bars for each domain
+            for domain in domain_names:
+                values = []
+                percentages = []  # For storing percentages
+                for pe in PEs:
+                    for v in voltages:
+                        domain_value = breakdown_data[pe][v]['domain_values'].get(domain, 0.0)
+                        total_value = breakdown_data[pe][v]['total_value']
+                        values.append(domain_value)
+                        if total_value > 0:
+                            percent = (domain_value / total_value) * 100
+                        else:
+                            percent = 0.0
+                        percentages.append(percent)
+
+                # Plot the bar segment
+                ax.bar(indices, values, bar_width, bottom=bottoms, label=domain)
+
+                # Annotate percentages
+                for idx, (value, bottom, percent) in enumerate(zip(values, bottoms, percentages)):
+                    if value > 0:
+                        ax.text(
+                            idx, bottom + value / 2,
+                            f"{percent:.1f}%",
+                            ha='center', va='center', fontsize=10, color='white', fontweight='bold'
+                        )
+
+                # Update bottoms for next stack
+                bottoms += np.array(values)
+
+            # Labels and aesthetics
+            ax.set_title(f'{metric.capitalize()} Breakdown by Domain\nSizes: ra={row_a}, ca={col_a}, cb={col_b}', fontsize=16, fontweight='bold')
+            ax.set_xlabel('PE and Voltage', fontsize=14)
+            ylabel_unit = 'J' if metric == 'energy' else 'mW'
+            ax.set_ylabel(f'{metric.capitalize()} ({ylabel_unit})', fontsize=14)
+            # Create x-tick labels
+            x_labels = []
+            for pe in PEs:
+                for v in voltages:
+                    x_labels.append(f'{pe}@{v}V')
+            ax.set_xticks(indices)
+            ax.set_xticklabels(x_labels, rotation=45, ha='right', fontsize=12)
+            ax.yaxis.set_tick_params(labelsize=12)
+
+            ax.grid(True, which='both', linestyle='--', linewidth=0.5)
+            ax.legend(fontsize=12)
+            plt.tight_layout()
+
+            # Save the plot
+            metric_str = '_'.join(metrics)
+            PEs_str = '_'.join(PEs)
+            volts_str = '_'.join([str(v) for v in voltages])
+            filename = f'{metric}_breakdown_{PEs_str}_volts_{volts_str}_ra{row_a}_ca{col_a}_cb{col_b}.pdf'
+            plt.savefig(filename, bbox_inches='tight')
+            plt.close()
 
 
 
@@ -942,15 +1138,28 @@ data_analysis = MatmulDataAnalysis(simulation_data)
 # =================================================================================================
 
 # Example: Sweep over 'col_b', fixed 'row_a' and 'col_a', plot 'energy' for specified PEs and domains
-data_analysis.plot_metric_vs_size(
-    sweep_params=['col_b', 'col_a'],
-    fixed_params={'row_a': 8},
-    voltage=0.9,
-    metrics=['energy', 'time', 'power'],
-    PEs=['carus', 'caesar', 'cgra'],
-    domains={
-        'carus': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_carus'],
-        'caesar': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_caesar'],
-        'cgra': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_cgra']
-    }
-)
+# data_analysis.plot_metric_vs_size(
+#     sweep_params=['row_a', 'col_a', 'col_b'],
+#     fixed_params={},
+#     voltage=0.5,
+#     metrics=['energy', 'time', 'power'],
+#     PEs=['carus', 'caesar', 'cgra'],
+#     domains={
+#         'carus': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_carus'],
+#         'caesar': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_caesar'],
+#         'cgra': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_cgra']
+#     }
+# )
+
+# data_analysis.plot_metric_vs_size(
+#     sweep_params=['row_a', 'col_a', 'col_b'],
+#     fixed_params={},
+#     voltage=0.9,
+#     metrics=['energy', 'time', 'power'],
+#     PEs=['carus', 'caesar', 'cgra'],
+#     domains={
+#         'carus': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_carus'],
+#         'caesar': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_caesar'],
+#         'cgra': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_cgra']
+#     }
+# )

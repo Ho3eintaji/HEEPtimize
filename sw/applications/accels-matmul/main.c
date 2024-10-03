@@ -52,6 +52,23 @@
     #define TIMER_ENABLED
 #endif
 
+/* Define which PEs to run */
+#define RUN_CARUS
+#define RUN_CAESAR
+// #define RUN_CGRA
+// #define RUN_CPU
+
+/* VCD recording modes */
+#define VCD_MODE_NONE 0
+#define VCD_MODE_BOTH 1
+#define VCD_MODE_KERNEL_ONLY 2
+#define VCD_MODE_DATA_ONLY 3
+#define VCD_MODE_SEPARATE 4
+
+/* For Carus and Caesar, define the VCD mode */
+#define CARUS_VCD_MODE VCD_MODE_KERNEL_ONLY       // Change as needed
+#define CAESAR_VCD_MODE VCD_MODE_KERNEL_ONLY // Change as needed
+
 /****************************************************************************/
 /**                                                                        **/
 /*                      PROTOTYPES OF LOCAL FUNCTIONS                       */
@@ -158,6 +175,7 @@ void main()
     // Initialize the DMA
     dma_init(NULL);
 
+#ifdef RUN_CARUS
     // --------------------------------
     // --- NM-Carus ---
     // -------------------------------- 
@@ -207,8 +225,11 @@ void main()
 #ifdef TIMER_ENABLED
     timer_start();
 #endif
+// VCD recording based on mode
+#if (CARUS_VCD_MODE == VCD_MODE_BOTH) || (CARUS_VCD_MODE == VCD_MODE_DATA_ONLY) || (CARUS_VCD_MODE == VCD_MODE_SEPARATE)
 #ifdef VCD
     vcd_enable();
+#endif
 #endif
     // Copy flattened matrix A
     row_ptr = (data_t *) (CARUS0_START_ADDRESS + vregs[CARUS_MATMUL_A_VREG]);
@@ -219,6 +240,11 @@ void main()
         if (dma_copy((uint8_t *) row_ptr, (uint8_t *) (B+i*B_COLS), B_COLS * ELEM_SIZE, dma_type) != 0)
             return 1;
     }
+#if (CARUS_VCD_MODE == VCD_MODE_DATA_ONLY) || (CARUS_VCD_MODE == VCD_MODE_SEPARATE)
+#ifdef VCD
+    vcd_disable();
+#endif
+#endif
 #ifdef TIMER_ENABLED
     carus_data_move_cycles = timer_stop();
 #endif
@@ -227,12 +253,21 @@ void main()
 #ifdef TIMER_ENABLED
     timer_start();
 #endif
+#if (CARUS_VCD_MODE == VCD_MODE_BOTH) || (CARUS_VCD_MODE == VCD_MODE_KERNEL_ONLY) || (CARUS_VCD_MODE == VCD_MODE_SEPARATE)
+#ifdef VCD
+#if (CARUS_VCD_MODE != VCD_MODE_BOTH)
+    vcd_enable();
+#endif
+#endif
+#endif
     // Run the kernel
     if (carus_run_kernel(0) != 0) return 1;
     // Wait for the kernel to complete
     if (carus_wait_done(0) != 0) return 1;
+#if (CARUS_VCD_MODE == VCD_MODE_KERNEL_ONLY) || (CARUS_VCD_MODE == VCD_MODE_SEPARATE)
 #ifdef VCD
     vcd_disable();
+#endif
 #endif
 #ifdef TIMER_ENABLED
     carus_compute_cycles = timer_stop();
@@ -240,6 +275,10 @@ void main()
 #ifdef TIMER_ENABLED
     carus_cycles = carus_load_cycles + carus_data_move_cycles + carus_compute_cycles;
 #endif
+
+#endif // RUN_CARUS
+
+#ifdef RUN_CAESAR
     // --------------------------------
     // --- NM-Caesar ---
     // --------------------------------
@@ -255,13 +294,22 @@ void main()
 #ifdef TIMER_ENABLED
     timer_start();
 #endif
+// VCD recording based on mode
+#if (CAESAR_VCD_MODE == VCD_MODE_BOTH) || (CAESAR_VCD_MODE == VCD_MODE_DATA_ONLY) || (CAESAR_VCD_MODE == VCD_MODE_SEPARATE)
 #ifdef VCD
     vcd_enable();
+#endif
 #endif
     data_t* matrix_caesar_A = (data_t*) (CAESAR0_START_ADDRESS + CAESAR_A_OFFS);
     data_t* matrix_caesar_B = (data_t*) (CAESAR0_START_ADDRESS + CAESAR_B_OFFS);
     if (dma_copy((uint8_t *) matrix_caesar_A, (uint8_t *) A, A_SIZE, dma_type) != 0) return -1;
     if (dma_copy((uint8_t *) matrix_caesar_B, (uint8_t *) B, B_SIZE, dma_type) != 0) return -1;
+#if (CAESAR_VCD_MODE == VCD_MODE_DATA_ONLY) || (CAESAR_VCD_MODE == VCD_MODE_SEPARATE)
+#ifdef VCD
+    vcd_disable();
+#endif
+#endif
+
 #ifdef TIMER_ENABLED
     caesar_data_move_cycles = timer_stop();
 #endif
@@ -270,10 +318,24 @@ void main()
 #ifdef TIMER_ENABLED
     timer_start();
 #endif
+
+#if (CAESAR_VCD_MODE == VCD_MODE_BOTH) || (CAESAR_VCD_MODE == VCD_MODE_KERNEL_ONLY) || (CAESAR_VCD_MODE == VCD_MODE_SEPARATE)
+#ifdef VCD
+#if (CAESAR_VCD_MODE != VCD_MODE_BOTH)
+    vcd_enable();
+#endif
+#endif
+#endif
     // Set NM-Caesar in computing mode
     if (caesar_set_mode(0, CAESAR_MODE_COMP) != 0) return -1;
     //Use the DMA to send commands - performing matmul M * A
     dma_copy_to_addr_32b(caesar_cmds_matmul_addr, caesar_cmds_matmul, CAESAR_CMDS_MATMUL_SIZE >> 2);
+
+#if (CAESAR_VCD_MODE == VCD_MODE_KERNEL_ONLY) || (CAESAR_VCD_MODE == VCD_MODE_SEPARATE)
+#ifdef VCD
+    vcd_disable();
+#endif
+#endif
 #ifdef TIMER_ENABLED
     caesar_compute_cycles = timer_stop();
     caesar_cycles  =  caesar_load_cycles + caesar_data_move_cycles + caesar_compute_cycles;
@@ -287,7 +349,9 @@ void main()
     //set the pointer back
     uint32_t* R_caesar = (uint32_t*)(CAESAR0_START_ADDRESS + CAESAR_R_OFFS);
 
+#endif // RUN_CAESAR
 
+#ifdef RUN_CGRA
     // --------------------------------
     // --- OE-CGRA ---
     // --------------------------------
@@ -350,7 +414,10 @@ void main()
 #ifdef VCD
     vcd_disable();
 #endif
-  
+
+#endif // RUN_CGRA
+
+#ifdef RUN_CPU
     // --------------------------------
     // --- CPU ---
     // --------------------------------
@@ -367,6 +434,7 @@ void main()
 #ifdef VCD
     vcd_disable();
 #endif
+#endif // RUN_CPU
 
 #ifdef CHECK_RESULTS
     // check carus, oe-cgra, and cput results to be the same as the golden result

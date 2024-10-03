@@ -5,7 +5,7 @@ LOG_FILE="simulation.log"
 echo "Simulation started at $(date)" > "$LOG_FILE"
 
 # Create 'matmul' directory if it doesn't exist
-MATMUL_DIR="private/matmul_postsynth_sims"
+MATMUL_DIR="private/matmul_postsynth_sims_onlykernelnmc"
 mkdir -p "$MATMUL_DIR"
 
 # Mapping of VCD indices to custom labels
