@@ -626,8 +626,6 @@ flash-prog:
 # ==============================================================================
 EVE_DIR  := $(ROOT_DIR)/scripts/eve
 EVE_DATA_DIR  ?= $(ROOT_DIR)/private/matmul_postsynth_sims
-# SCRIPT      := $(SCRIPT_DIR)/power-analysis.py
-# EVE_OUTPUT_DIR  := $(EVE_DIR)/output
 
 .PHONY: eve_power_analysis
 eve_power_analysis:

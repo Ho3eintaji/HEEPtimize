@@ -1143,6 +1143,203 @@ class MatmulDataAnalysis:
             filename = f'{self.output_dir}/{metric}_breakdown_{PEs_str}_volts_{volts_str}_ra{row_a}_ca{col_a}_cb{col_b}.pdf'
             plt.savefig(filename, bbox_inches='tight')
             plt.close()
+    
+    def plot_improvement_over_reference(self, PEs, reference_PE, sweep_params, fixed_params, PE_voltages, PE_frequencies=None, reference_voltage=None, reference_frequency=None, metrics=['energy', 'time']):
+        """
+        Plots the improvement in energy and/or time of specified PEs over a reference PE across varying parameters.
+
+        Args:
+            PEs (list): List of PEs to compare.
+            reference_PE (str): The reference PE to compare against.
+            sweep_params (list): List of parameters to sweep over (e.g., ['col_b']).
+            fixed_params (dict): Dictionary of fixed parameters (e.g., {'row_a': 8, 'col_a': 8}).
+            PE_voltages (dict): Dictionary mapping PEs to their voltages (e.g., {'carus': 0.8, 'cgra': 0.8}).
+            PE_frequencies (dict, optional): Dictionary mapping PEs to their frequencies. If not provided, uses max frequency at given voltage.
+            reference_voltage (float): Voltage for the reference PE.
+            reference_frequency (float, optional): Frequency for the reference PE. If not provided, uses max frequency at given voltage.
+            metrics (list): List of metrics to plot. Options are 'energy', 'time'.
+
+        Example:
+
+        # Compare 'carus' and 'cgra' to 'cpu' over varying 'col_b' sizes
+        data_analysis.plot_improvement_over_reference(
+            PEs=['carus', 'cgra'],
+            reference_PE='cpu',
+            sweep_params=['col_b'],
+            fixed_params={'row_a': 8, 'col_a': 8},
+            PE_voltages={'carus': 0.8, 'cgra': 0.8},
+            reference_voltage=0.8,
+            metrics=['energy', 'time']
+        )
+
+        """
+        max_frequency = self.sim_data.max_frequency
+
+        if PE_frequencies is None:
+            PE_frequencies = {}
+        if reference_voltage is None:
+            print("Reference voltage must be specified.")
+            return
+
+        if reference_frequency is None:
+            reference_frequency = max_frequency.get(reference_voltage, None)
+            if reference_frequency is None:
+                print(f"No max frequency data for reference voltage {reference_voltage}V.")
+                return
+
+        # Collect all unique values for sweep parameters from data_list
+        param_values = {param: set() for param in sweep_params}
+        for data in self.sim_data.data_list:
+            match = True
+            for fixed_param, fixed_value in fixed_params.items():
+                if data.get(fixed_param) != fixed_value:
+                    match = False
+                    break
+            if match:
+                for param in sweep_params:
+                    param_values[param].add(data[param])
+
+        # Check if we have data
+        if not all(param_values.values()):
+            print("No data available for the given parameters.")
+            return
+
+        # Sort the values
+        for param in sweep_params:
+            param_values[param] = sorted(param_values[param])
+
+        # Create all combinations of sweep parameters
+        from itertools import product
+        sweep_param_combinations = list(product(*[param_values[param] for param in sweep_params]))
+
+        # Prepare data structure for metrics
+        metric_ratios = {metric: {PE: [] for PE in PEs} for metric in metrics}
+
+        # Prepare x-axis labels
+        x_labels = []
+
+        for idx, combination in enumerate(sweep_param_combinations):
+            params = dict(zip(sweep_params, combination))
+            params.update(fixed_params)
+            # Generate x-labels with short parameter names
+            param_short_names = {
+                'row_a': 'ra',
+                'col_a': 'ca',
+                'col_b': 'cb',
+            }
+            x_label = ','.join([f"{param_short_names.get(k, k)}={v}" for k, v in params.items() if k in sweep_params])
+            x_labels.append(x_label)
+
+            # Get data for reference PE
+            reference_result = self.sim_data.query_power(
+                PE=reference_PE,
+                row_a=params.get('row_a'),
+                col_a=params.get('col_a'),
+                col_b=params.get('col_b'),
+                voltage=reference_voltage,
+                frequency_MHz=reference_frequency
+            )
+            if not reference_result:
+                # Skip this data point if reference data is missing
+                for PE in PEs:
+                    for metric in metrics:
+                        metric_ratios[metric][PE].append(None)
+                continue
+
+            ref_execution_time_s = reference_result['execution_time_ns'] * 1e-9
+            ref_power_W = reference_result['power_mW'] * 1e-3
+            ref_energy_J = ref_execution_time_s * ref_power_W
+
+            for PE in PEs:
+                voltage = PE_voltages.get(PE)
+                if voltage is None:
+                    print(f"No voltage specified for PE {PE}.")
+                    continue
+
+                frequency = PE_frequencies.get(PE)
+                if frequency is None:
+                    frequency = max_frequency.get(voltage, None)
+                    if frequency is None:
+                        print(f"No max frequency data for voltage {voltage}V.")
+                        continue
+
+                result = self.sim_data.query_power(
+                    PE=PE,
+                    row_a=params.get('row_a'),
+                    col_a=params.get('col_a'),
+                    col_b=params.get('col_b'),
+                    voltage=voltage,
+                    frequency_MHz=frequency
+                )
+                if result:
+                    execution_time_s = result['execution_time_ns'] * 1e-9
+                    power_W = result['power_mW'] * 1e-3
+                    energy_J = execution_time_s * power_W
+
+                    for metric in metrics:
+                        if metric == 'energy':
+                            ratio = ref_energy_J / energy_J
+                        elif metric == 'time':
+                            ratio = ref_execution_time_s / execution_time_s
+                        else:
+                            continue
+                        metric_ratios[metric][PE].append(ratio)
+                else:
+                    for metric in metrics:
+                        metric_ratios[metric][PE].append(None)
+
+        # Plotting
+        import matplotlib.pyplot as plt
+        num_metrics = len(metrics)
+        plt.figure(figsize=(8 * num_metrics, 6))
+
+        average_gains = {metric: {} for metric in metrics}
+
+        for idx, metric in enumerate(metrics):
+            plt.subplot(1, num_metrics, idx + 1)
+            for PE in PEs:
+                ratios = metric_ratios[metric][PE]
+                # Filter out None values
+                valid_indices = [i for i, val in enumerate(ratios) if val is not None]
+                valid_ratios = [ratios[i] for i in valid_indices]
+                valid_x_labels = [x_labels[i] for i in valid_indices]
+
+                if valid_ratios:
+                    plt.plot(valid_x_labels, valid_ratios, marker='o', linestyle='-', markersize=8, linewidth=2, label=PE)
+                    average_gain = sum(valid_ratios) / len(valid_ratios)
+                    average_gains[metric][PE] = average_gain
+                else:
+                    average_gains[metric][PE] = None
+
+            plt.title(f'{metric.capitalize()} Improvement over {reference_PE} at various sizes', fontsize=16, fontweight='bold')
+            plt.xlabel('Sizes', fontsize=14)
+            plt.ylabel(f'Improvement Ratio', fontsize=14)
+            plt.xticks(rotation=45, ha='right', fontsize=12)
+            plt.yticks(fontsize=12)
+            plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+            plt.minorticks_on()
+            plt.grid(which='minor', linestyle=':', linewidth=0.5)
+            plt.legend(fontsize=12)
+            plt.tight_layout()
+
+        # Print average gains
+        for metric in metrics:
+            print(f"\nAverage {metric} improvement over {reference_PE}:")
+            for PE in PEs:
+                gain = average_gains[metric][PE]
+                if gain is not None:
+                    print(f"{PE}: {gain:.2f}x")
+                else:
+                    print(f"{PE}: No data")
+
+        # Save the plot
+        sweep_params_str = '_'.join(sweep_params)
+        metrics_str = '_'.join(metrics)
+        PEs_str = '_'.join(PEs)
+        filename = f'{self.output_dir}/improvement_{metrics_str}_over_{reference_PE}_vs_{sweep_params_str}.pdf'
+        plt.savefig(filename, bbox_inches='tight')
+        plt.close()
+
 
 
 
@@ -1160,15 +1357,15 @@ if __name__ == '__main__':
     simulation_data.extract_data(root_dir=args.data_dir)
     # simulation_data.save_data(filename=f'{output_dir}/matmul_simulation_data.pkl')
     # simulation_data.load_data(filename=f'{output_dir}/matmul_simulation_data.pkl')
+
     data_analysis = MatmulDataAnalysis(simulation_data, output_dir=output_dir)
-
-    data_analysis.plot_power_vs_voltage(PE='carus', row_a=8, col_a=8, col_b=256)
-
-    data_analysis.plot_power_breakdown(
-                PE=['carus', 'caesar', 'cgra'],
-                voltage=[0.8,0.9],
-                row_a=4,
-                col_a=8,
-                col_b=256,
-                metrics=['power']
-            )
+    data_analysis.plot_improvement_over_reference(
+            PEs=['carus', 'cgra', 'caesar'],
+            reference_PE='cpu',
+            sweep_params=['row_a','col_a','col_b'],
+            # fixed_params={'row_a': 8},
+            fixed_params={},
+            PE_voltages={'carus': 0.9, 'cgra': 0.9, 'caesar': 0.9},
+            reference_voltage=0.9,
+            metrics=['energy', 'time']
+        )
