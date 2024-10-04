@@ -34,9 +34,12 @@ import csv
 import pickle
 import matplotlib.pyplot as plt
 from itertools import product
-import matplotlib.pyplot as plt
 import numpy as np
 import argparse
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
+from sklearn.preprocessing import PolynomialFeatures
 
 
 class MatmulSimulationData:
@@ -1339,9 +1342,422 @@ class MatmulDataAnalysis:
         filename = f'{self.output_dir}/improvement_{metrics_str}_over_{reference_PE}_vs_{sweep_params_str}.pdf'
         plt.savefig(filename, bbox_inches='tight')
         plt.close()
+    
+    def analyze_dependency(self, PE, voltage, metric='execution_time_ns'):
+        """
+        Analyzes whether total operations is sufficient to explain the metric or whether ra, ca, cb separately have an effect.
+
+        Args:
+            PE (str): The processing element.
+            voltage (float): Voltage level.
+            metric (str): The metric to analyze ('execution_time_ns', 'dyn_power_mW', 'static_power_mW').
+
+        Example:
+
+        data_analysis = MatmulDataAnalysis(simulation_data)
+        data_analysis.analyze_dependency(PE='carus', voltage=0.8, metric='execution_time_ns')
+        """
+        # Retrieve data for the given PE and voltage
+        data_df = pd.DataFrame(self.sim_data.data_list)
+        pe_data = data_df[(data_df['PE'] == PE) & (data_df['voltage'] == voltage)]
+
+        # Compute total operations
+        pe_data['total_ops'] = pe_data['row_a'] * pe_data['col_a'] * pe_data['col_b']
+
+        # Get the metric values
+        if metric == 'execution_time_ns':
+            y = pe_data['execution_time_ns'].values
+            y_label = 'Execution Time (ns)'
+        elif metric == 'dyn_power_mW':
+            dyn_power_keys = [key for key in pe_data.columns if key.endswith('_dyn')]
+            y = pe_data[dyn_power_keys].sum(axis=1).values
+            y_label = 'Dynamic Power (mW)'
+        elif metric == 'static_power_mW':
+            static_power_keys = [key for key in pe_data.columns if key.endswith('_static')]
+            y = pe_data[static_power_keys].sum(axis=1).values
+            y_label = 'Static Power (mW)'
+        else:
+            print(f"Unknown metric: {metric}")
+            return
+
+        # Analysis using total operations
+        X_total_ops = pe_data[['total_ops']]
+        model_total_ops = LinearRegression()
+        model_total_ops.fit(X_total_ops, y)
+        y_pred_total_ops = model_total_ops.predict(X_total_ops)
+        r2_total_ops = model_total_ops.score(X_total_ops, y)
+
+        # Analysis using ra, ca, cb separately
+        X_sizes = pe_data[['row_a', 'col_a', 'col_b']]
+        model_sizes = LinearRegression()
+        model_sizes.fit(X_sizes, y)
+        y_pred_sizes = model_sizes.predict(X_sizes)
+        r2_sizes = model_sizes.score(X_sizes, y)
+
+        print(f"R² using total_ops: {r2_total_ops:.4f}")
+        print(f"R² using ra, ca, cb separately: {r2_sizes:.4f}")
+
+        # Plotting
+        plt.figure(figsize=(12, 5))
+
+        plt.subplot(1, 2, 1)
+        plt.scatter(pe_data['total_ops'], y, label='Measured')
+        plt.plot(pe_data['total_ops'], y_pred_total_ops, 'r-', label='Predicted')
+        plt.xlabel('Total Operations', fontsize=12)
+        plt.ylabel(y_label, fontsize=12)
+        plt.title(f'{metric.replace("_", " ").capitalize()} vs Total Operations', fontsize=14)
+        plt.legend()
+        plt.grid(True)
+
+        plt.subplot(1, 2, 2)
+        plt.scatter(y, y_pred_sizes, label='Predicted vs Measured')
+        plt.plot([y.min(), y.max()], [y.min(), y.max()], 'r--', label='Ideal Fit')
+        plt.xlabel('Measured ' + y_label, fontsize=12)
+        plt.ylabel('Predicted ' + y_label, fontsize=12)
+        plt.title(f'Prediction using ra, ca, cb separately', fontsize=14)
+        plt.legend()
+        plt.grid(True)
+
+        plt.tight_layout()
+        plt.show()
 
 
 
+class MatmulPowerModel:
+    """
+    A class to build predictive models for execution time and power consumption
+    based on simulation data collected at a reference frequency.
+    """
+    def __init__(self, sim_data, use_total_ops=True,
+                 degree_time=1, degree_dyn_power=1, degree_static_power=0,
+                 reference_frequency_MHz=100):
+        """
+        Initializes the MatmulPowerModel with simulation data.
+
+        Args:
+            sim_data (MatmulSimulationData): The simulation data object.
+            use_total_ops (bool): Whether to use total operations as input feature.
+                If False, uses row_a, col_a, col_b separately.
+            degree_time (int): Degree of the polynomial for execution time model.
+            degree_dyn_power (int): Degree of the polynomial for dynamic power model.
+            degree_static_power (int): Degree of the polynomial for static power model.
+            reference_frequency_MHz (float): The reference frequency in MHz at which data is collected.
+        """
+        self.sim_data = sim_data
+        self.models = {}  # Dictionary to store models for each PE
+        self.use_total_ops = use_total_ops
+        self.degree_time = degree_time
+        self.degree_dyn_power = degree_dyn_power
+        self.degree_static_power = degree_static_power
+        self.reference_frequency_MHz = reference_frequency_MHz
+        self.build_models()
+
+    def build_models(self):
+        """
+        Builds regression models for execution time and power for each PE.
+        """
+        # Convert data_list to a pandas DataFrame for easier manipulation
+        data_df = pd.DataFrame(self.sim_data.data_list)
+
+        # Filter data to only include the reference frequency
+        data_df = data_df[data_df['clock_frequency_MHz'] == self.reference_frequency_MHz]
+        if data_df.empty:
+            print(f"No data found at reference frequency {self.reference_frequency_MHz} MHz.")
+            return
+
+        # List of PEs
+        PEs = data_df['PE'].unique()
+
+        for PE in PEs:
+            pe_data = data_df[data_df['PE'] == PE]
+
+            # Build models for each voltage separately
+            voltages = pe_data['voltage'].unique()
+            self.models[PE] = {}
+
+            for voltage in voltages:
+                voltage_data = pe_data[pe_data['voltage'] == voltage]
+
+                # Features: Matrix sizes
+                if self.use_total_ops:
+                    # Compute total operations
+                    total_ops = voltage_data['row_a'] * voltage_data['col_a'] * voltage_data['col_b']
+                    X = pd.DataFrame({
+                        'total_ops': total_ops
+                    })
+                else:
+                    X = voltage_data[['row_a', 'col_a', 'col_b']]
+
+                if X.empty:
+                    print(f"No data for PE={PE}, voltage={voltage}V at reference frequency {self.reference_frequency_MHz} MHz.")
+                    continue
+
+                # Build execution time model
+                poly_time = PolynomialFeatures(degree=self.degree_time, include_bias=False)
+                X_time_poly = poly_time.fit_transform(X)
+                y_time = voltage_data['execution_time_ns'].values
+
+                time_model = LinearRegression()
+                time_model.fit(X_time_poly, y_time)
+
+                # Build dynamic power model
+                poly_dyn_power = PolynomialFeatures(degree=self.degree_dyn_power, include_bias=False)
+                X_dyn_power_poly = poly_dyn_power.fit_transform(X)
+                dyn_power_keys = [key for key in voltage_data.columns if key.endswith('_dyn')]
+                y_dyn_power = voltage_data[dyn_power_keys].sum(axis=1).values
+
+                dyn_power_model = LinearRegression()
+                dyn_power_model.fit(X_dyn_power_poly, y_dyn_power)
+
+                # Build static power model
+                static_power_keys = [key for key in voltage_data.columns if key.endswith('_static')]
+                y_static_power = voltage_data[static_power_keys].sum(axis=1).values
+
+                if self.degree_static_power == 0:
+                    # Model static power as a constant (mean value)
+                    mean_static_power = y_static_power.mean()
+                    static_power_model = {'mean_static_power': mean_static_power}
+                else:
+                    poly_static_power = PolynomialFeatures(degree=self.degree_static_power, include_bias=False)
+                    X_static_power_poly = poly_static_power.fit_transform(X)
+                    static_power_model_reg = LinearRegression()
+                    static_power_model_reg.fit(X_static_power_poly, y_static_power)
+                    static_power_model = {
+                        'model': static_power_model_reg,
+                        'poly': poly_static_power
+                    }
+
+                # Store the models
+                self.models[PE][voltage] = {
+                    'reference_frequency': self.reference_frequency_MHz,
+                    'time_model': time_model,
+                    'poly_time': poly_time,
+                    'dyn_power_model': dyn_power_model,
+                    'poly_dyn_power': poly_dyn_power,
+                    'static_power_model': static_power_model,
+                }
+
+
+    def predict(self, PE, row_a, col_a, col_b, voltage, frequency_MHz=None):
+        """
+        Predicts execution time and power consumption for the given inputs.
+
+        Args:
+            PE (str): The processing element.
+            row_a (int): Number of rows in matrix A.
+            col_a (int): Number of columns in matrix A.
+            col_b (int): Number of columns in matrix B.
+            voltage (float): Voltage level.
+            frequency_MHz (float, optional): Frequency in MHz. If not provided, uses max frequency.
+
+        Returns:
+            dict: A dictionary containing predicted execution time and power.
+        """
+        if PE not in self.models or voltage not in self.models[PE]:
+            print(f"No model available for PE={PE} at voltage={voltage}V.")
+            return None
+
+        model_data = self.models[PE][voltage]
+        reference_frequency = model_data['reference_frequency']
+        time_model = model_data['time_model']
+        poly_time = model_data['poly_time']
+        dyn_power_model = model_data['dyn_power_model']
+        poly_dyn_power = model_data['poly_dyn_power']
+        static_power_model = model_data['static_power_model']
+
+        # Prepare input features
+        if self.use_total_ops:
+            total_ops = row_a * col_a * col_b
+            X_input = pd.DataFrame({
+                'total_ops': [total_ops]
+            })
+        else:
+            X_input = pd.DataFrame({
+                'row_a': [row_a],
+                'col_a': [col_a],
+                'col_b': [col_b]
+            })
+
+        # Predict execution time at reference frequency
+        X_time_poly = poly_time.transform(X_input)
+        predicted_time_ns = time_model.predict(X_time_poly)[0]
+
+        # Predict dynamic power at reference frequency
+        X_dyn_power_poly = poly_dyn_power.transform(X_input)
+        predicted_dyn_power_mW = dyn_power_model.predict(X_dyn_power_poly)[0]
+
+        # Predict static power
+        if self.degree_static_power == 0:
+            # Use the mean static power
+            predicted_static_power_mW = static_power_model['mean_static_power']
+        else:
+            X_static_power_poly = static_power_model['poly'].transform(X_input)
+            predicted_static_power_mW = static_power_model['model'].predict(X_static_power_poly)[0]
+
+        # If a different frequency is requested, adjust execution time and dynamic power
+        if frequency_MHz is None:
+            frequency_MHz = self.sim_data.max_frequency.get(voltage, None)
+            if frequency_MHz is None:
+                print(f"No max frequency data for voltage {voltage}V.")
+                return None
+        else:
+            max_freq = self.sim_data.max_frequency.get(voltage, None)
+            if max_freq is None:
+                print(f"No max frequency data for voltage {voltage}V.")
+                return None
+            if frequency_MHz > max_freq:
+                print(f"Frequency {frequency_MHz} MHz exceeds max frequency {max_freq} MHz at {voltage}V.")
+                return None
+
+        # Scaling factors
+        freq_scaling = frequency_MHz / reference_frequency
+
+        # Adjust execution time inversely with frequency
+        adjusted_time_ns = predicted_time_ns * reference_frequency / frequency_MHz
+
+        # Adjust dynamic power linearly with frequency
+        adjusted_dyn_power_mW = predicted_dyn_power_mW * freq_scaling
+
+        # Total power
+        total_power_mW = adjusted_dyn_power_mW + predicted_static_power_mW
+
+        result = {
+            'PE': PE,
+            'row_a': row_a,
+            'col_a': col_a,
+            'col_b': col_b,
+            'voltage': voltage,
+            'frequency_MHz': frequency_MHz,
+            'execution_time_ns': adjusted_time_ns,
+            'dyn_power_mW': adjusted_dyn_power_mW,
+            'static_power_mW': predicted_static_power_mW,
+            'total_power_mW': total_power_mW
+        }
+
+        return result
+
+    def visualize_models(self, PE, voltage, metric='execution_time_ns'):
+        """
+        Plots the model predictions against the measured data for validation.
+
+        Args:
+            PE (str): The processing element.
+            voltage (float): Voltage level.
+            metric (str): The metric to visualize ('execution_time_ns', 'dyn_power_mW', 'static_power_mW').
+        """
+        if PE not in self.models or voltage not in self.models[PE]:
+            print(f"No model available for PE={PE} at voltage={voltage}V.")
+            return
+
+        model_data = self.models[PE][voltage]
+        reference_frequency = model_data['reference_frequency']
+        time_model = model_data['time_model']
+        poly_time = model_data['poly_time']
+        dyn_power_model = model_data['dyn_power_model']
+        poly_dyn_power = model_data['poly_dyn_power']
+        static_power_model = model_data['static_power_model']
+
+        # Retrieve data for the given PE and voltage at reference frequency
+        data_df = pd.DataFrame(self.sim_data.data_list)
+        pe_data = data_df[
+            (data_df['PE'] == PE) &
+            (data_df['voltage'] == voltage) &
+            (data_df['clock_frequency_MHz'] == reference_frequency)
+        ]
+
+        if pe_data.empty:
+            print(f"No data available for visualization for PE={PE} at voltage={voltage}V.")
+            return
+
+        # Prepare input features
+        if self.use_total_ops:
+            total_ops = pe_data['row_a'] * pe_data['col_a'] * pe_data['col_b']
+            X = pd.DataFrame({
+                'total_ops': total_ops
+            })
+        else:
+            X = pe_data[['row_a', 'col_a', 'col_b']]
+
+        # Get measured values and predictions
+        if metric == 'execution_time_ns':
+            y_measured = pe_data['execution_time_ns'].values
+            y_label = 'Execution Time (ns)'
+            X_poly = poly_time.transform(X)
+            y_predicted = time_model.predict(X_poly)
+        elif metric == 'dyn_power_mW':
+            dyn_power_keys = [key for key in pe_data.columns if key.endswith('_dyn')]
+            y_measured = pe_data[dyn_power_keys].sum(axis=1).values
+            y_label = 'Dynamic Power (mW)'
+            X_poly = poly_dyn_power.transform(X)
+            y_predicted = dyn_power_model.predict(X_poly)
+        elif metric == 'static_power_mW':
+            static_power_keys = [key for key in pe_data.columns if key.endswith('_static')]
+            y_measured = pe_data[static_power_keys].sum(axis=1).values
+            y_label = 'Static Power (mW)'
+            if self.degree_static_power == 0:
+                y_predicted = np.full_like(y_measured, static_power_model['mean_static_power'])
+            else:
+                X_poly = static_power_model['poly'].transform(X)
+                y_predicted = static_power_model['model'].predict(X_poly)
+        else:
+            print(f"Unknown metric: {metric}")
+            return
+
+        # Plotting
+        plt.figure(figsize=(10, 7))
+        # Plot measured vs predicted
+        plt.scatter(y_measured, y_predicted, label='Predicted vs Measured', marker='o')
+        # Plot y=x line
+        min_val = min(y_measured.min(), y_predicted.min())
+        max_val = max(y_measured.max(), y_predicted.max())
+        plt.plot([min_val, max_val], [min_val, max_val], 'r--', label='Ideal Fit')
+        plt.title(f'{metric.replace("_", " ").capitalize()} Model Validation for {PE} at {voltage}V', fontsize=16)
+        plt.xlabel('Measured ' + y_label, fontsize=14)
+        plt.ylabel('Predicted ' + y_label, fontsize=14)
+        plt.legend(fontsize=12)
+        plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+        # plt.show()
+        # save like before
+        plt.tight_layout()
+        plt.savefig(f'{PE}_{voltage}V_{metric}_model_validation.pdf', bbox_inches='tight')
+
+    def evaluate_models(self):
+        """
+        Evaluates the models by calculating R² scores.
+        """
+        data_df = pd.DataFrame(self.sim_data.data_list)
+        PEs = data_df['PE'].unique()
+
+        for PE in PEs:
+            pe_data = data_df[data_df['PE'] == PE]
+            voltages = pe_data['voltage'].unique()
+
+            for voltage in voltages:
+                voltage_data = pe_data[pe_data['voltage'] == voltage]
+
+                total_ops = (voltage_data['row_a'] * voltage_data['col_a'] * voltage_data['col_b']).values.reshape(-1, 1)
+
+                # Execution Time
+                y_time = voltage_data['execution_time_ns'].values
+                y_time_pred = self.models[PE][voltage]['time_model'].predict(total_ops)
+                r2_time = r2_score(y_time, y_time_pred)
+
+                # Dynamic Power
+                dyn_power_keys = [key for key in voltage_data.columns if key.endswith('_dyn')]
+                y_dyn_power = voltage_data[dyn_power_keys].sum(axis=1).values
+                y_dyn_power_pred = self.models[PE][voltage]['dyn_power_model'].predict(total_ops)
+                r2_dyn_power = r2_score(y_dyn_power, y_dyn_power_pred)
+
+                # Static Power
+                static_power_keys = [key for key in voltage_data.columns if key.endswith('_static')]
+                y_static_power = voltage_data[static_power_keys].sum(axis=1).values
+                y_static_power_pred = self.models[PE][voltage]['static_power_model'].predict(np.ones_like(total_ops))
+                r2_static_power = r2_score(y_static_power, y_static_power_pred)
+
+                print(f"PE: {PE}, Voltage: {voltage}V")
+                print(f"  Execution Time R²: {r2_time:.4f}")
+                print(f"  Dynamic Power R²: {r2_dyn_power:.4f}")
+                print(f"  Static Power R²: {r2_static_power:.4f}\n")
 
 
 if __name__ == '__main__':
@@ -1354,9 +1770,9 @@ if __name__ == '__main__':
     output_dir = args.eve_dir + '/output'
 
     simulation_data = MatmulSimulationData()
-    simulation_data.extract_data(root_dir=args.data_dir)
+    # simulation_data.extract_data(root_dir=args.data_dir)
     # simulation_data.save_data(filename=f'{output_dir}/matmul_simulation_data.pkl')
-    # simulation_data.load_data(filename=f'{output_dir}/matmul_simulation_data.pkl')
+    simulation_data.load_data(filename=f'{output_dir}/matmul_simulation_data.pkl')
 
     data_analysis = MatmulDataAnalysis(simulation_data, output_dir=output_dir)
     data_analysis.plot_improvement_over_reference(
@@ -1369,3 +1785,41 @@ if __name__ == '__main__':
             reference_voltage=0.9,
             metrics=['energy', 'time']
         )
+    
+    # Create the power model using total operations and custom degrees for each model
+    power_model = MatmulPowerModel(
+        sim_data=simulation_data,
+        use_total_ops=False,
+        degree_time=1,
+        degree_dyn_power=2,
+        degree_static_power=0,  # Static power modeled as a constant
+        reference_frequency_MHz=100
+    )
+
+    # Predict power and timing for unknown inputs at a different frequency
+    prediction = power_model.predict(
+        PE='carus',
+        row_a=16,
+        col_a=16,
+        col_b=256,
+        voltage=0.8,
+        frequency_MHz=200  # Requesting a different frequency
+    )
+
+    if prediction:
+        print("Prediction:")
+        print(f"Execution Time: {prediction['execution_time_ns']:.2f} ns")
+        print(f"Dynamic Power: {prediction['dyn_power_mW']:.2f} mW")
+        print(f"Static Power: {prediction['static_power_mW']:.2f} mW")
+        print(f"Total Power: {prediction['total_power_mW']:.2f} mW")
+
+    
+    # Visualize execution time model
+    power_model.visualize_models(PE='carus', voltage=0.8, metric='execution_time_ns')
+
+    # Visualize dynamic power model
+    power_model.visualize_models(PE='carus', voltage=0.8, metric='dyn_power_mW')
+
+    # Visualize static power model
+    power_model.visualize_models(PE='carus', voltage=0.8, metric='static_power_mW')
+
