@@ -40,6 +40,7 @@ import pandas as pd
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 from sklearn.preprocessing import PolynomialFeatures
+import glob
 
 
 class MatmulSimulationData:
@@ -444,9 +445,6 @@ class MatmulSimulationData:
         else:
             print("No data to report.")
     
-
-
-
 class MatmulDataAnalysis:
     """
     A class for analyzing and plotting matrix multiplication simulation data.
@@ -1305,6 +1303,8 @@ class MatmulDataAnalysis:
                             ratio = ref_energy_J / energy_J
                         elif metric == 'time':
                             ratio = ref_execution_time_s / execution_time_s
+                        elif metric == 'power':
+                            ratio = power_W / ref_power_W
                         else:
                             continue
                         metric_ratios[metric][PE].append(ratio)
@@ -1441,8 +1441,6 @@ class MatmulDataAnalysis:
 
         plt.tight_layout()
         plt.show()
-
-
 
 class MatmulPowerModel:
     """
@@ -2102,7 +2100,256 @@ class MatmulPowerModel:
                 print(f"    Average Mean Squared Error: {avg_mse:.4f}")
         print()
 
+class EVE:
+    def __init__(self, models, workload, time_budget_s):
+        self.models = models  # MatmulPowerModel instance
+        self.workload = workload  # List of matmul operations
+        self.time_budget_s = time_budget_s  # Total time budget in seconds
+        self.results = {}  # Store results for different policies
 
+    def run(self, policy):
+        """
+        Simulates the execution of the workload under the specified policy.
+
+        Args:
+            policy (Policy): Policy instance implementing the selection logic.
+        """
+        self.results[policy.name] = self._simulate(policy)
+
+    def _simulate(self, policy):
+        """
+        Simulates the workload under a single policy.
+
+        Args:
+            policy (Policy): The policy to apply.
+
+        Returns:
+            dict: Aggregated metrics for the policy.
+        """
+        total_energy = 0.0
+        total_time = 0.0
+        detailed_results = []
+
+        # Use the policy to select configurations for all operations
+        selections = policy.select_configurations(self.workload, self.time_budget_s)
+
+        for operation, selection in zip(self.workload, selections):
+            if selection is None:
+                print(f"No valid configuration for operation {operation}")
+                continue
+
+            prediction = selection['prediction']
+            selected_PE = selection['PE']
+            energy = prediction['total_power_mW'] * (prediction['execution_time_ns'] * 1e-9)  # Energy in mJ
+            total_energy += energy
+            total_time += prediction['execution_time_ns'] * 1e-9  # Time in seconds
+
+            detailed_results.append({
+                'operation': operation,
+                'PE': selected_PE,
+                'energy_mJ': energy,
+                'execution_time_s': prediction['execution_time_ns'] * 1e-9,
+                'power_mW': prediction['total_power_mW'],
+                'voltage': prediction['voltage'],
+                'frequency_MHz': prediction['frequency_MHz']
+            })
+
+        return {
+            'total_energy_mJ': total_energy,
+            'total_time_s': total_time,
+            'average_energy_mJ': total_energy / len(self.workload),
+            'average_time_s': total_time / len(self.workload),
+            'detailed_results': detailed_results
+        }
+
+    def compare_policies(self):
+        """
+        Compares the results of different policies and prints the comparison.
+        """
+        policy_names = list(self.results.keys())
+        if len(policy_names) < 2:
+            print("Need at least two policies to compare.")
+            return
+
+        base_policy = policy_names[0]
+        for other_policy in policy_names[1:]:
+            energy_base = self.results[base_policy]['total_energy_mJ']
+            energy_other = self.results[other_policy]['total_energy_mJ'] 
+            time_base = self.results[base_policy]['total_time_s']
+            time_other = self.results[other_policy]['total_time_s']
+
+            energy_savings = (1 - energy_base / energy_other) * 100
+            time_difference = time_base - time_other
+
+            print(f"Comparing {base_policy} to {other_policy}:")
+            print(f"  Energy Savings: {energy_savings:.2f}%")
+            print(f"  Time Difference: {time_difference:.4f} s")
+
+
+class Policy:
+    def __init__(self, name):
+        self.name = name
+
+    def select_configurations(self, workload, time_budget_s):
+        raise NotImplementedError("This method should be overridden by subclasses.")
+
+class OptimizedEnergyPolicy(Policy):
+    def __init__(self, models, available_PEs, voltages, frequencies):
+        super().__init__(name="OptimizedEnergy")
+        self.models = models
+        self.available_PEs = available_PEs
+        self.voltages = voltages
+        self.frequencies = frequencies
+
+    def select_configurations(self, workload, time_budget_s):
+        """
+        Selects configurations for all operations to minimize total energy
+        while meeting the time budget.
+
+        Args:
+            workload (list): List of operations.
+            time_budget_s (float): Total time budget in seconds.
+
+        Returns:
+            list: Selected configurations for each operation.
+        """
+        # For each operation, generate possible configurations
+        operation_configs = []
+        for operation in workload:
+            configs = self._generate_configs(operation)
+            if not configs:
+                operation_configs.append([])
+            else:
+                # Sort configurations by energy consumption
+                configs.sort(key=lambda x: x['energy_mJ'])
+                operation_configs.append(configs)
+
+        # Initial selection: lowest energy configurations
+        selections = [configs[0] if configs else None for configs in operation_configs]
+
+        total_time = sum(sel['prediction']['execution_time_ns'] * 1e-9 for sel in selections if sel)
+        if total_time <= time_budget_s:
+            return selections  # Time budget met
+
+        # If time budget not met, adjust configurations
+        # Implement a simple heuristic to meet the time budget
+
+        # Create a list of possible selections with indices
+        possible_selections = []
+        for idx, configs in enumerate(operation_configs):
+            if len(configs) > 1:
+                # Exclude the current selection
+                for conf in configs[1:]:
+                    possible_selections.append({
+                        'operation_idx': idx,
+                        'config': conf,
+                        'delta_energy': conf['energy_mJ'] - selections[idx]['energy_mJ'],
+                        'delta_time': selections[idx]['prediction']['execution_time_ns'] * 1e-9 - conf['prediction']['execution_time_ns'] * 1e-9
+                    })
+
+        # Sort possible selections by efficiency of time reduction per additional energy
+        possible_selections.sort(key=lambda x: x['delta_time'] / x['delta_energy'] if x['delta_energy'] > 0 else float('inf'), reverse=True)
+
+        # Iteratively select faster configurations until time budget is met
+        for sel in possible_selections:
+            idx = sel['operation_idx']
+            selections[idx] = sel['config']
+            total_time = sum(sel['prediction']['execution_time_ns'] * 1e-9 for sel in selections if sel)
+            if total_time <= time_budget_s:
+                break
+
+        # Final check
+        if total_time > time_budget_s:
+            print("Unable to meet time budget with available configurations.")
+        return selections
+
+    def _generate_configs(self, operation):
+        """
+        Generates possible configurations for an operation.
+
+        Args:
+            operation (dict): The operation details.
+
+        Returns:
+            list: Configurations with predictions.
+        """
+        configs = []
+        for PE in self.available_PEs:
+            for voltage in self.voltages:
+                for frequency in self.frequencies:
+                    prediction = self.models.predict(
+                        PE=PE,
+                        row_a=operation['row_a'],
+                        col_a=operation['col_a'],
+                        col_b=operation['col_b'],
+                        voltage=voltage,
+                        frequency_MHz=frequency
+                    )
+                    if prediction is None:
+                        continue
+                    energy_mJ = prediction['total_power_mW'] * (prediction['execution_time_ns'] * 1e-9)
+                    configs.append({
+                        'PE': PE,
+                        'voltage': voltage,
+                        'frequency_MHz': frequency,
+                        'prediction': prediction,
+                        'energy_mJ': energy_mJ
+                    })
+        return configs
+
+
+
+
+
+class BaselinePolicy(Policy):
+    def __init__(self, models):
+        super().__init__(name="Baseline")
+        self.models = models
+
+    def select_configurations(self, workload, time_budget_s):
+        """
+        Uses a fixed configuration for all operations (e.g., CPU at max frequency).
+        """
+        selections = []
+        for operation in workload:
+            prediction = self.models.predict(
+                PE='cpu',
+                row_a=operation['row_a'],
+                col_a=operation['col_a'],
+                col_b=operation['col_b'],
+                voltage=0.9,
+                frequency_MHz=None  # Use max frequency
+            )
+            if prediction is None:
+                selections.append(None)
+            else:
+                energy_mJ = prediction['total_power_mW'] * (prediction['execution_time_ns'] * 1e-9)
+                selections.append({
+                    'PE': 'cpu',
+                    'voltage': 0.9,
+                    'frequency_MHz': prediction['frequency_MHz'],
+                    'prediction': prediction,
+                    'energy_mJ': energy_mJ
+                })
+        return selections
+
+
+def generate_workload(num_operations):
+    import random
+    workload = []
+    for _ in range(num_operations):
+        ra = random.choice([4, 8, 16, 32, 64])
+        ca = random.choice([4, 8, 16, 32, 64])
+        cb = random.choice([4, 8, 16, 32, 64])
+        operation = {
+            'row_a': ra,
+            'col_a': ca,
+            'col_b': cb,
+            # 'voltage': 0.8,  # Optional
+            # 'frequency_MHz': 200  # Optional
+        }
+        workload.append(operation)
+    return workload
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Matmul Simulation Data Analysis')
@@ -2113,15 +2360,44 @@ if __name__ == '__main__':
 
     output_dir = args.eve_dir + '/output'
 
+    # clear pdfs inside output_dir
+    pdf_files = glob.glob(f'{output_dir}/*.pdf')
+    for file in pdf_files:
+        os.remove(file)
+
     simulation_data = MatmulSimulationData()
     # simulation_data.extract_data(root_dir=args.data_dir)
-    # simulation_data.save_data(filename=f'{output_dir}/matmul_simulation_data.pkl')
-    simulation_data.load_data(filename=f'{output_dir}/matmul_simulation_data.pkl')
+    # simulation_data.save_data(filename=f'{output_dir}/matmul_simulation_data_DataMv.pkl')
+    simulation_data.load_data(filename=f'{output_dir}/matmul_simulation_data_noDataMv.pkl')
 
-    data_analysis = MatmulDataAnalysis(simulation_data, output_dir=output_dir)
+    # data_analysis = MatmulDataAnalysis(simulation_data, output_dir=output_dir)
+
+    # Voltage = 0.9
+    # data_analysis.plot_improvement_over_reference(
+    #     PEs=['carus', 'caesar', 'cgra'],
+    #     reference_PE='cpu',
+    #     sweep_params=['row_a', 'col_a','col_b'],
+    #     fixed_params={},
+    #     PE_voltages={'carus': Voltage, 'caesar': Voltage, 'cgra': Voltage},
+    #     reference_voltage=Voltage,
+    #     metrics=['energy', 'time', 'power']
+    # )
+
+    # data_analysis.plot_metric_vs_size(
+        #     sweep_params=['row_a', 'col_a', 'col_b'],
+        #     fixed_params={},
+        #     voltage=Voltage,
+        #     metrics=['energy', 'time', 'power'],
+        #     PEs=['carus', 'caesar', 'cgra'],
+        #     domains={
+        #         'carus': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_carus'],
+        #         'caesar': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_caesar'],
+        #         'cgra': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_cgra']
+        #     }
+        # )
     
     # Create the power model using total operations and custom degrees for each model
-    power_model = MatmulPowerModel(
+    models = MatmulPowerModel(
         sim_data=simulation_data,
         use_total_ops=False,
         degree_time=3,
@@ -2130,6 +2406,53 @@ if __name__ == '__main__':
         reference_frequency_MHz=100,
         output_dir=output_dir
     )
+
+    # Assuming you have an instance of MatmulPowerModel named 'models'
+
+    # Generate the workload
+    workload = generate_workload(num_operations=100)
+
+    # Define available PEs, voltages, and frequencies
+    available_PEs = ['carus', 'caesar', 'cgra', 'cpu']
+    voltages = [0.8, 0.9]  # Voltages for which models are available
+    frequencies = [100, 200, 300]  # Frequencies within the max frequency constraints
+
+    # Define the time budget in seconds
+    time_budget_s = 1.0  # For example, total execution time should not exceed 1 second
+
+    # Instantiate the policy
+    optimized_energy_policy = OptimizedEnergyPolicy(
+        models=models,
+        available_PEs=available_PEs,
+        voltages=voltages,
+        frequencies=frequencies
+    )
+
+    # Create the EVE emulator
+    eve = EVE(models=models, workload=workload, time_budget_s=time_budget_s)
+
+    # Run the emulator with the optimized energy policy
+    eve.run(policy=optimized_energy_policy)
+
+    # Access and print the results
+    result = eve.results['OptimizedEnergy']
+    print(f"Total Energy Consumption: {result['total_energy_mJ']:.2f} mJ")
+    print(f"Total Execution Time: {result['total_time_s']:.4f} s")
+    print(f"Average Energy per Operation: {result['average_energy_mJ']:.2f} mJ")
+    print(f"Average Time per Operation: {result['average_time_s']:.6f} s")
+
+    # Detailed results per operation
+    for idx, detail in enumerate(result['detailed_results']):
+        op = detail['operation']
+        print(f"Operation {idx + 1}:")
+        print(f"  Size: {op['row_a']}x{op['col_a']} * {op['col_a']}x{op['col_b']}")
+        print(f"  Selected PE: {detail['PE']}")
+        print(f"  Voltage: {detail['voltage']}V")
+        print(f"  Frequency: {detail['frequency_MHz']} MHz")
+        print(f"  Energy: {detail['energy_mJ']:.4f} mJ")
+        print(f"  Execution Time: {detail['execution_time_s']:.6f} s")
+        print()
+
 
 
 

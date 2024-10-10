@@ -629,14 +629,15 @@ flash-prog:
 # ==============================================================================
 # EVE analysis
 # ==============================================================================
+EVE_DATA_DIR  ?= private/matmul_postsynth_sims
 EVE_DIR  := $(ROOT_DIR)/scripts/eve
-EVE_DATA_DIR  ?= $(ROOT_DIR)/private/matmul_postsynth_sims
+EVE_DATA_DIR_FULL := $(ROOT_DIR)/$(EVE_DATA_DIR)
 
 .PHONY: eve_power_analysis
 eve_power_analysis:
 	@echo "### Running EVE power analysis..."
 	python3 $(EVE_DIR)/power-analysis.py \
-	--data_dir=$(EVE_DATA_DIR) \
+	--data_dir=$(EVE_DATA_DIR_FULL) \
 	--root_dir=$(ROOT_DIR) \
 	--eve_dir=$(EVE_DIR) 
 
