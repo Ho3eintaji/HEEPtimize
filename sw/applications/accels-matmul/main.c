@@ -53,10 +53,10 @@
 #endif
 
 /* Define which PEs to run */
-#define RUN_CARUS
-#define RUN_CAESAR
-// #define RUN_CGRA
-// #define RUN_CPU
+// #define RUN_CARUS
+// #define RUN_CAESAR
+#define RUN_CGRA
+#define RUN_CPU
 
 /* VCD recording modes */
 #define VCD_MODE_NONE 0

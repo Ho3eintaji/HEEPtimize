@@ -37,10 +37,12 @@ from itertools import product
 import numpy as np
 import argparse
 import pandas as pd
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score
 from sklearn.preprocessing import PolynomialFeatures
 import glob
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet, GammaRegressor, PoissonRegressor
+from sklearn.ensemble import RandomForestRegressor
+import random
 
 
 class MatmulSimulationData:
@@ -1449,18 +1451,35 @@ class MatmulPowerModel:
     """
     def __init__(self, sim_data, output_dir, use_total_ops=True,
                  degree_time=1, degree_dyn_power=1, degree_static_power=0,
-                 reference_frequency_MHz=100):
+                 reference_frequency_MHz=100,
+                 model_type_time='linear',
+                 model_type_dyn_power='linear',
+                 apply_log_transform_time=False,
+                 apply_log_transform_dyn_power=False,
+                 positive=True,
+                 alpha_time=1.0,
+                 alpha_dyn_power=1.0,
+                 l1_ratio_time=0.5,
+                 l1_ratio_dyn_power=0.5):
         """
         Initializes the MatmulPowerModel with simulation data.
 
         Args:
             sim_data (MatmulSimulationData): The simulation data object.
             use_total_ops (bool): Whether to use total operations as input feature.
-                If False, uses row_a, col_a, col_b separately.
             degree_time (int): Degree of the polynomial for execution time model.
             degree_dyn_power (int): Degree of the polynomial for dynamic power model.
             degree_static_power (int): Degree of the polynomial for static power model.
             reference_frequency_MHz (float): The reference frequency in MHz at which data is collected.
+            model_type_time (str): Regression model for execution time ('linear', 'ridge', 'lasso', 'elasticnet').
+            model_type_dyn_power (str): Regression model for dynamic power ('linear', 'ridge', 'lasso', 'elasticnet').
+            apply_log_transform_time (bool): Whether to apply log transformation to execution time target variable.
+            apply_log_transform_dyn_power (bool): Whether to apply log transformation to dynamic power target variable.
+            positive (bool): Whether to enforce non-negative coefficients.
+            alpha_time (float): Regularization strength for execution time model.
+            alpha_dyn_power (float): Regularization strength for dynamic power model.
+            l1_ratio_time (float): The ElasticNet mixing parameter for execution time model.
+            l1_ratio_dyn_power (float): The ElasticNet mixing parameter for dynamic power model.
         """
         self.sim_data = sim_data
         self.models = {}  # Dictionary to store models for each PE
@@ -1469,6 +1488,15 @@ class MatmulPowerModel:
         self.degree_dyn_power = degree_dyn_power
         self.degree_static_power = degree_static_power
         self.reference_frequency_MHz = reference_frequency_MHz
+        self.model_type_time = model_type_time
+        self.model_type_dyn_power = model_type_dyn_power
+        self.apply_log_transform_time = apply_log_transform_time
+        self.apply_log_transform_dyn_power = apply_log_transform_dyn_power
+        self.positive = positive
+        self.alpha_time = alpha_time
+        self.alpha_dyn_power = alpha_dyn_power
+        self.l1_ratio_time = l1_ratio_time
+        self.l1_ratio_dyn_power = l1_ratio_dyn_power
         self.build_models()
 
         self.output_dir = output_dir
@@ -1520,7 +1548,16 @@ class MatmulPowerModel:
                 X_time_poly = poly_time.fit_transform(X)
                 y_time = voltage_data['execution_time_ns'].values
 
-                time_model = LinearRegression()
+                # Apply log transformation if specified
+                if self.apply_log_transform_time:
+                    y_time = np.log(y_time)
+
+                time_model = self._get_regression_model(
+                    self.model_type_time,
+                    positive=self.positive,
+                    alpha=self.alpha_time,
+                    l1_ratio=self.l1_ratio_time
+                )
                 time_model.fit(X_time_poly, y_time)
 
                 # Determine selected power domains for this PE
@@ -1534,7 +1571,16 @@ class MatmulPowerModel:
                 dyn_power_keys = [domain + '_dyn' for domain in selected_domains]
                 y_dyn_power = voltage_data[dyn_power_keys].sum(axis=1).values
 
-                dyn_power_model = LinearRegression()
+                # Apply log transformation if specified
+                if self.apply_log_transform_dyn_power:
+                    y_dyn_power = np.log(y_dyn_power)
+
+                dyn_power_model = self._get_regression_model(
+                    self.model_type_dyn_power,
+                    positive=self.positive,
+                    alpha=self.alpha_dyn_power,
+                    l1_ratio=self.l1_ratio_dyn_power
+                )
                 dyn_power_model.fit(X_dyn_power_poly, y_dyn_power)
 
                 # Build static power model
@@ -1548,7 +1594,8 @@ class MatmulPowerModel:
                 else:
                     poly_static_power = PolynomialFeatures(degree=self.degree_static_power, include_bias=False)
                     X_static_power_poly = poly_static_power.fit_transform(X)
-                    static_power_model_reg = LinearRegression()
+                    static_power_model_reg = self._get_regression_model(
+                        'linear', positive=self.positive, alpha=0.0, l1_ratio=0.0)
                     static_power_model_reg.fit(X_static_power_poly, y_static_power)
                     static_power_model = {
                         'model': static_power_model_reg,
@@ -1563,9 +1610,40 @@ class MatmulPowerModel:
                     'dyn_power_model': dyn_power_model,
                     'poly_dyn_power': poly_dyn_power,
                     'static_power_model': static_power_model,
-                    # Store selected domains for reference
                     'selected_domains': selected_domains,
+                    'apply_log_transform_time': self.apply_log_transform_time,
+                    'apply_log_transform_dyn_power': self.apply_log_transform_dyn_power
                 }
+
+    def _get_regression_model(self, model_type, positive, alpha, l1_ratio):
+        """
+        Returns the regression model based on the specified type.
+
+        Args:
+            model_type (str): Type of regression model ('linear', 'ridge', 'lasso', 'elasticnet').
+            positive (bool): Whether to enforce non-negative coefficients.
+            alpha (float): Regularization strength.
+            l1_ratio (float): The ElasticNet mixing parameter.
+
+        Returns:
+            Regression model instance.
+        """
+        if model_type == 'linear':
+            return LinearRegression(positive=positive)
+        elif model_type == 'ridge':
+            return Ridge(alpha=alpha, positive=positive)
+        elif model_type == 'lasso':
+            return Lasso(alpha=alpha, positive=positive, max_iter=10000)
+        elif model_type == 'elasticnet':
+            return ElasticNet(alpha=alpha, l1_ratio=l1_ratio, positive=positive, max_iter=10000)
+        elif model_type == 'gamma':
+            return GammaRegressor(alpha=alpha, max_iter=10000)
+        elif model_type == 'poisson':
+            return PoissonRegressor(alpha=alpha, max_iter=10000, positive=positive)
+        elif model_type == 'randomforest':
+            return RandomForestRegressor(n_estimators=100)
+        else:
+            raise ValueError(f"Unknown model_type: {model_type}")
     
     def get_default_domains_for_PE(self, PE):
         """
@@ -1636,6 +1714,9 @@ class MatmulPowerModel:
         dyn_power_model = model_data['dyn_power_model']
         poly_dyn_power = model_data['poly_dyn_power']
         static_power_model = model_data['static_power_model']
+        selected_domains = model_data['selected_domains']
+        apply_log_transform_time = model_data['apply_log_transform_time']
+        apply_log_transform_dyn_power = model_data['apply_log_transform_dyn_power']
 
         # Prepare input features
         if self.use_total_ops:
@@ -1650,21 +1731,29 @@ class MatmulPowerModel:
                 'col_b': [col_b]
             })
 
-        # Predict execution time at reference frequency
+        # Predict execution time
         X_time_poly = poly_time.transform(X_input)
-        predicted_time_ns = time_model.predict(X_time_poly)[0]
+        predicted_time = time_model.predict(X_time_poly)[0]
+        if apply_log_transform_time:
+            predicted_time = np.exp(predicted_time)
+        # predicted_time_ns = max(predicted_time, 0)
+        predicted_time_ns = predicted_time
 
-        # Predict dynamic power at reference frequency
+        # Predict dynamic power
         X_dyn_power_poly = poly_dyn_power.transform(X_input)
-        predicted_dyn_power_mW = dyn_power_model.predict(X_dyn_power_poly)[0]
+        predicted_dyn_power = dyn_power_model.predict(X_dyn_power_poly)[0]
+        if apply_log_transform_dyn_power:
+            predicted_dyn_power = np.exp(predicted_dyn_power)
+        # predicted_dyn_power_mW = max(predicted_dyn_power, 0)
+        predicted_dyn_power_mW = predicted_dyn_power
 
         # Predict static power
         if self.degree_static_power == 0:
-            # Use the mean static power
             predicted_static_power_mW = static_power_model['mean_static_power']
         else:
             X_static_power_poly = static_power_model['poly'].transform(X_input)
             predicted_static_power_mW = static_power_model['model'].predict(X_static_power_poly)[0]
+            predicted_static_power_mW = max(predicted_static_power_mW, 0)
 
         # If a different frequency is requested, adjust execution time and dynamic power
         if frequency_MHz is None:
@@ -1990,7 +2079,8 @@ class MatmulPowerModel:
         # Evaluate models for all available PEs and voltages
         power_model.evaluate_model()
         """
-        from sklearn.metrics import r2_score, mean_squared_error
+
+        # todo: upgrade to evaluate with new metrics
 
         # Prepare data
         data_df = pd.DataFrame(self.sim_data.data_list)
@@ -2100,65 +2190,352 @@ class MatmulPowerModel:
                 print(f"    Average Mean Squared Error: {avg_mse:.4f}")
         print()
 
+    def compare_models(self, PEs, voltages, model_configs, metrics=['execution_time_ns', 'dyn_power_mW']):
+        """
+        Compares different models based on specified configurations across multiple PEs and voltages.
+
+        Args:
+            PEs (list): List of processing elements to evaluate.
+            voltages (list): List of voltage levels to evaluate.
+            model_configs (list): List of model configuration dictionaries.
+            metrics (list): List of metrics to evaluate.
+
+        Returns:
+            list: A list of dictionaries containing evaluation results for each configuration, including
+                detailed metrics for each PE and voltage combination, and aggregated metrics.
+
+        Example:
+
+            model_configs = [
+                {
+                    'model_type_time': 'ridge',
+                    'apply_log_transform_time': False,
+                    'model_type_dyn_power': 'ridge',
+                    'apply_log_transform_dyn_power': False,
+                    'degree_time': 2,
+                    'degree_dyn_power': 2,
+                    'positive': False,
+                    'alpha_time': 1,
+                    'alpha_dyn_power': 1,
+                    'l1_ratio_time': 0.5,
+                    'l1_ratio_dyn_power': 0.5
+                },
+                {
+                    'model_type_time': 'gamma',
+                    'apply_log_transform_time': False,
+                    'model_type_dyn_power': 'gamma',
+                    'apply_log_transform_dyn_power': False,
+                    'degree_time': 2,
+                    'degree_dyn_power': 2,
+                    'positive': False,
+                    'alpha_time': 0.1,
+                    'alpha_dyn_power': 0.1,
+                },
+                # Add more configurations as needed
+            ]
+
+            # Usage:
+            power_model = MatmulPowerModel(sim_data=simulation_data)
+            results = power_model.compare_models(
+                PEs=['carus', 'caesar'],
+                voltages=[0.8, 0.9],
+                model_configs=model_configs
+            )
+
+            # Process results:
+            for config_result in results:
+                config = config_result['config']
+                print(f"Results for config: {config}")
+                # Detailed metrics for each PE and voltage
+                for pe_voltage_result in config_result['pe_voltage_results']:
+                    PE = pe_voltage_result['PE']
+                    voltage = pe_voltage_result['voltage']
+                    metrics = pe_voltage_result['metrics']
+                    print(f"PE: {PE}, Voltage: {voltage}V")
+                    print(f"  Execution Time Metrics:")
+                    print(f"    R²: {metrics['r2_time']:.4f}")
+                    print(f"    MAE: {metrics['mae_time']:.4f}")
+                    print(f"    MAPE: {metrics['mape_time']:.2f}%")
+                    print(f"    MaxAE: {metrics['maxae_time']:.4f}")
+                    print(f"  Dynamic Power Metrics:")
+                    print(f"    R²: {metrics['r2_dyn_power']:.4f}")
+                    print(f"    MAE: {metrics['mae_dyn_power']:.4f}")
+                    print(f"    MAPE: {metrics['mape_dyn_power']:.2f}%")
+                    print(f"    MaxAE: {metrics['maxae_dyn_power']:.4f}")
+                    print()
+                # Aggregated metrics across all PEs and voltages
+                aggregated_metrics = config_result['aggregated_metrics']
+                print("Aggregated Metrics:")
+                print(f"  Execution Time Metrics:")
+                print(f"    R²: {aggregated_metrics['r2_time']:.4f}")
+                print(f"    MAE: {aggregated_metrics['mae_time']:.4f}")
+                print(f"    MAPE: {aggregated_metrics['mape_time']:.2f}%")
+                print(f"    MaxAE: {aggregated_metrics['maxae_time']:.4f}")
+                print(f"  Dynamic Power Metrics:")
+                print(f"    R²: {aggregated_metrics['r2_dyn_power']:.4f}")
+                print(f"    MAE: {aggregated_metrics['mae_dyn_power']:.4f}")
+                print(f"    MAPE: {aggregated_metrics['mape_dyn_power']:.2f}%")
+                print(f"    MaxAE: {aggregated_metrics['maxae_dyn_power']:.4f}")
+                print()
+        """
+
+        from sklearn.metrics import r2_score, mean_absolute_error
+        from sklearn.preprocessing import PolynomialFeatures
+
+        # Initialize results list
+        results = []
+
+        # Retrieve data once
+        data_df = pd.DataFrame(self.sim_data.data_list)
+
+        for idx, config in enumerate(model_configs):
+            config_result = {
+                'config': config,
+                'pe_voltage_results': []
+            }
+
+            # List to collect metrics for aggregation
+            all_r2_time = []
+            all_mae_time = []
+            all_mape_time = []
+            all_maxae_time = []
+            all_r2_dyn = []
+            all_mae_dyn = []
+            all_mape_dyn = []
+            all_maxae_dyn = []
+
+            for PE in PEs:
+                for voltage in voltages:
+                    pe_data = data_df[
+                        (data_df['PE'] == PE) &
+                        (data_df['voltage'] == voltage) &
+                        (data_df['clock_frequency_MHz'] == self.reference_frequency_MHz)
+                    ]
+
+                    if pe_data.empty:
+                        # Optionally, you can log or collect information about missing data
+                        continue
+
+                    # Features: Matrix sizes
+                    if self.use_total_ops:
+                        pe_data['total_ops'] = pe_data['row_a'] * pe_data['col_a'] * pe_data['col_b']
+                        X = pe_data[['total_ops']]
+                    else:
+                        X = pe_data[['row_a', 'col_a', 'col_b']]
+
+                    # Target variables
+                    y_time = pe_data['execution_time_ns'].values
+                    selected_domains = self.get_default_domains_for_PE(PE)
+                    dyn_power_keys = [domain + '_dyn' for domain in selected_domains]
+                    y_dyn_power = pe_data[dyn_power_keys].sum(axis=1).values
+
+                    # Split data into training and testing sets
+                    from sklearn.model_selection import train_test_split
+                    X_train, X_test, y_time_train, y_time_test, y_dyn_train, y_dyn_test = train_test_split(
+                        X, y_time, y_dyn_power, test_size=0.2, random_state=42)
+
+                    # Prepare polynomial features
+                    degree_time = config.get('degree_time', self.degree_time)
+                    degree_dyn_power = config.get('degree_dyn_power', self.degree_dyn_power)
+
+                    poly_time = PolynomialFeatures(degree=degree_time, include_bias=False)
+                    X_time_train_poly = poly_time.fit_transform(X_train)
+                    X_time_test_poly = poly_time.transform(X_test)
+
+                    poly_dyn_power = PolynomialFeatures(degree=degree_dyn_power, include_bias=False)
+                    X_dyn_train_poly = poly_dyn_power.fit_transform(X_train)
+                    X_dyn_test_poly = poly_dyn_power.transform(X_test)
+
+                    # Build and evaluate execution time model
+                    time_model = self._get_regression_model(
+                        config['model_type_time'],
+                        positive=config.get('positive', True),
+                        alpha=config.get('alpha_time', 1.0),
+                        l1_ratio=config.get('l1_ratio_time', 0.5)
+                    )
+                    y_time_train_target = y_time_train
+                    if config.get('apply_log_transform_time', False):
+                        y_time_train_target = np.log(y_time_train_target + 1e-10)  # Add epsilon to avoid log(0)
+
+                    time_model.fit(X_time_train_poly, y_time_train_target)
+
+                    y_time_pred = time_model.predict(X_time_test_poly)
+                    if config.get('apply_log_transform_time', False):
+                        y_time_pred = np.exp(y_time_pred)
+                    y_time_pred = np.maximum(y_time_pred, 0)
+
+                    # Compute error metrics for execution time
+                    r2_time = r2_score(y_time_test, y_time_pred)
+                    mae_time = mean_absolute_error(y_time_test, y_time_pred)
+                    mape_time = np.mean(np.abs((y_time_test - y_time_pred) / (y_time_test + 1e-10))) * 100  # Avoid division by zero
+                    maxae_time = np.max(np.abs(y_time_test - y_time_pred))
+
+                    # Build and evaluate dynamic power model
+                    dyn_power_model = self._get_regression_model(
+                        config['model_type_dyn_power'],
+                        positive=config.get('positive', True),
+                        alpha=config.get('alpha_dyn_power', 1.0),
+                        l1_ratio=config.get('l1_ratio_dyn_power', 0.5)
+                    )
+                    y_dyn_train_target = y_dyn_train
+                    if config.get('apply_log_transform_dyn_power', False):
+                        y_dyn_train_target = np.log(y_dyn_train_target + 1e-10)
+
+                    dyn_power_model.fit(X_dyn_train_poly, y_dyn_train_target)
+
+                    y_dyn_pred = dyn_power_model.predict(X_dyn_test_poly)
+                    if config.get('apply_log_transform_dyn_power', False):
+                        y_dyn_pred = np.exp(y_dyn_pred)
+                    y_dyn_pred = np.maximum(y_dyn_pred, 0)
+
+                    # Compute error metrics for dynamic power
+                    r2_dyn = r2_score(y_dyn_test, y_dyn_pred)
+                    mae_dyn = mean_absolute_error(y_dyn_test, y_dyn_pred)
+                    mape_dyn = np.mean(np.abs((y_dyn_test - y_dyn_pred) / (y_dyn_test + 1e-10))) * 100
+                    maxae_dyn = np.max(np.abs(y_dyn_test - y_dyn_pred))
+
+                    # Collect metrics for aggregation
+                    all_r2_time.append(r2_time)
+                    all_mae_time.append(mae_time)
+                    all_mape_time.append(mape_time)
+                    all_maxae_time.append(maxae_time)
+                    all_r2_dyn.append(r2_dyn)
+                    all_mae_dyn.append(mae_dyn)
+                    all_mape_dyn.append(mape_dyn)
+                    all_maxae_dyn.append(maxae_dyn)
+
+                    # Store per-PE and voltage results
+                    pe_voltage_result = {
+                        'PE': PE,
+                        'voltage': voltage,
+                        'metrics': {
+                            'r2_time': r2_time,
+                            'mae_time': mae_time,
+                            'mape_time': mape_time,
+                            'maxae_time': maxae_time,
+                            'r2_dyn_power': r2_dyn,
+                            'mae_dyn_power': mae_dyn,
+                            'mape_dyn_power': mape_dyn,
+                            'maxae_dyn_power': maxae_dyn
+                        }
+                    }
+                    config_result['pe_voltage_results'].append(pe_voltage_result)
+
+            # Compute aggregated metrics
+            num_entries = len(config_result['pe_voltage_results'])
+            if num_entries > 0:
+                aggregated_metrics = {
+                    'r2_time': np.mean(all_r2_time),
+                    'mae_time': np.mean(all_mae_time),
+                    'mape_time': np.mean(all_mape_time),
+                    'maxae_time': np.mean(all_maxae_time),
+                    'r2_dyn_power': np.mean(all_r2_dyn),
+                    'mae_dyn_power': np.mean(all_mae_dyn),
+                    'mape_dyn_power': np.mean(all_mape_dyn),
+                    'maxae_dyn_power': np.mean(all_maxae_dyn)
+                }
+            else:
+                aggregated_metrics = {
+                    'r2_time': None,
+                    'mae_time': None,
+                    'mape_time': None,
+                    'maxae_time': None,
+                    'r2_dyn_power': None,
+                    'mae_dyn_power': None,
+                    'mape_dyn_power': None,
+                    'maxae_dyn_power': None
+                }
+
+            config_result['aggregated_metrics'] = aggregated_metrics
+
+            results.append(config_result)
+
+        return results
+
+
+
 class EVE:
+    """
+    Emulator for evaluating energy consumption and execution time of a workload
+    using different policies.
+
+    Example:
+        eve = EVE(models=models, workload=workload, time_budget_s=1.0)
+        eve.run(policy=optimized_energy_policy)
+        result = eve.results['OptimizedEnergy']
+    """
     def __init__(self, models, workload, time_budget_s):
-        self.models = models  # MatmulPowerModel instance
-        self.workload = workload  # List of matmul operations
-        self.time_budget_s = time_budget_s  # Total time budget in seconds
-        self.results = {}  # Store results for different policies
+        """
+        Initializes the EVE emulator.
+
+        Args:
+            models (MatmulPowerModel): The power and performance models.
+            workload (list): The workload to be processed.
+            time_budget_s (float): Total time budget in seconds.
+
+        Example:
+            eve = EVE(models=models, workload=workload, time_budget_s=1.0)
+        """
+        self.models = models
+        self.workload = workload
+        self.time_budget_s = time_budget_s
+        self.results = {}
 
     def run(self, policy):
         """
-        Simulates the execution of the workload under the specified policy.
+        Runs the emulator with the specified policy.
 
         Args:
-            policy (Policy): Policy instance implementing the selection logic.
+            policy (Policy): The policy to use for selecting configurations.
+
+        Example:
+            eve.run(policy=optimized_energy_policy)
         """
-        self.results[policy.name] = self._simulate(policy)
-
-    def _simulate(self, policy):
-        """
-        Simulates the workload under a single policy.
-
-        Args:
-            policy (Policy): The policy to apply.
-
-        Returns:
-            dict: Aggregated metrics for the policy.
-        """
-        total_energy = 0.0
-        total_time = 0.0
-        detailed_results = []
-
-        # Use the policy to select configurations for all operations
         selections = policy.select_configurations(self.workload, self.time_budget_s)
+        if selections is None:
+            print(f"Policy {policy.name} could not meet the time budget.")
+            self.results[policy.name] = {
+                'success': False,
+                'message': 'Time budget could not be met with available configurations.'
+            }
+            return
 
-        for operation, selection in zip(self.workload, selections):
+        total_energy_mJ = 0
+        total_time_s = 0
+        total_power_mW = 0
+        detailed_results = []
+        for idx, (operation, selection) in enumerate(zip(self.workload, selections)):
             if selection is None:
-                print(f"No valid configuration for operation {operation}")
+                print(f"Operation {idx + 1} could not be configured.")
                 continue
-
             prediction = selection['prediction']
-            selected_PE = selection['PE']
-            energy = prediction['total_power_mW'] * (prediction['execution_time_ns'] * 1e-9)  # Energy in mJ
-            total_energy += energy
-            total_time += prediction['execution_time_ns'] * 1e-9  # Time in seconds
-
+            energy_mJ = selection['energy_mJ']
+            execution_time_s = prediction['execution_time_ns'] * 1e-9
+            average_power_mW = selection['average_power_mW']
+            total_energy_mJ += energy_mJ
+            total_time_s += execution_time_s
+            total_power_mW += average_power_mW
             detailed_results.append({
                 'operation': operation,
-                'PE': selected_PE,
-                'energy_mJ': energy,
-                'execution_time_s': prediction['execution_time_ns'] * 1e-9,
-                'power_mW': prediction['total_power_mW'],
-                'voltage': prediction['voltage'],
-                'frequency_MHz': prediction['frequency_MHz']
+                'PE': selection['PE'],
+                'voltage': selection['voltage'],
+                'frequency_MHz': selection['frequency_MHz'],
+                'energy_mJ': energy_mJ,
+                'execution_time_s': execution_time_s,
+                'average_power_mW': average_power_mW
             })
 
-        return {
-            'total_energy_mJ': total_energy,
-            'total_time_s': total_time,
-            'average_energy_mJ': total_energy / len(self.workload),
-            'average_time_s': total_time / len(self.workload),
+        average_energy_mJ = total_energy_mJ / len(self.workload)
+        average_time_s = total_time_s / len(self.workload)
+        average_power_mW = total_power_mW / len(self.workload)
+
+        self.results[policy.name] = {
+            'success': True,
+            'total_energy_mJ': total_energy_mJ,
+            'total_time_s': total_time_s,
+            'average_energy_mJ': average_energy_mJ,
+            'average_time_s': average_time_s,
+            'average_power_mW': average_power_mW,
             'detailed_results': detailed_results
         }
 
@@ -2185,7 +2562,6 @@ class EVE:
             print(f"  Energy Savings: {energy_savings:.2f}%")
             print(f"  Time Difference: {time_difference:.4f} s")
 
-
 class Policy:
     def __init__(self, name):
         self.name = name
@@ -2194,45 +2570,80 @@ class Policy:
         raise NotImplementedError("This method should be overridden by subclasses.")
 
 class OptimizedEnergyPolicy(Policy):
-    def __init__(self, models, available_PEs, voltages, frequencies):
+    """
+    Policy that selects the most energy-efficient configurations for each operation
+    while ensuring that the total execution time does not exceed the time budget.
+    This policy uses the maximum frequency supported at each voltage.
+
+    Example:
+        # Instantiate the policy
+        optimized_energy_policy = OptimizedEnergyPolicy(
+            models=models,
+            available_PEs=['carus', 'caesar', 'cgra', 'cpu'],
+            voltages=[0.8, 0.9],  # Supported voltages
+        )
+        # Run the emulator with the policy
+        eve.run(policy=optimized_energy_policy)
+    """
+
+    def __init__(self, models, available_PEs, voltages):
+        """
+        Initializes the OptimizedEnergyPolicy.
+
+        Args:
+            models (MatmulPowerModel): The power and performance models.
+            available_PEs (list): List of available Processing Elements (PEs).
+            voltages (list): List of voltages to consider.
+
+        Example:
+            optimized_energy_policy = OptimizedEnergyPolicy(
+                models=models,
+                available_PEs=['carus', 'caesar', 'cgra', 'cpu'],
+                voltages=[0.8, 0.9],
+            )
+        """
         super().__init__(name="OptimizedEnergy")
         self.models = models
         self.available_PEs = available_PEs
         self.voltages = voltages
-        self.frequencies = frequencies
 
     def select_configurations(self, workload, time_budget_s):
         """
-        Selects configurations for all operations to minimize total energy
-        while meeting the time budget.
+        Selects configurations for each operation to minimize energy consumption
+        while ensuring the total execution time does not exceed the time budget.
 
         Args:
             workload (list): List of operations.
             time_budget_s (float): Total time budget in seconds.
 
         Returns:
-            list: Selected configurations for each operation.
+            list or None: Selected configurations for each operation, or None if time budget cannot be met.
+
+        Example:
+            selections = policy.select_configurations(workload, time_budget_s=1.0)
         """
-        # For each operation, generate possible configurations
+        # Generate possible configurations for each operation
         operation_configs = []
         for operation in workload:
             configs = self._generate_configs(operation)
             if not configs:
                 operation_configs.append([])
-            else:
-                # Sort configurations by energy consumption
-                configs.sort(key=lambda x: x['energy_mJ'])
-                operation_configs.append(configs)
+                continue
+            # Sort configurations by energy consumption (lowest first)
+            configs.sort(key=lambda x: x['energy_mJ'])
+            operation_configs.append(configs)
 
-        # Initial selection: lowest energy configurations
+        # Initial selection: choose the lowest energy configuration for each operation
         selections = [configs[0] if configs else None for configs in operation_configs]
 
+        # Calculate total execution time
         total_time = sum(sel['prediction']['execution_time_ns'] * 1e-9 for sel in selections if sel)
+
         if total_time <= time_budget_s:
             return selections  # Time budget met
 
         # If time budget not met, adjust configurations
-        # Implement a simple heuristic to meet the time budget
+        # Since frequencies are fixed at max for each voltage, we can only adjust PEs and voltages
 
         # Create a list of possible selections with indices
         possible_selections = []
@@ -2240,20 +2651,22 @@ class OptimizedEnergyPolicy(Policy):
             if len(configs) > 1:
                 # Exclude the current selection
                 for conf in configs[1:]:
+                    delta_energy = conf['energy_mJ'] - selections[idx]['energy_mJ']
+                    delta_time = conf['prediction']['execution_time_ns'] * 1e-9 - selections[idx]['prediction']['execution_time_ns'] * 1e-9
                     possible_selections.append({
                         'operation_idx': idx,
                         'config': conf,
-                        'delta_energy': conf['energy_mJ'] - selections[idx]['energy_mJ'],
-                        'delta_time': selections[idx]['prediction']['execution_time_ns'] * 1e-9 - conf['prediction']['execution_time_ns'] * 1e-9
+                        'delta_energy': delta_energy,
+                        'delta_time': delta_time
                     })
 
         # Sort possible selections by efficiency of time reduction per additional energy
         possible_selections.sort(key=lambda x: x['delta_time'] / x['delta_energy'] if x['delta_energy'] > 0 else float('inf'), reverse=True)
 
-        # Iteratively select faster configurations until time budget is met
-        for sel in possible_selections:
-            idx = sel['operation_idx']
-            selections[idx] = sel['config']
+        # Iteratively select faster configurations until time budget is met or no more options
+        for sel_option in possible_selections:
+            idx = sel_option['operation_idx']
+            selections[idx] = sel_option['config']
             total_time = sum(sel['prediction']['execution_time_ns'] * 1e-9 for sel in selections if sel)
             if total_time <= time_budget_s:
                 break
@@ -2261,6 +2674,9 @@ class OptimizedEnergyPolicy(Policy):
         # Final check
         if total_time > time_budget_s:
             print("Unable to meet time budget with available configurations.")
+            # Indicate failure by returning None
+            return None
+
         return selections
 
     def _generate_configs(self, operation):
@@ -2272,33 +2688,38 @@ class OptimizedEnergyPolicy(Policy):
 
         Returns:
             list: Configurations with predictions.
+
+        Example:
+            configs = policy._generate_configs(operation)
         """
         configs = []
         for PE in self.available_PEs:
             for voltage in self.voltages:
-                for frequency in self.frequencies:
-                    prediction = self.models.predict(
-                        PE=PE,
-                        row_a=operation['row_a'],
-                        col_a=operation['col_a'],
-                        col_b=operation['col_b'],
-                        voltage=voltage,
-                        frequency_MHz=frequency
-                    )
-                    if prediction is None:
-                        continue
-                    energy_mJ = prediction['total_power_mW'] * (prediction['execution_time_ns'] * 1e-9)
-                    configs.append({
-                        'PE': PE,
-                        'voltage': voltage,
-                        'frequency_MHz': frequency,
-                        'prediction': prediction,
-                        'energy_mJ': energy_mJ
-                    })
+                # Get max frequency for this voltage
+                max_frequency = self.models.sim_data.max_frequency.get(voltage, None)
+                if max_frequency is None:
+                    continue
+                prediction = self.models.predict(
+                    PE=PE,
+                    row_a=operation['row_a'],
+                    col_a=operation['col_a'],
+                    col_b=operation['col_b'],
+                    voltage=voltage,
+                    frequency_MHz=max_frequency
+                )
+                if prediction is None:
+                    continue
+                energy_mJ = prediction['total_power_mW'] * (prediction['execution_time_ns'] * 1e-9)
+                average_power_mW = prediction['total_power_mW']
+                configs.append({
+                    'PE': PE,
+                    'voltage': voltage,
+                    'frequency_MHz': max_frequency,
+                    'prediction': prediction,
+                    'energy_mJ': energy_mJ,
+                    'average_power_mW': average_power_mW
+                })
         return configs
-
-
-
 
 
 class BaselinePolicy(Policy):
@@ -2334,13 +2755,65 @@ class BaselinePolicy(Policy):
         return selections
 
 
+class WorkloadGenerator:
+    """
+    Class to generate workloads of matmul operations.
+
+    Example:
+        generator = WorkloadGenerator(ra_size=[16, 32, 64, 128], ca_size=[16, 32, 64, 128], cb_size=[16, 32, 64, 128])
+        workload = generator.generate_workload(num_operations=100)
+    """
+    def __init__(self, ra_size, ca_size, cb_size):
+        """
+        Initializes the WorkloadGenerator.
+
+        Args:
+            ra_size (list): List of sizes to choose from. Defaults to [16, 32, 64, 128].
+            ca_size (list): List of sizes to choose from. Defaults to [16, 32, 64, 128].
+            cb_size (list): List of sizes to choose from. Defaults to [16, 32, 64, 128].
+        """
+        self.ra_size = ra_size
+        self.ca_size = ca_size
+        self.cb_size = cb_size
+
+    def generate_workload(self, num_operations):
+        """
+        Generates a workload of random matmul operations.
+
+        Args:
+            num_operations (int): Number of operations to generate.
+
+        Returns:
+            list: A list of operation dictionaries.
+
+        Example:
+            workload = generator.generate_workload(num_operations=100)
+        """
+        workload = []
+        for _ in range(num_operations):
+            row_a = random.choice(self.ra_size)
+            col_a = random.choice(self.ca_size)
+            col_b = random.choice(self.cb_size) 
+            workload.append({
+                'row_a': row_a,
+                'col_a': col_a,
+                'col_b': col_b
+            })
+        return workload
+
 def generate_workload(num_operations):
+    """
+    Generates a random workload of matrix multiplication operations.
+
+    Example:
+    workload = generate_workload(num_operations=100)
+    """
     import random
     workload = []
     for _ in range(num_operations):
-        ra = random.choice([4, 8, 16, 32, 64])
-        ca = random.choice([4, 8, 16, 32, 64])
-        cb = random.choice([4, 8, 16, 32, 64])
+        ra = random.choice([4, 8])
+        ca = random.choice([4, 8])
+        cb = random.choice([4, 8, 16, 32, 64, 128, 256])
         operation = {
             'row_a': ra,
             'col_a': ca,
@@ -2370,65 +2843,40 @@ if __name__ == '__main__':
     # simulation_data.save_data(filename=f'{output_dir}/matmul_simulation_data_DataMv.pkl')
     simulation_data.load_data(filename=f'{output_dir}/matmul_simulation_data_noDataMv.pkl')
 
-    # data_analysis = MatmulDataAnalysis(simulation_data, output_dir=output_dir)
-
-    # Voltage = 0.9
-    # data_analysis.plot_improvement_over_reference(
-    #     PEs=['carus', 'caesar', 'cgra'],
-    #     reference_PE='cpu',
-    #     sweep_params=['row_a', 'col_a','col_b'],
-    #     fixed_params={},
-    #     PE_voltages={'carus': Voltage, 'caesar': Voltage, 'cgra': Voltage},
-    #     reference_voltage=Voltage,
-    #     metrics=['energy', 'time', 'power']
-    # )
-
-    # data_analysis.plot_metric_vs_size(
-        #     sweep_params=['row_a', 'col_a', 'col_b'],
-        #     fixed_params={},
-        #     voltage=Voltage,
-        #     metrics=['energy', 'time', 'power'],
-        #     PEs=['carus', 'caesar', 'cgra'],
-        #     domains={
-        #         'carus': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_carus'],
-        #         'caesar': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_caesar'],
-        #         'cgra': ['pow_sys', 'pow_cpu', 'pow_mem', 'pow_cgra']
-        #     }
-        # )
-    
-    # Create the power model using total operations and custom degrees for each model
     models = MatmulPowerModel(
         sim_data=simulation_data,
         use_total_ops=False,
-        degree_time=3,
-        degree_dyn_power=4,
-        degree_static_power=0,  # Static power modeled as a constant
+        positive=False,
+        model_type_time='ridge',
+        degree_time=2,
+        apply_log_transform_time=False,
+        alpha_time=100,
+        model_type_dyn_power='ridge',
+        degree_dyn_power=2,
+        apply_log_transform_dyn_power=False,
+        alpha_dyn_power=1.0,
+        degree_static_power=0,
         reference_frequency_MHz=100,
         output_dir=output_dir
     )
 
-    # Assuming you have an instance of MatmulPowerModel named 'models'
+    # Generate the workload using the WorkloadGenerator class
+    generator = WorkloadGenerator(ra_size=[4, 8], ca_size=[4, 8], cb_size=[4, 8, 16, 32, 64, 128, 256])
+    workload = generator.generate_workload(num_operations=100)
 
-    # Generate the workload
-    workload = generate_workload(num_operations=100)
-
-    # Define available PEs, voltages, and frequencies
-    available_PEs = ['carus', 'caesar', 'cgra', 'cpu']
-    voltages = [0.8, 0.9]  # Voltages for which models are available
-    frequencies = [100, 200, 300]  # Frequencies within the max frequency constraints
-
-    # Define the time budget in seconds
-    time_budget_s = 1.0  # For example, total execution time should not exceed 1 second
+    # Define available PEs and voltages
+    available_PEs = ['carus', 'caesar', 'cgra']
+    voltages = [0.5, 0.65, 0.8, 0.9]  # Supported voltages
 
     # Instantiate the policy
     optimized_energy_policy = OptimizedEnergyPolicy(
         models=models,
         available_PEs=available_PEs,
-        voltages=voltages,
-        frequencies=frequencies
+        voltages=voltages
     )
 
     # Create the EVE emulator
+    time_budget_s = 700 * 1e-6  # us
     eve = EVE(models=models, workload=workload, time_budget_s=time_budget_s)
 
     # Run the emulator with the optimized energy policy
@@ -2436,22 +2884,28 @@ if __name__ == '__main__':
 
     # Access and print the results
     result = eve.results['OptimizedEnergy']
-    print(f"Total Energy Consumption: {result['total_energy_mJ']:.2f} mJ")
-    print(f"Total Execution Time: {result['total_time_s']:.4f} s")
-    print(f"Average Energy per Operation: {result['average_energy_mJ']:.2f} mJ")
-    print(f"Average Time per Operation: {result['average_time_s']:.6f} s")
 
-    # Detailed results per operation
-    for idx, detail in enumerate(result['detailed_results']):
-        op = detail['operation']
-        print(f"Operation {idx + 1}:")
-        print(f"  Size: {op['row_a']}x{op['col_a']} * {op['col_a']}x{op['col_b']}")
-        print(f"  Selected PE: {detail['PE']}")
-        print(f"  Voltage: {detail['voltage']}V")
-        print(f"  Frequency: {detail['frequency_MHz']} MHz")
-        print(f"  Energy: {detail['energy_mJ']:.4f} mJ")
-        print(f"  Execution Time: {detail['execution_time_s']:.6f} s")
-        print()
+    if result['success']:
+        print(f"Total Energy Consumption: {1000*result['total_energy_mJ']:.4f} uJ")
+        print(f"Total Execution Time: {1000*result['total_time_s']:.4f} ms")
+        print(f"Average Energy per Operation: {1000*result['average_energy_mJ']:.4f} uJ")
+        print(f"Average Time per Operation: {1000*result['average_time_s']:.6f} ms")
+        print(f"Average Power Consumption: {result['average_power_mW']:.2f} mW")
+        # Detailed results per operation
+        for idx, detail in enumerate(result['detailed_results']):
+            op = detail['operation']
+            print(f"Operation {idx + 1}:")
+            print(f"  Size: {op['row_a']}x{op['col_a']} * {op['col_a']}x{op['col_b']}")
+            print(f"  Selected PE: {detail['PE']}")
+            print(f"  Voltage: {detail['voltage']}V")
+            print(f"  Frequency: {detail['frequency_MHz']} MHz")
+            print(f"  Energy: {1e6*detail['energy_mJ']:.4f} nJ")
+            print(f"  Execution Time: {1e6*detail['execution_time_s']:.6f} us")
+            print(f"  Average Power: {detail['average_power_mW']:.2f} mW")
+            print()
+    else:
+        print("Policy was not successful.")
+        print(result['message'])
 
 
 

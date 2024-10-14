@@ -191,6 +191,7 @@ ifeq ($(BOOT_MODE),flash)
 endif
 
 ## @section Conda
+.PHONY: conda
 conda: 
 	conda env create -f environment.yml
 
