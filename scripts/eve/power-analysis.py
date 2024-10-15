@@ -43,6 +43,7 @@ from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet, GammaRegressor, PoissonRegressor
 from sklearn.ensemble import RandomForestRegressor
 import random
+import seaborn as sns
 
 
 class MatmulSimulationData:
@@ -2463,6 +2464,66 @@ class EVE:
         eve = EVE(models=models, workload=workload, time_budget_s=1.0)
         eve.run(policy=optimized_energy_policy)
         result = eve.results['OptimizedEnergy']
+
+        # ==== Having access to the results for one policy ====
+        result = eve.results['OptimizedEnergy']
+
+        if result['success']:
+            print(f"Total Energy Consumption: {1000*result['total_energy_mJ']:.4f} uJ")
+            print(f"Total Execution Time: {1000*result['total_time_s']:.4f} ms")
+            print(f"Average Energy per Operation: {1000*result['average_energy_mJ']:.4f} uJ")
+            print(f"Average Time per Operation: {1000*result['average_time_s']:.6f} ms")
+            print(f"Average Power Consumption: {result['average_power_mW']:.2f} mW")
+            # Detailed results per operation
+            for idx, detail in enumerate(result['detailed_results']):
+                op = detail['operation']
+                print(f"Operation {idx + 1}:")
+                print(f"  Size: {op['row_a']}x{op['col_a']} * {op['col_a']}x{op['col_b']}")
+                print(f"  Selected PE: {detail['PE']}")
+                print(f"  Voltage: {detail['voltage']}V")
+                print(f"  Frequency: {detail['frequency_MHz']} MHz")
+                print(f"  Energy: {1e6*detail['energy_mJ']:.4f} nJ")
+                print(f"  Execution Time: {1e6*detail['execution_time_s']:.6f} us")
+                print(f"  Average Power: {detail['average_power_mW']:.2f} mW")
+                print()
+        else:
+            print("Policy was not successful.")
+            print(result['message'])
+        
+        # ==== Getting results as a DataFrame ====
+        # Get results as DataFrame
+        results_df = eve.get_results_dataframe()
+        print(results_df)
+
+        # ==== Plotting results ====
+        # Assuming results_df is obtained from get_results_dataframe()
+        # Remove policies that did not succeed
+        results_df = results_df.dropna(subset=['Total Energy (mJ)'])
+
+        # Plot total energy consumption
+        plt.figure(figsize=(8, 6))
+        sns.barplot(x='Policy', y='Total Energy (mJ)', data=results_df)
+        plt.title('Total Energy Consumption by Policy')
+        plt.ylabel('Total Energy (mJ)')
+        plt.savefig(f'{output_dir}/total_energy_consumption.pdf')   
+        # plt.show()
+
+        # Plot total execution time
+        plt.figure(figsize=(8, 6))
+        sns.barplot(x='Policy', y='Total Time (s)', data=results_df)
+        plt.title('Total Execution Time by Policy')
+        plt.ylabel('Total Time (s)')
+        plt.savefig(f'{output_dir}/total_execution_time.pdf')
+        # plt.show()
+
+        # Plot average energy per operation
+        plt.figure(figsize=(8, 6))
+        sns.barplot(x='Policy', y='Average Energy per Operation (mJ)', data=results_df)
+        plt.title('Average Energy per Operation by Policy')
+        plt.ylabel('Average Energy (mJ)')
+        plt.savefig(f'{output_dir}/average_energy_per_operation.pdf')
+
+
     """
     def __init__(self, models, workload, time_budget_s):
         """
@@ -2539,28 +2600,53 @@ class EVE:
             'detailed_results': detailed_results
         }
 
-    def compare_policies(self):
+    def run_multiple(self, policies): 
         """
-        Compares the results of different policies and prints the comparison.
+        Runs the emulator with multiple policies and collects results for comparison.
+
+        Args:
+            policies (list): List of Policy instances.
+
+        Example:
+            policies = [optimized_energy_policy, fixed_pe_policy]
+            eve.run_multiple(policies)
         """
-        policy_names = list(self.results.keys())
-        if len(policy_names) < 2:
-            print("Need at least two policies to compare.")
-            return
+        for policy in policies:
+            self.run(policy)
 
-        base_policy = policy_names[0]
-        for other_policy in policy_names[1:]:
-            energy_base = self.results[base_policy]['total_energy_mJ']
-            energy_other = self.results[other_policy]['total_energy_mJ'] 
-            time_base = self.results[base_policy]['total_time_s']
-            time_other = self.results[other_policy]['total_time_s']
+    def get_results_dataframe(self):
+        """
+        Returns the results as a pandas DataFrame for easy comparison.
 
-            energy_savings = (1 - energy_base / energy_other) * 100
-            time_difference = time_base - time_other
+        Returns:
+            pandas.DataFrame: DataFrame containing results of all policies.
 
-            print(f"Comparing {base_policy} to {other_policy}:")
-            print(f"  Energy Savings: {energy_savings:.2f}%")
-            print(f"  Time Difference: {time_difference:.4f} s")
+        Example:
+            df = eve.get_results_dataframe()
+        """
+        import pandas as pd
+        results_list = []
+        for policy_name, result in self.results.items():
+            if result.get('success', False):
+                results_list.append({
+                    'Policy': policy_name,
+                    'Total Energy (mJ)': result['total_energy_mJ'],
+                    'Total Time (s)': result['total_time_s'],
+                    'Average Energy per Operation (mJ)': result['average_energy_mJ'],
+                    'Average Time per Operation (s)': result['average_time_s'],
+                    'Average Power Consumption (mW)': result['average_power_mW']
+                })
+            else:
+                results_list.append({
+                    'Policy': policy_name,
+                    'Total Energy (mJ)': None,
+                    'Total Time (s)': None,
+                    'Average Energy per Operation (mJ)': None,
+                    'Average Time per Operation (s)': None,
+                    'Average Power Consumption (mW)': None
+                })
+        df = pd.DataFrame(results_list)
+        return df
 
 class Policy:
     def __init__(self, name):
@@ -2722,37 +2808,92 @@ class OptimizedEnergyPolicy(Policy):
         return configs
 
 
-class BaselinePolicy(Policy):
-    def __init__(self, models):
-        super().__init__(name="Baseline")
+class FixedPEPolicy(Policy):
+    """
+    Policy that always selects a specified PE and voltage for all operations.
+
+    Example:
+        # Instantiate the policy
+        fixed_pe_policy = FixedPEPolicy(
+            models=models,
+            PE='cpu',
+            voltage=0.9
+        )
+        # Run the emulator with the policy
+        eve.run(policy=fixed_pe_policy)
+    """
+
+    def __init__(self, models, PE, voltage):
+        """
+        Initializes the FixedPEPolicy.
+
+        Args:
+            models (MatmulPowerModel): The power and performance models.
+            PE (str): The Processing Element to use.
+            voltage (float): The voltage to use.
+
+        Example:
+            fixed_pe_policy = FixedPEPolicy(
+                models=models,
+                PE='cpu',
+                voltage=0.9
+            )
+        """
+        super().__init__(name=f"FixedPE_{PE}_{voltage}V")
         self.models = models
+        self.PE = PE
+        self.voltage = voltage
+        # Get the maximum frequency for the given voltage
+        self.frequency_MHz = models.sim_data.max_frequency.get(voltage, None)
+        if self.frequency_MHz is None:
+            raise ValueError(f"No maximum frequency found for voltage {voltage}V.")
 
     def select_configurations(self, workload, time_budget_s):
         """
-        Uses a fixed configuration for all operations (e.g., CPU at max frequency).
+        Selects the specified PE and voltage for all operations.
+
+        Args:
+            workload (list): List of operations.
+            time_budget_s (float): Total time budget in seconds.
+
+        Returns:
+            list or None: Selected configurations for each operation, or None if time budget cannot be met.
+
+        Example:
+            selections = policy.select_configurations(workload, time_budget_s=1.0)
         """
         selections = []
+        total_time = 0
         for operation in workload:
             prediction = self.models.predict(
-                PE='cpu',
+                PE=self.PE,
                 row_a=operation['row_a'],
                 col_a=operation['col_a'],
                 col_b=operation['col_b'],
-                voltage=0.9,
-                frequency_MHz=None  # Use max frequency
+                voltage=self.voltage,
+                frequency_MHz=self.frequency_MHz
             )
             if prediction is None:
-                selections.append(None)
-            else:
-                energy_mJ = prediction['total_power_mW'] * (prediction['execution_time_ns'] * 1e-9)
-                selections.append({
-                    'PE': 'cpu',
-                    'voltage': 0.9,
-                    'frequency_MHz': prediction['frequency_MHz'],
-                    'prediction': prediction,
-                    'energy_mJ': energy_mJ
-                })
+                print(f"Prediction failed for operation: {operation}")
+                return None
+            execution_time_s = prediction['execution_time_ns'] * 1e-9
+            total_time += execution_time_s
+            if total_time > time_budget_s:
+                print("Unable to meet time budget with FixedPEPolicy.")
+                return None
+            energy_mJ = prediction['total_power_mW'] * execution_time_s
+            average_power_mW = prediction['total_power_mW']
+            selection = {
+                'PE': self.PE,
+                'voltage': self.voltage,
+                'frequency_MHz': self.frequency_MHz,
+                'prediction': prediction,
+                'energy_mJ': energy_mJ,
+                'average_power_mW': average_power_mW
+            }
+            selections.append(selection)
         return selections
+
 
 
 class WorkloadGenerator:
@@ -2801,28 +2942,6 @@ class WorkloadGenerator:
             })
         return workload
 
-def generate_workload(num_operations):
-    """
-    Generates a random workload of matrix multiplication operations.
-
-    Example:
-    workload = generate_workload(num_operations=100)
-    """
-    import random
-    workload = []
-    for _ in range(num_operations):
-        ra = random.choice([4, 8])
-        ca = random.choice([4, 8])
-        cb = random.choice([4, 8, 16, 32, 64, 128, 256])
-        operation = {
-            'row_a': ra,
-            'col_a': ca,
-            'col_b': cb,
-            # 'voltage': 0.8,  # Optional
-            # 'frequency_MHz': 200  # Optional
-        }
-        workload.append(operation)
-    return workload
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Matmul Simulation Data Analysis')
@@ -2865,47 +2984,28 @@ if __name__ == '__main__':
     workload = generator.generate_workload(num_operations=100)
 
     # Define available PEs and voltages
-    available_PEs = ['carus', 'caesar', 'cgra']
-    voltages = [0.5, 0.65, 0.8, 0.9]  # Supported voltages
+    # available_PEs = ['carus', 'caesar', 'cgra']
+    # voltages = [0.5, 0.65, 0.8, 0.9]  # Supported voltages
 
     # Instantiate the policy
-    optimized_energy_policy = OptimizedEnergyPolicy(
-        models=models,
-        available_PEs=available_PEs,
-        voltages=voltages
-    )
+    optimized_energy_policy = OptimizedEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9])
+    fixed_pe_policy_cgra_0_8 = FixedPEPolicy(models=models, PE='cgra',voltage=0.8)
+    fixed_pe_policy_cgra_0_9 = FixedPEPolicy(models=models, PE='cgra',voltage=0.9)
 
     # Create the EVE emulator
     time_budget_s = 700 * 1e-6  # us
     eve = EVE(models=models, workload=workload, time_budget_s=time_budget_s)
 
     # Run the emulator with the optimized energy policy
-    eve.run(policy=optimized_energy_policy)
+    # eve.run(policy=optimized_energy_policy)
+    policies = [optimized_energy_policy, fixed_pe_policy_cgra_0_8, fixed_pe_policy_cgra_0_9]
+    eve.run_multiple(policies=policies)
 
-    # Access and print the results
-    result = eve.results['OptimizedEnergy']
+    # Get results as DataFrame
+    results_df = eve.get_results_dataframe()
+    print(results_df)
 
-    if result['success']:
-        print(f"Total Energy Consumption: {1000*result['total_energy_mJ']:.4f} uJ")
-        print(f"Total Execution Time: {1000*result['total_time_s']:.4f} ms")
-        print(f"Average Energy per Operation: {1000*result['average_energy_mJ']:.4f} uJ")
-        print(f"Average Time per Operation: {1000*result['average_time_s']:.6f} ms")
-        print(f"Average Power Consumption: {result['average_power_mW']:.2f} mW")
-        # Detailed results per operation
-        for idx, detail in enumerate(result['detailed_results']):
-            op = detail['operation']
-            print(f"Operation {idx + 1}:")
-            print(f"  Size: {op['row_a']}x{op['col_a']} * {op['col_a']}x{op['col_b']}")
-            print(f"  Selected PE: {detail['PE']}")
-            print(f"  Voltage: {detail['voltage']}V")
-            print(f"  Frequency: {detail['frequency_MHz']} MHz")
-            print(f"  Energy: {1e6*detail['energy_mJ']:.4f} nJ")
-            print(f"  Execution Time: {1e6*detail['execution_time_s']:.6f} us")
-            print(f"  Average Power: {detail['average_power_mW']:.2f} mW")
-            print()
-    else:
-        print("Policy was not successful.")
-        print(result['message'])
+
 
 
 
