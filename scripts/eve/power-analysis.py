@@ -44,6 +44,9 @@ from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet, Gam
 from sklearn.ensemble import RandomForestRegressor
 import random
 import seaborn as sns
+from sklearn.model_selection import train_test_split
+from mpl_toolkits.mplot3d import Axes3D
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpBinary, PULP_CBC_CMD, LpStatus
 
 
 class MatmulSimulationData:
@@ -447,22 +450,12 @@ class MatmulSimulationData:
             print(f"{power_label}: {result['power_mW']} mW")
         else:
             print("No data to report.")
-    
 class MatmulDataAnalysis:
     """
     A class for analyzing and plotting matrix multiplication simulation data.
 
     Example:
 
-    power_model = MatmulPowerModel(
-        sim_data=simulation_data,
-        use_total_ops=False,
-        degree_time=5,
-        degree_dyn_power=5,
-        degree_static_power=0,  # Static power modeled as a constant
-        reference_frequency_MHz=100,
-        output_dir=output_dir
-    )
     """
 
     def __init__(self, simulation_data, output_dir):
@@ -1316,7 +1309,6 @@ class MatmulDataAnalysis:
                         metric_ratios[metric][PE].append(None)
 
         # Plotting
-        import matplotlib.pyplot as plt
         num_metrics = len(metrics)
         plt.figure(figsize=(8 * num_metrics, 6))
 
@@ -1444,11 +1436,20 @@ class MatmulDataAnalysis:
 
         plt.tight_layout()
         plt.show()
-
 class MatmulPowerModel:
     """
     A class to build predictive models for execution time and power consumption
     based on simulation data collected at a reference frequency.
+
+    power_model = MatmulPowerModel(
+        sim_data=simulation_data,
+        use_total_ops=False,
+        degree_time=5,
+        degree_dyn_power=5,
+        degree_static_power=0,  # Static power modeled as a constant
+        reference_frequency_MHz=100,
+        output_dir=output_dir
+    )
     """
     def __init__(self, sim_data, output_dir, use_total_ops=True,
                  degree_time=1, degree_dyn_power=1, degree_static_power=0,
@@ -1640,7 +1641,7 @@ class MatmulPowerModel:
         elif model_type == 'gamma':
             return GammaRegressor(alpha=alpha, max_iter=10000)
         elif model_type == 'poisson':
-            return PoissonRegressor(alpha=alpha, max_iter=10000, positive=positive)
+            return PoissonRegressor(alpha=alpha, max_iter=10000)
         elif model_type == 'randomforest':
             return RandomForestRegressor(n_estimators=100)
         else:
@@ -2033,7 +2034,6 @@ class MatmulPowerModel:
                 z_measured = y_measured
                 z_predicted = y_predicted
 
-                from mpl_toolkits.mplot3d import Axes3D
                 ax = fig.add_subplot(1, num_metrics, idx + 1, projection='3d')
                 ax.scatter(x_values, y_values, z_measured, label='Measured', marker='o')
                 ax.scatter(x_values, y_values, z_predicted, label='Predicted', marker='^')
@@ -2236,7 +2236,6 @@ class MatmulPowerModel:
             ]
 
             # Usage:
-            power_model = MatmulPowerModel(sim_data=simulation_data)
             results = power_model.compare_models(
                 PEs=['carus', 'caesar'],
                 voltages=[0.8, 0.9],
@@ -2280,8 +2279,6 @@ class MatmulPowerModel:
                 print()
         """
 
-        from sklearn.metrics import r2_score, mean_absolute_error
-        from sklearn.preprocessing import PolynomialFeatures
 
         # Initialize results list
         results = []
@@ -2331,7 +2328,6 @@ class MatmulPowerModel:
                     y_dyn_power = pe_data[dyn_power_keys].sum(axis=1).values
 
                     # Split data into training and testing sets
-                    from sklearn.model_selection import train_test_split
                     X_train, X_test, y_time_train, y_time_test, y_dyn_train, y_dyn_test = train_test_split(
                         X, y_time, y_dyn_power, test_size=0.2, random_state=42)
 
@@ -2452,9 +2448,6 @@ class MatmulPowerModel:
             results.append(config_result)
 
         return results
-
-
-
 class EVE:
     """
     Emulator for evaluating energy consumption and execution time of a workload
@@ -2624,7 +2617,6 @@ class EVE:
         Example:
             df = eve.get_results_dataframe()
         """
-        import pandas as pd
         results_list = []
         for policy_name, result in self.results.items():
             if result.get('success', False):
@@ -2647,15 +2639,13 @@ class EVE:
                 })
         df = pd.DataFrame(results_list)
         return df
-
 class Policy:
     def __init__(self, name):
         self.name = name
 
     def select_configurations(self, workload, time_budget_s):
         raise NotImplementedError("This method should be overridden by subclasses.")
-
-class OptimizedEnergyPolicy(Policy):
+class GreedyEnergyPolicy(Policy):
     """
     Policy that selects the most energy-efficient configurations for each operation
     while ensuring that the total execution time does not exceed the time budget.
@@ -2663,7 +2653,7 @@ class OptimizedEnergyPolicy(Policy):
 
     Example:
         # Instantiate the policy
-        optimized_energy_policy = OptimizedEnergyPolicy(
+        optimized_energy_policy = GreedyEnergyPolicy(
             models=models,
             available_PEs=['carus', 'caesar', 'cgra', 'cpu'],
             voltages=[0.8, 0.9],  # Supported voltages
@@ -2674,7 +2664,7 @@ class OptimizedEnergyPolicy(Policy):
 
     def __init__(self, models, available_PEs, voltages):
         """
-        Initializes the OptimizedEnergyPolicy.
+        Initializes the GreedyEnergyPolicy.
 
         Args:
             models (MatmulPowerModel): The power and performance models.
@@ -2682,13 +2672,13 @@ class OptimizedEnergyPolicy(Policy):
             voltages (list): List of voltages to consider.
 
         Example:
-            optimized_energy_policy = OptimizedEnergyPolicy(
+            optimized_energy_policy = GreedyEnergyPolicy(
                 models=models,
                 available_PEs=['carus', 'caesar', 'cgra', 'cpu'],
                 voltages=[0.8, 0.9],
             )
         """
-        super().__init__(name="OptimizedEnergy")
+        super().__init__(name="GreedyEnergyPolicy")
         self.models = models
         self.available_PEs = available_PEs
         self.voltages = voltages
@@ -2806,8 +2796,6 @@ class OptimizedEnergyPolicy(Policy):
                     'average_power_mW': average_power_mW
                 })
         return configs
-
-
 class FixedPEPolicy(Policy):
     """
     Policy that always selects a specified PE and voltage for all operations.
@@ -2893,7 +2881,136 @@ class FixedPEPolicy(Policy):
             }
             selections.append(selection)
         return selections
+class OptimalMCKPEnergyPolicy(Policy):
+    """
+    Policy that selects configurations to minimize total energy consumption
+    while meeting the time budget using optimization (MCKP).
+    
+    Example:
+        optimal_energy_policy = OptimalMCKPEnergyPolicy(
+            models=models,
+            available_PEs=['carus', 'caesar', 'cgra'],
+            voltages=[0.5, 0.65, 0.8, 0.9]
+        )
+        eve.run(policy=optimal_energy_policy)
+    """
 
+    def __init__(self, models, available_PEs, voltages):
+        super().__init__(name="OptimalMCKPEnergyPolicy")
+        self.models = models
+        self.available_PEs = available_PEs
+        self.voltages = voltages
+
+    def select_configurations(self, workload, time_budget_s):
+        """
+        Selects configurations using an optimization solver.
+
+        Args:
+            workload (list): List of operations.
+            time_budget_s (float): Total time budget in seconds.
+
+        Returns:
+            list or None: Selected configurations for each operation, or None if no feasible solution.
+        """
+
+        # Generate possible configurations for each operation
+        operation_configs = []
+        for operation in workload:
+            configs = self._generate_configs(operation)
+            if not configs:
+                operation_configs.append([])
+            else:
+                operation_configs.append(configs)
+
+        # Check if any operation has no configurations
+        for idx, configs in enumerate(operation_configs):
+            if not configs:
+                print(f"No configurations available for operation {idx}.")
+                return None
+
+        num_operations = len(workload)
+        prob = LpProblem("OptimalMCKPEnergyPolicy", LpMinimize)
+
+        # Decision variables
+        x = []
+        for i in range(num_operations):
+            x_i = []
+            for j in range(len(operation_configs[i])):
+                var = LpVariable(f"x_{i}_{j}", cat="Binary")
+                x_i.append(var)
+            x.append(x_i)
+
+        # Objective function: Minimize total energy
+        prob += lpSum([
+            x[i][j] * operation_configs[i][j]['energy_mJ']
+            for i in range(num_operations)
+            for j in range(len(operation_configs[i]))
+        ])
+
+        # Constraint: Select exactly one configuration per operation
+        for i in range(num_operations):
+            prob += lpSum(x[i]) == 1
+
+        # Constraint: Total time must be within the time budget
+        total_time = lpSum([
+            x[i][j] * (operation_configs[i][j]['prediction']['execution_time_ns'] * 1e-9)
+            for i in range(num_operations)
+            for j in range(len(operation_configs[i]))
+        ])
+        prob += total_time <= time_budget_s
+
+        # Solve the problem
+        solver = PULP_CBC_CMD(msg=False)
+        result_status = prob.solve(solver)
+
+        if LpStatus[result_status] != 'Optimal':
+            print("No feasible solution found within the time budget.")
+            return None
+
+        # Extract the selected configurations
+        selections = []
+        for i in range(num_operations):
+            selected_j = None
+            for j in range(len(operation_configs[i])):
+                if x[i][j].varValue == 1:
+                    selected_j = j
+                    break
+            if selected_j is None:
+                print(f"No configuration selected for operation {i}.")
+                return None
+            selections.append(operation_configs[i][selected_j])
+
+        return selections
+
+    def _generate_configs(self, operation):
+        configs = []
+        for PE in self.available_PEs:
+            for voltage in self.voltages:
+                # Get max frequency for this voltage
+                max_frequency = self.models.sim_data.max_frequency.get(voltage, None)
+                if max_frequency is None:
+                    continue
+                prediction = self.models.predict(
+                    PE=PE,
+                    row_a=operation['row_a'],
+                    col_a=operation['col_a'],
+                    col_b=operation['col_b'],
+                    voltage=voltage,
+                    frequency_MHz=max_frequency
+                )
+                if prediction is None:
+                    continue
+                energy_mJ = prediction['total_power_mW'] * (prediction['execution_time_ns'] * 1e-9)
+                average_power_mW = prediction['total_power_mW']
+                configs.append({
+                    'PE': PE,
+                    'voltage': voltage,
+                    'frequency_MHz': max_frequency,
+                    'prediction': prediction,
+                    'energy_mJ': energy_mJ,
+                    'average_power_mW': average_power_mW
+                })
+        return configs
 
 
 class WorkloadGenerator:
@@ -2945,7 +3062,7 @@ class WorkloadGenerator:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Matmul Simulation Data Analysis')
-    parser.add_argument('--data_dir', type=str, default='private/matmul_postsynth_sims', help='Directory of simulation data')
+    parser.add_argument('--data_dir', type=str, default='private/matmul_postsynth_sims_onlykernelnmc', help='Directory of simulation data')
     parser.add_argument('--root_dir', type=str, default='.', help='Root directory of project')
     parser.add_argument('--eve_dir', type=str, default='scripts/eve', help='EVE directory (where this script is located)')
     args = parser.parse_args()
@@ -2959,18 +3076,22 @@ if __name__ == '__main__':
 
     simulation_data = MatmulSimulationData()
     # simulation_data.extract_data(root_dir=args.data_dir)
-    # simulation_data.save_data(filename=f'{output_dir}/matmul_simulation_data_DataMv.pkl')
-    simulation_data.load_data(filename=f'{output_dir}/matmul_simulation_data_noDataMv.pkl')
+    # simulation_data.save_data(filename=f'{output_dir}/matmul_simulation_data_noDataMv2.pkl')
+    simulation_data.load_data(filename=f'{output_dir}/matmul_simulation_data_noDataMv2.pkl')
+
+    # data analysis class
+    data_analysis = MatmulDataAnalysis(simulation_data=simulation_data, output_dir=output_dir)
+
 
     models = MatmulPowerModel(
         sim_data=simulation_data,
         use_total_ops=False,
         positive=False,
-        model_type_time='ridge',
+        model_type_time='randomforest',
         degree_time=2,
         apply_log_transform_time=False,
         alpha_time=100,
-        model_type_dyn_power='ridge',
+        model_type_dyn_power='randomforest',
         degree_dyn_power=2,
         apply_log_transform_dyn_power=False,
         alpha_dyn_power=1.0,
@@ -2979,27 +3100,29 @@ if __name__ == '__main__':
         output_dir=output_dir
     )
 
+
+
     # Generate the workload using the WorkloadGenerator class
-    generator = WorkloadGenerator(ra_size=[4, 8], ca_size=[4, 8], cb_size=[4, 8, 16, 32, 64, 128, 256])
+    generator = WorkloadGenerator(ra_size=[2, 4, 8, 16], ca_size=[2, 4, 8, 16], cb_size=[4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048])
     workload = generator.generate_workload(num_operations=100)
 
-    # Define available PEs and voltages
-    # available_PEs = ['carus', 'caesar', 'cgra']
-    # voltages = [0.5, 0.65, 0.8, 0.9]  # Supported voltages
-
-    # Instantiate the policy
-    optimized_energy_policy = OptimizedEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9])
-    fixed_pe_policy_cgra_0_8 = FixedPEPolicy(models=models, PE='cgra',voltage=0.8)
-    fixed_pe_policy_cgra_0_9 = FixedPEPolicy(models=models, PE='cgra',voltage=0.9)
-
     # Create the EVE emulator
-    time_budget_s = 700 * 1e-6  # us
+    time_budget_s = 1500 * 1e-6  # us
     eve = EVE(models=models, workload=workload, time_budget_s=time_budget_s)
 
-    # Run the emulator with the optimized energy policy
-    # eve.run(policy=optimized_energy_policy)
-    policies = [optimized_energy_policy, fixed_pe_policy_cgra_0_8, fixed_pe_policy_cgra_0_9]
-    eve.run_multiple(policies=policies)
+    # Instantiate the policy
+    optimized_energy_policy = GreedyEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9])
+    eve.run(policy=optimized_energy_policy)
+
+    optimal_energy_policy = OptimalMCKPEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9])
+    eve.run(policy=optimal_energy_policy)
+
+
+    for voltage in [0.5, 0.65, 0.8, 0.9]:
+        for PE in ['carus', 'caesar', 'cgra']:
+            fixed_pe_policy = FixedPEPolicy(models=models, PE=PE, voltage=voltage)
+            eve.run(policy=fixed_pe_policy)
+    
 
     # Get results as DataFrame
     results_df = eve.get_results_dataframe()
