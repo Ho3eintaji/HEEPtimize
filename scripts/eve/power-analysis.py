@@ -3012,6 +3012,299 @@ class OptimalMCKPEnergyPolicy(Policy):
                 })
         return configs
 
+class MaxPerformancePolicy(Policy):
+    """
+    Policy that selects configurations to minimize total execution time,
+    regardless of energy consumption.
+
+    Example:
+        max_performance_policy = MaxPerformancePolicy(
+            models=models,
+            available_PEs=['carus', 'caesar', 'cgra'],
+            voltages=[0.9, 0.8, 0.65, 0.5]
+        )
+        eve.run(policy=max_performance_policy)
+    """
+
+    def __init__(self, models, available_PEs, voltages):
+        super().__init__(name="MaxPerformance")
+        self.models = models
+        self.available_PEs = available_PEs
+        self.voltages = voltages
+
+    def select_configurations(self, workload, time_budget_s):
+        """
+        Selects configurations to minimize total execution time.
+
+        Args:
+            workload (list): List of operations.
+            time_budget_s (float): Total time budget in seconds.
+
+        Returns:
+            list or None: Selected configurations for each operation, or None if no feasible solution.
+        """
+        selections = []
+        total_time = 0
+        for operation in workload:
+            fastest_config = self._get_fastest_configuration(operation)
+            if fastest_config is None:
+                print(f"No valid configuration for operation: {operation}")
+                return None
+            execution_time_s = fastest_config['prediction']['execution_time_ns'] * 1e-9
+            total_time += execution_time_s
+            selections.append(fastest_config)
+
+        if total_time > time_budget_s:
+            print("Unable to meet time budget with MaxPerformancePolicy.")
+            return None
+
+        return selections
+
+    def _get_fastest_configuration(self, operation):
+        best_config = None
+        min_time = float('inf')
+        for PE in self.available_PEs:
+            for voltage in self.voltages:
+                # Get max frequency for this voltage
+                max_frequency = self.models.sim_data.max_frequency.get(voltage, None)
+                if max_frequency is None:
+                    continue
+                prediction = self.models.predict(
+                    PE=PE,
+                    row_a=operation['row_a'],
+                    col_a=operation['col_a'],
+                    col_b=operation['col_b'],
+                    voltage=voltage,
+                    frequency_MHz=max_frequency
+                )
+                if prediction is None:
+                    continue
+                execution_time_ns = prediction['execution_time_ns']
+                if execution_time_ns < min_time:
+                    min_time = execution_time_ns
+                    energy_mJ = prediction['total_power_mW'] * (execution_time_ns * 1e-9)
+                    average_power_mW = prediction['total_power_mW']
+                    best_config = {
+                        'PE': PE,
+                        'voltage': voltage,
+                        'frequency_MHz': max_frequency,
+                        'prediction': prediction,
+                        'energy_mJ': energy_mJ,
+                        'average_power_mW': average_power_mW
+                    }
+        return best_config
+class OptimalFixedVoltageEnergyPolicy(Policy):
+    """
+    Policy that selects configurations to minimize total energy consumption under the time budget,
+    with all operations performed at the same voltage, using optimization.
+
+    Example:
+        optimal_fixed_voltage_policy = OptimalFixedVoltageEnergyPolicy(
+            models=models,
+            available_PEs=['carus', 'caesar', 'cgra'],
+            voltage=0.8
+        )
+        eve.run(policy=optimal_fixed_voltage_policy)
+    """
+
+    def __init__(self, models, available_PEs, voltage):
+        super().__init__(name=f"OptimalFixedVoltageEnergy_{voltage}V")
+        self.models = models
+        self.available_PEs = available_PEs
+        self.voltage = voltage
+
+    def select_configurations(self, workload, time_budget_s):
+        """
+        Selects configurations using an optimization solver.
+
+        Args:
+            workload (list): List of operations.
+            time_budget_s (float): Total time budget in seconds.
+
+        Returns:
+            list or None: Selected configurations for each operation, or None if no feasible solution.
+        """
+        import pulp
+
+        # Generate possible configurations for each operation
+        operation_configs = []
+        for operation in workload:
+            configs = self._generate_configs(operation)
+            if not configs:
+                print(f"No configurations available for operation: {operation}")
+                return None
+            else:
+                operation_configs.append(configs)
+
+        # Check if any operation has no configurations
+        for idx, configs in enumerate(operation_configs):
+            if not configs:
+                print(f"No configurations available for operation {idx}.")
+                return None
+
+        num_operations = len(workload)
+        prob = pulp.LpProblem("OptimalFixedVoltageEnergyPolicy", pulp.LpMinimize)
+
+        # Decision variables
+        x = []
+        for i in range(num_operations):
+            x_i = []
+            for j in range(len(operation_configs[i])):
+                var = pulp.LpVariable(f"x_{i}_{j}", cat="Binary")
+                x_i.append(var)
+            x.append(x_i)
+
+        # Objective function: Minimize total energy
+        prob += lpSum([
+            x[i][j] * operation_configs[i][j]['energy_mJ']
+            for i in range(num_operations)
+            for j in range(len(operation_configs[i]))
+        ])
+
+        # Constraint: Select exactly one configuration per operation
+        for i in range(num_operations):
+            prob += lpSum(x[i]) == 1
+
+        # Constraint: Total time must be within the time budget
+        total_time = lpSum([
+            x[i][j] * (operation_configs[i][j]['prediction']['execution_time_ns'] * 1e-9)
+            for i in range(num_operations)
+            for j in range(len(operation_configs[i]))
+        ])
+        prob += total_time <= time_budget_s
+
+        # Solve the problem
+        solver = PULP_CBC_CMD(msg=False)
+        result_status = prob.solve(solver)
+
+        if pulp.LpStatus[result_status] != 'Optimal':
+            print("No feasible solution found within the time budget at fixed voltage.")
+            return None
+
+        # Extract the selected configurations
+        selections = []
+        for i in range(num_operations):
+            selected_j = None
+            for j in range(len(operation_configs[i])):
+                if x[i][j].varValue == 1:
+                    selected_j = j
+                    break
+            if selected_j is None:
+                print(f"No configuration selected for operation {i}.")
+                return None
+            selections.append(operation_configs[i][selected_j])
+
+        return selections
+
+    def _generate_configs(self, operation):
+        configs = []
+        voltage = self.voltage
+        max_frequency = self.models.sim_data.max_frequency.get(voltage, None)
+        if max_frequency is None:
+            print(f"No max frequency found for voltage {voltage}V.")
+            return []
+        for PE in self.available_PEs:
+            prediction = self.models.predict(
+                PE=PE,
+                row_a=operation['row_a'],
+                col_a=operation['col_a'],
+                col_b=operation['col_b'],
+                voltage=voltage,
+                frequency_MHz=max_frequency
+            )
+            if prediction is None:
+                continue
+            execution_time_s = prediction['execution_time_ns'] * 1e-9
+            energy_mJ = prediction['total_power_mW'] * execution_time_s
+            average_power_mW = prediction['total_power_mW']
+            configs.append({
+                'PE': PE,
+                'voltage': voltage,
+                'frequency_MHz': max_frequency,
+                'prediction': prediction,
+                'energy_mJ': energy_mJ,
+                'average_power_mW': average_power_mW
+            })
+        return configs
+
+class PerOperationFixedVoltageEnergyPolicy(Policy):
+    """
+    Policy that selects the most energy-efficient configuration for each operation
+    at a fixed voltage, regardless of time budget.
+
+    Example:
+        per_op_fixed_voltage_policy = PerOperationFixedVoltageEnergyPolicy(
+            models=models,
+            available_PEs=['carus', 'caesar', 'cgra'],
+            voltage=0.65
+        )
+        eve.run(policy=per_op_fixed_voltage_policy)
+    """
+
+    def __init__(self, models, available_PEs, voltage):
+        super().__init__(name=f"PerOperationEnergy_{voltage}V")
+        self.models = models
+        self.available_PEs = available_PEs
+        self.voltage = voltage
+
+    def select_configurations(self, workload, time_budget_s):
+        """
+        Selects the most energy-efficient configuration for each operation at the fixed voltage.
+
+        Args:
+            workload (list): List of operations.
+            time_budget_s (float): Total time budget in seconds.
+
+        Returns:
+            list or None: Selected configurations for each operation.
+        """
+        selections = []
+        total_time = 0
+        for operation in workload:
+            best_config = self._get_most_energy_efficient_configuration(operation)
+            if best_config is None:
+                print(f"No valid configuration for operation: {operation}")
+                return None
+            execution_time_s = best_config['prediction']['execution_time_ns'] * 1e-9
+            total_time += execution_time_s
+            selections.append(best_config)
+
+        # Note: This policy does not check the time budget, but you can add a check if needed
+        return selections
+
+    def _get_most_energy_efficient_configuration(self, operation):
+        best_config = None
+        min_energy = float('inf')
+        voltage = self.voltage
+        max_frequency = self.models.sim_data.max_frequency.get(voltage, None)
+        if max_frequency is None:
+            print(f"No max frequency found for voltage {voltage}V.")
+            return None
+        for PE in self.available_PEs:
+            prediction = self.models.predict(
+                PE=PE,
+                row_a=operation['row_a'],
+                col_a=operation['col_a'],
+                col_b=operation['col_b'],
+                voltage=voltage,
+                frequency_MHz=max_frequency
+            )
+            if prediction is None:
+                continue
+            execution_time_s = prediction['execution_time_ns'] * 1e-9
+            energy_mJ = prediction['total_power_mW'] * execution_time_s
+            if energy_mJ < min_energy:
+                min_energy = energy_mJ
+                average_power_mW = prediction['total_power_mW']
+                best_config = {
+                    'PE': PE,
+                    'voltage': voltage,
+                    'frequency_MHz': max_frequency,
+                    'prediction': prediction,
+                    'energy_mJ': energy_mJ,
+                    'average_power_mW': average_power_mW
+                }
+        return best_config
 
 class WorkloadGenerator:
     """
@@ -3117,6 +3410,16 @@ if __name__ == '__main__':
     optimal_energy_policy = OptimalMCKPEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9])
     eve.run(policy=optimal_energy_policy)
 
+    max_performance_policy = MaxPerformancePolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.9, 0.8, 0.65, 0.5])  # Highest to lowest voltage
+    eve.run(policy=max_performance_policy)
+
+    for voltage in [0.5, 0.65, 0.8, 0.9]:
+        optimal_fixed_voltage_policy = OptimalFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltage=voltage)
+        eve.run(policy=optimal_fixed_voltage_policy)
+
+    for voltage in [0.5, 0.65, 0.8, 0.9]:
+        per_op_fixed_voltage_policy = PerOperationFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltage=voltage)
+        eve.run(policy=per_op_fixed_voltage_policy)
 
     for voltage in [0.5, 0.65, 0.8, 0.9]:
         for PE in ['carus', 'caesar', 'cgra']:
@@ -3127,6 +3430,27 @@ if __name__ == '__main__':
     # Get results as DataFrame
     results_df = eve.get_results_dataframe()
     print(results_df)
+
+    # visualization 
+    # Remove policies that did not succeed
+    results_df = results_df.dropna(subset=['Total Energy (mJ)'])
+
+    # (put total energy and total time in the same plot)
+    # Plot total energy consumption
+    plt.figure(figsize=(8, 6))
+    sns.barplot(x='Policy', y='Total Energy (mJ)', data=results_df)
+    plt.title('Total Energy Consumption by Policy')
+    plt.ylabel('Total Energy (mJ)')
+    plt.savefig(f'{output_dir}/total_energy_consumption.pdf')
+    # plt.show()
+
+    # Plot total execution time
+    plt.figure(figsize=(8, 6))
+    sns.barplot(x='Policy', y='Total Time (s)', data=results_df)
+    plt.title('Total Execution Time by Policy')
+    plt.ylabel('Total Time (s)')
+    plt.savefig(f'{output_dir}/total_execution_time.pdf')
+    # plt.show()
 
 
 
