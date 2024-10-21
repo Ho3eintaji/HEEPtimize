@@ -2448,6 +2448,567 @@ class MatmulPowerModel:
             results.append(config_result)
 
         return results
+class MatmulPowerModelMultiPE(MatmulPowerModel):
+    """
+    An extended version of MatmulPowerModel that supports modeling energy consumption
+    when splitting operations between PEs and running them simultaneously.
+
+    This class provides methods for predicting energy consumption for both single and multiple PEs.
+
+    Example usage:
+
+    power_model_multi_pe = MatmulPowerModelMultiPE(
+        sim_data=simulation_data,
+        output_dir=output_dir,
+        use_total_ops=True,
+        degree_time=1,
+        degree_dyn_power=1,
+        degree_static_power=0,
+        reference_frequency_MHz=100,
+        model_type_time='linear',
+        model_type_dyn_power='linear',
+        model_type_static_power='linear',
+        apply_log_transform_time=False,
+        apply_log_transform_dyn_power=False,
+        apply_log_transform_static_power=False,
+        positive=True,
+        alpha_time=1.0,
+        alpha_dyn_power=1.0,
+        alpha_static_power=1.0,
+        l1_ratio_time=0.5,
+        l1_ratio_dyn_power=0.5,
+        l1_ratio_static_power=0.5
+    )
+    """
+
+    def __init__(self, sim_data, output_dir, use_total_ops=False,
+                 degree_time=1, degree_dyn_power=1, degree_static_power=0,
+                 reference_frequency_MHz=100,
+                 model_type_time='linear',
+                 model_type_dyn_power='linear',
+                 model_type_static_power='linear',
+                 apply_log_transform_time=False,
+                 apply_log_transform_dyn_power=False,
+                 apply_log_transform_static_power=False,
+                 positive=False,
+                 alpha_time=1.0,
+                 alpha_dyn_power=1.0,
+                 alpha_static_power=1.0,
+                 l1_ratio_time=0.5,
+                 l1_ratio_dyn_power=0.5,
+                 l1_ratio_static_power=0.5):
+        # Call the parent class constructor with parameters it accepts
+        super().__init__(
+            sim_data=sim_data,
+            output_dir=output_dir,
+            use_total_ops=use_total_ops,
+            degree_time=degree_time,
+            degree_dyn_power=degree_dyn_power,
+            degree_static_power=degree_static_power,
+            reference_frequency_MHz=reference_frequency_MHz,
+            model_type_time=model_type_time,
+            model_type_dyn_power=model_type_dyn_power,
+            apply_log_transform_time=apply_log_transform_time,
+            apply_log_transform_dyn_power=apply_log_transform_dyn_power,
+            positive=positive,
+            alpha_time=alpha_time,
+            alpha_dyn_power=alpha_dyn_power,
+            l1_ratio_time=l1_ratio_time,
+            l1_ratio_dyn_power=l1_ratio_dyn_power
+        )
+        # Store the additional parameters
+        self.model_type_static_power = model_type_static_power
+        self.apply_log_transform_static_power = apply_log_transform_static_power
+        self.alpha_static_power = alpha_static_power
+        self.l1_ratio_static_power = l1_ratio_static_power
+
+        # Build the domain-specific models
+        self.build_domain_models()
+
+    def build_domain_models(self):
+        """
+        Builds domain-specific regression models for power for each PE and domain.
+        """
+        # Convert data_list to a pandas DataFrame for easier manipulation
+        data_df = pd.DataFrame(self.sim_data.data_list)
+
+        # Filter data to only include the reference frequency
+        data_df = data_df[data_df['clock_frequency_MHz'] == self.reference_frequency_MHz]
+        if data_df.empty:
+            print(f"No data found at reference frequency {self.reference_frequency_MHz} MHz.")
+            return
+
+        # List of PEs
+        PEs = data_df['PE'].unique()
+
+        for PE in PEs:
+            pe_data = data_df[data_df['PE'] == PE]
+
+            # Build models for each voltage separately
+            voltages = pe_data['voltage'].unique()
+
+            for voltage in voltages:
+                voltage_data = pe_data[pe_data['voltage'] == voltage]
+
+                # Features: Matrix sizes
+                if self.use_total_ops:
+                    # Compute total operations
+                    total_ops = voltage_data['row_a'] * voltage_data['col_a'] * voltage_data['col_b']
+                    X = pd.DataFrame({
+                        'total_ops': total_ops
+                    })
+                else:
+                    X = voltage_data[['row_a', 'col_a', 'col_b']]
+
+                if X.empty:
+                    print(f"No data for PE={PE}, voltage={voltage}V at reference frequency {self.reference_frequency_MHz} MHz.")
+                    continue
+
+                # Get the model_data from self.models[PE][voltage]
+                model_data = self.models[PE][voltage]
+
+                # Initialize domains in model_data
+                if 'domains' not in model_data:
+                    model_data['domains'] = {}
+
+                # Get selected domains for this PE
+                selected_domains = self.get_default_domains_for_PE(PE)
+
+                # Build models for each domain
+                for domain in selected_domains:
+                    # Dynamic power
+                    dyn_power_key = domain + '_dyn'
+                    y_dyn_power = voltage_data[dyn_power_key].values
+
+                    # Build polynomial features for dynamic power
+                    poly_dyn_power = PolynomialFeatures(degree=self.degree_dyn_power, include_bias=False)
+                    X_dyn_power_poly = poly_dyn_power.fit_transform(X)
+
+                    if self.apply_log_transform_dyn_power:
+                        y_dyn_power = np.log(y_dyn_power + 1e-10)
+
+                    dyn_power_model = self._get_regression_model(
+                        self.model_type_dyn_power,
+                        positive=self.positive,
+                        alpha=self.alpha_dyn_power,
+                        l1_ratio=self.l1_ratio_dyn_power
+                    )
+                    dyn_power_model.fit(X_dyn_power_poly, y_dyn_power)
+
+                    # Static power
+                    static_power_key = domain + '_static'
+                    y_static_power = voltage_data[static_power_key].values
+
+                    if self.degree_static_power == 0:
+                        # Model static power as a constant (mean value)
+                        mean_static_power = y_static_power.mean()
+                        static_power_model = {'mean_static_power': mean_static_power}
+                        poly_static_power = None
+                    else:
+                        poly_static_power = PolynomialFeatures(degree=self.degree_static_power, include_bias=False)
+                        X_static_power_poly = poly_static_power.fit_transform(X)
+                        if self.apply_log_transform_static_power:
+                            y_static_power = np.log(y_static_power + 1e-10)
+
+                        static_power_model_reg = self._get_regression_model(
+                            self.model_type_static_power,
+                            positive=self.positive,
+                            alpha=self.alpha_static_power,
+                            l1_ratio=self.l1_ratio_static_power
+                        )
+                        static_power_model_reg.fit(X_static_power_poly, y_static_power)
+
+                        static_power_model = {
+                            'model': static_power_model_reg,
+                            'poly': poly_static_power
+                        }
+
+                    # Store the models for this domain
+                    model_data['domains'][domain] = {
+                        'dyn_power_model': dyn_power_model,
+                        'poly_dyn_power': poly_dyn_power,
+                        'static_power_model': static_power_model,
+                        'poly_static_power': poly_static_power
+                    }
+
+                # Update apply_log_transform_static_power
+                model_data['apply_log_transform_static_power'] = self.apply_log_transform_static_power
+
+    def predict_single_pe(self, PE, row_a, col_a, col_b, voltage, frequency_MHz=None):
+        """
+        Predicts execution time and power consumption for a single PE using domain-separated models.
+
+        Args:
+            PE (str): The processing element.
+            row_a (int): Number of rows in matrix A.
+            col_a (int): Number of columns in matrix A.
+            col_b (int): Number of columns in matrix B.
+            voltage (float): Voltage level.
+            frequency_MHz (float, optional): Frequency in MHz. If not provided, uses max frequency.
+
+        Returns:
+            dict: Predicted execution time and power consumption.
+        """
+        if PE not in self.models or voltage not in self.models[PE]:
+            print(f"No model available for PE={PE} at voltage={voltage}V.")
+            return None
+
+        model_data = self.models[PE][voltage]
+        reference_frequency = model_data['reference_frequency']
+        time_model = model_data['time_model']
+        poly_time = model_data['poly_time']
+        domains = model_data['domains']
+        apply_log_transform_time = model_data['apply_log_transform_time']
+        apply_log_transform_dyn_power = model_data['apply_log_transform_dyn_power']
+        apply_log_transform_static_power = model_data['apply_log_transform_static_power']
+
+        # Prepare input features
+        if self.use_total_ops:
+            total_ops = row_a * col_a * col_b
+            X_input = pd.DataFrame({
+                'total_ops': [total_ops]
+            })
+        else:
+            X_input = pd.DataFrame({
+                'row_a': [row_a],
+                'col_a': [col_a],
+                'col_b': [col_b]
+            })
+
+        # Predict execution time
+        X_time_poly = poly_time.transform(X_input)
+        predicted_time = time_model.predict(X_time_poly)[0]
+        if apply_log_transform_time:
+            predicted_time = np.exp(predicted_time)
+        predicted_time_ns = predicted_time
+
+        # Adjust execution time for frequency
+        max_freq = self.sim_data.max_frequency.get(voltage, None)
+        if max_freq is None:
+            print(f"No max frequency data for voltage {voltage}V.")
+            return None
+        if frequency_MHz is None:
+            frequency_MHz = max_freq
+        if frequency_MHz > max_freq:
+            print(f"Frequency {frequency_MHz} MHz exceeds max frequency {max_freq} MHz at {voltage}V.")
+            return None
+
+        freq_scaling = frequency_MHz / reference_frequency
+        adjusted_time_ns = predicted_time_ns * reference_frequency / frequency_MHz
+
+        # Predict dynamic and static power for each domain
+        domain_dyn_powers = {}
+        domain_static_powers = {}
+        for domain_name, domain_models in domains.items():
+            # Dynamic power
+            poly_dyn_power = domain_models['poly_dyn_power']
+            dyn_power_model = domain_models['dyn_power_model']
+            X_dyn_power_poly = poly_dyn_power.transform(X_input)
+            predicted_dyn_power = dyn_power_model.predict(X_dyn_power_poly)[0]
+            if apply_log_transform_dyn_power:
+                predicted_dyn_power = np.exp(predicted_dyn_power)
+            adjusted_dyn_power_mW = predicted_dyn_power * freq_scaling
+            domain_dyn_powers[domain_name] = adjusted_dyn_power_mW
+
+            # Static power
+            static_power_model = domain_models['static_power_model']
+            if self.degree_static_power == 0:
+                predicted_static_power_mW = static_power_model['mean_static_power']
+            else:
+                poly_static_power = domain_models['poly_static_power']
+                X_static_power_poly = poly_static_power.transform(X_input)
+                predicted_static_power_mW = static_power_model['model'].predict(X_static_power_poly)[0]
+                if apply_log_transform_static_power:
+                    predicted_static_power_mW = np.exp(predicted_static_power_mW)
+            domain_static_powers[domain_name] = predicted_static_power_mW
+
+        # Sum dynamic and static power across domains
+        total_dyn_power_mW = sum(domain_dyn_powers.values())
+        total_static_power_mW = sum(domain_static_powers.values())
+        total_power_mW = total_dyn_power_mW + total_static_power_mW
+
+        result = {
+            'PE': PE,
+            'row_a': row_a,
+            'col_a': col_a,
+            'col_b': col_b,
+            'voltage': voltage,
+            'frequency_MHz': frequency_MHz,
+            'execution_time_ns': adjusted_time_ns,
+            'dyn_power_mW': total_dyn_power_mW,
+            'static_power_mW': total_static_power_mW,
+            'total_power_mW': total_power_mW,
+            'domain_dyn_powers_mW': domain_dyn_powers,
+            'domain_static_powers_mW': domain_static_powers
+        }
+
+        return result
+
+    def predict_multi_pe(self, PEs, operations, voltage):
+        """
+        Predicts execution time and energy consumption when multiple PEs are used simultaneously.
+
+        Args:
+            PEs (list): List of PEs to use.
+            operations (list): List of operation parameters (dicts with 'row_a', 'col_a', 'col_b').
+            voltage (float): Voltage level.
+
+        Returns:
+            dict: Predicted total energy consumption, max execution time, and detailed information.
+
+        Example:
+
+        # Define PEs and their corresponding operations
+        PEs = ['carus', 'cgra']
+        operations = [
+            {'row_a': 16, 'col_a': 16, 'col_b': 32},  # Operation for 'carus'
+            {'row_a': 8, 'col_a': 8, 'col_b': 16}     # Operation for 'cgra'
+        ]
+
+        # Predict for multiple PEs running simultaneously
+        multi_pe_prediction = power_model_multi_pe.predict_multi_pe(
+            PEs=PEs,
+            operations=operations,
+            voltage=0.8
+        )
+
+        if multi_pe_prediction:
+            print("Multi-PE Prediction:")
+            print(f"Total Energy: {multi_pe_prediction['total_energy_mJ']:.2f} mJ")
+            print(f"Max Execution Time: {multi_pe_prediction['max_execution_time_s']:.6f} s")
+            print(f"Execution Times per PE: {multi_pe_prediction['execution_times_s']}")
+            # Detailed energy information is available in multi_pe_prediction['detailed_energy']
+        """
+        if not isinstance(PEs, list):
+            PEs = [PEs]
+        if not isinstance(operations, list):
+            operations = [operations]
+        if len(PEs) != len(operations):
+            print("Error: The number of PEs and operations must be the same.")
+            return None
+
+        per_pe_results = {}
+        max_execution_time_s = 0.0
+
+        # Loop over PEs and operations
+        for PE, op in zip(PEs, operations):
+            result = self.predict_single_pe(
+                PE=PE,
+                row_a=op['row_a'],
+                col_a=op['col_a'],
+                col_b=op['col_b'],
+                voltage=voltage
+            )
+            if result is None:
+                continue
+
+            execution_time_s = result['execution_time_ns'] * 1e-9  # Convert ns to s
+            per_pe_results[PE] = {
+                'execution_time_s': execution_time_s,
+                'domain_dyn_powers_mW': result['domain_dyn_powers_mW'],
+                'domain_static_powers_mW': result['domain_static_powers_mW'],
+            }
+
+            if execution_time_s > max_execution_time_s:
+                max_execution_time_s = execution_time_s
+
+        if not per_pe_results:
+            print("No valid predictions were made.")
+            return None
+
+        # Now calculate energies
+        # Get the PE-specific domains relevant to the included PEs
+        pe_specific_domains = set()
+        for PE in PEs:
+            domains = self.get_default_domains_for_PE(PE)
+            # Only include the PE-specific domains
+            pe_specific_domains.update([domain for domain in domains if domain.startswith('pow_') and domain != 'pow_sys' and domain != 'pow_cpu' and domain != 'pow_mem'])
+
+        shared_domains = ['pow_sys', 'pow_cpu', 'pow_mem']
+
+        total_energy_mJ = 0.0
+        detailed_energy = {
+            'pe_specific': {},
+            'shared': {}
+        }
+
+        # Calculate PE-specific energies
+        for PE, pe_data in per_pe_results.items():
+            execution_time_s = pe_data['execution_time_s']
+            dyn_powers = pe_data['domain_dyn_powers_mW']
+            static_powers = pe_data['domain_static_powers_mW']
+
+            pe_dyn_energy_mJ = 0.0
+            pe_static_energy_mJ = 0.0
+
+            for domain in pe_specific_domains:
+                if domain in dyn_powers:
+                    dyn_power_mW = dyn_powers[domain]
+                    static_power_mW = static_powers[domain]
+
+                    dyn_energy_mJ = dyn_power_mW * execution_time_s  # mW * s = mJ
+                    static_energy_mJ = static_power_mW * execution_time_s
+
+                    pe_dyn_energy_mJ += dyn_energy_mJ
+                    pe_static_energy_mJ += static_energy_mJ
+
+                    # Store detailed energies per domain
+                    if PE not in detailed_energy['pe_specific']:
+                        detailed_energy['pe_specific'][PE] = {}
+                    detailed_energy['pe_specific'][PE][domain] = {
+                        'dyn_energy_mJ': dyn_energy_mJ,
+                        'static_energy_mJ': static_energy_mJ,
+                        'dyn_power_mW': dyn_power_mW,
+                        'static_power_mW': static_power_mW
+                    }
+
+            # Sum PE-specific energies into total_energy_mJ
+            total_energy_mJ += pe_dyn_energy_mJ + pe_static_energy_mJ
+
+        # Calculate shared domain energies considering only the included PEs
+        for domain in shared_domains:
+            # For each shared domain, find the max power among included PEs
+            max_dyn_power_mW = max(
+                pe_data['domain_dyn_powers_mW'].get(domain, 0.0) for pe_data in per_pe_results.values()
+            )
+            max_static_power_mW = max(
+                pe_data['domain_static_powers_mW'].get(domain, 0.0) for pe_data in per_pe_results.values()
+            )
+
+            # Skip the domain if both powers are zero (i.e., none of the included PEs use this domain)
+            if max_dyn_power_mW == 0.0 and max_static_power_mW == 0.0:
+                continue
+
+            # Calculate energies using max execution time
+            dyn_energy_mJ = max_dyn_power_mW * max_execution_time_s
+            static_energy_mJ = max_static_power_mW * max_execution_time_s
+
+            # Sum shared domain energies into total_energy_mJ
+            total_energy_mJ += dyn_energy_mJ + static_energy_mJ
+
+            # Store detailed energies per domain
+            detailed_energy['shared'][domain] = {
+                'dyn_energy_mJ': dyn_energy_mJ,
+                'static_energy_mJ': static_energy_mJ,
+                'dyn_power_mW': max_dyn_power_mW,
+                'static_power_mW': max_static_power_mW
+            }
+
+        # Prepare result
+        result = {
+            'total_energy_mJ': total_energy_mJ,
+            'max_execution_time_s': max_execution_time_s,
+            'execution_times_s': {PE: pe_data['execution_time_s'] for PE, pe_data in per_pe_results.items()},
+            'detailed_energy': detailed_energy
+        }
+
+        return result
+
+
+    def evaluate_model_domain_based(self, PEs=None, voltages=None):
+        """
+        Evaluates the domain-separated models by calculating R² scores and Mean Squared Error (MSE)
+        for specified PEs and voltages.
+
+        Args:
+            PEs (list, optional): List of PEs to evaluate. If None, evaluates all available PEs.
+            voltages (list, optional): List of voltages to evaluate. If None, evaluates all available voltages.
+
+        """
+        # Prepare data
+        data_df = pd.DataFrame(self.sim_data.data_list)
+        if data_df.empty:
+            print("No data available for evaluation.")
+            return
+
+        if PEs is None:
+            PEs = data_df['PE'].unique()
+
+        if voltages is None:
+            voltages = data_df['voltage'].unique()
+
+        for PE in PEs:
+            for voltage in voltages:
+                if PE not in self.models or voltage not in self.models[PE]:
+                    print(f"No model available for PE={PE} at voltage={voltage}V.")
+                    continue
+
+                model_data = self.models[PE][voltage]
+                reference_frequency = model_data['reference_frequency']
+                time_model = model_data['time_model']
+                poly_time = model_data['poly_time']
+                domains = model_data['domains']
+                apply_log_transform_time = model_data['apply_log_transform_time']
+                apply_log_transform_dyn_power = model_data['apply_log_transform_dyn_power']
+                apply_log_transform_static_power = model_data['apply_log_transform_static_power']
+
+                # Retrieve data for the given PE and voltage at reference frequency
+                pe_data = data_df[
+                    (data_df['PE'] == PE) &
+                    (data_df['voltage'] == voltage) &
+                    (data_df['clock_frequency_MHz'] == reference_frequency)
+                ]
+
+                if pe_data.empty:
+                    print(f"No data available for evaluation for PE={PE} at voltage={voltage}V.")
+                    continue
+
+                # Prepare input features
+                if self.use_total_ops:
+                    pe_data['total_ops'] = pe_data['row_a'] * pe_data['col_a'] * pe_data['col_b']
+                    X = pe_data[['total_ops']]
+                else:
+                    X = pe_data[['row_a', 'col_a', 'col_b']]
+
+                # Execution Time Evaluation
+                y_measured_time = pe_data['execution_time_ns'].values
+                X_time_poly = poly_time.transform(X)
+                y_predicted_time = time_model.predict(X_time_poly)
+                if apply_log_transform_time:
+                    y_predicted_time = np.exp(y_predicted_time)
+                r2_time = r2_score(y_measured_time, y_predicted_time)
+                mse_time = mean_squared_error(y_measured_time, y_predicted_time)
+
+                print(f"Model Evaluation for PE={PE} at voltage={voltage}V:")
+                print(f"  Execution Time:")
+                print(f"    R² Score: {r2_time:.4f}")
+                print(f"    Mean Squared Error: {mse_time:.4f}")
+
+                # Dynamic Power Evaluation
+                for domain_name, domain_models in domains.items():
+                    dyn_power_key = domain_name + '_dyn'
+                    y_measured_dyn_power = pe_data[dyn_power_key].values
+                    poly_dyn_power = domain_models['poly_dyn_power']
+                    dyn_power_model = domain_models['dyn_power_model']
+                    X_dyn_power_poly = poly_dyn_power.transform(X)
+                    y_predicted_dyn_power = dyn_power_model.predict(X_dyn_power_poly)
+                    if apply_log_transform_dyn_power:
+                        y_predicted_dyn_power = np.exp(y_predicted_dyn_power)
+                    r2_dyn = r2_score(y_measured_dyn_power, y_predicted_dyn_power)
+                    mse_dyn = mean_squared_error(y_measured_dyn_power, y_predicted_dyn_power)
+
+                    print(f"  Dynamic Power for Domain {domain_name}:")
+                    print(f"    R² Score: {r2_dyn:.4f}")
+                    print(f"    Mean Squared Error: {mse_dyn:.4f}")
+
+                # Static Power Evaluation (similar approach)
+                # for domain_name, domain_models in domains.items():
+                #     static_power_key = domain_name + '_static'
+                #     y_measured_static_power = pe_data[static_power_key].values
+                #     static_power_model = domain_models['static_power_model']
+                #     poly_static_power = domain_models['poly_static_power']
+                #     X_static_power_poly = poly_static_power.transform(X)
+                #     y_predicted_static_power = static_power_model['model'].predict(X_static_power_poly)
+                #     if apply_log_transform_static_power:
+                #         y_predicted_static_power = np.exp(y_predicted_static_power)
+                #     r2_static = r2_score(y_measured_static_power, y_predicted_static_power)
+                #     mse_static = mean_squared_error(y_measured_static_power, y_predicted_static_power)
+
+                #     print(f"  Static Power for Domain {domain_name}:")
+                #     print(f"    R² Score: {r2_static:.4f}")
+                #     print(f"    Mean Squared Error: {mse_static:.4f}")
+
+                print()
 class EVE:
     """
     Emulator for evaluating energy consumption and execution time of a workload
@@ -3011,7 +3572,6 @@ class OptimalMCKPEnergyPolicy(Policy):
                     'average_power_mW': average_power_mW
                 })
         return configs
-
 class MaxPerformancePolicy(Policy):
     """
     Policy that selects configurations to minimize total execution time,
@@ -3226,7 +3786,6 @@ class OptimalFixedVoltageEnergyPolicy(Policy):
                 'average_power_mW': average_power_mW
             })
         return configs
-
 class PerOperationFixedVoltageEnergyPolicy(Policy):
     """
     Policy that selects the most energy-efficient configuration for each operation
@@ -3268,7 +3827,12 @@ class PerOperationFixedVoltageEnergyPolicy(Policy):
             execution_time_s = best_config['prediction']['execution_time_ns'] * 1e-9
             total_time += execution_time_s
             selections.append(best_config)
-
+        
+        # check if time budget is met
+        if total_time > time_budget_s:
+            print("Unable to meet time budget with PerOperationFixedVoltageEnergyPolicy.")
+            return None
+        
         # Note: This policy does not check the time budget, but you can add a check if needed
         return selections
 
@@ -3305,7 +3869,6 @@ class PerOperationFixedVoltageEnergyPolicy(Policy):
                     'average_power_mW': average_power_mW
                 }
         return best_config
-
 class WorkloadGenerator:
     """
     Class to generate workloads of matmul operations.
@@ -3369,8 +3932,8 @@ if __name__ == '__main__':
 
     simulation_data = MatmulSimulationData()
     # simulation_data.extract_data(root_dir=args.data_dir)
-    # simulation_data.save_data(filename=f'{output_dir}/matmul_simulation_data_noDataMv2.pkl')
-    simulation_data.load_data(filename=f'{output_dir}/matmul_simulation_data_noDataMv2.pkl')
+    # simulation_data.save_data(filename=f'{output_dir}/matmul_simulation_data_cmplt.pkl')
+    simulation_data.load_data(filename=f'{output_dir}/matmul_simulation_data_cmplt.pkl')
 
     # data analysis class
     data_analysis = MatmulDataAnalysis(simulation_data=simulation_data, output_dir=output_dir)
@@ -3403,58 +3966,184 @@ if __name__ == '__main__':
     time_budget_s = 1500 * 1e-6  # us
     eve = EVE(models=models, workload=workload, time_budget_s=time_budget_s)
 
-    # Instantiate the policy
-    optimized_energy_policy = GreedyEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9])
-    eve.run(policy=optimized_energy_policy)
+    # # Instantiate the policy
+    # optimized_energy_policy = GreedyEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9])
+    # eve.run(policy=optimized_energy_policy)
 
-    optimal_energy_policy = OptimalMCKPEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9])
-    eve.run(policy=optimal_energy_policy)
+    # optimal_energy_policy = OptimalMCKPEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9])
+    # eve.run(policy=optimal_energy_policy)
 
-    max_performance_policy = MaxPerformancePolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.9, 0.8, 0.65, 0.5])  # Highest to lowest voltage
-    eve.run(policy=max_performance_policy)
+    # max_performance_policy = MaxPerformancePolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.9, 0.8, 0.65, 0.5])  # Highest to lowest voltage
+    # eve.run(policy=max_performance_policy)
 
-    for voltage in [0.5, 0.65, 0.8, 0.9]:
-        optimal_fixed_voltage_policy = OptimalFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltage=voltage)
-        eve.run(policy=optimal_fixed_voltage_policy)
+    # for voltage in [0.5, 0.65, 0.8, 0.9]:
+    #     optimal_fixed_voltage_policy = OptimalFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltage=voltage)
+    #     eve.run(policy=optimal_fixed_voltage_policy)
 
-    for voltage in [0.5, 0.65, 0.8, 0.9]:
-        per_op_fixed_voltage_policy = PerOperationFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltage=voltage)
-        eve.run(policy=per_op_fixed_voltage_policy)
+    # for voltage in [0.5, 0.65, 0.8, 0.9]:
+    #     per_op_fixed_voltage_policy = PerOperationFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltage=voltage)
+    #     eve.run(policy=per_op_fixed_voltage_policy)
 
-    for voltage in [0.5, 0.65, 0.8, 0.9]:
-        for PE in ['carus', 'caesar', 'cgra']:
-            fixed_pe_policy = FixedPEPolicy(models=models, PE=PE, voltage=voltage)
-            eve.run(policy=fixed_pe_policy)
+    # for voltage in [0.5, 0.65, 0.8, 0.9]:
+    #     for PE in ['carus', 'caesar', 'cgra']:
+    #         fixed_pe_policy = FixedPEPolicy(models=models, PE=PE, voltage=voltage)
+    #         eve.run(policy=fixed_pe_policy)
     
 
-    # Get results as DataFrame
-    results_df = eve.get_results_dataframe()
-    print(results_df)
+    # # Get results as DataFrame
+    # results_df = eve.get_results_dataframe()
+    # print(results_df)
 
-    # visualization 
-    # Remove policies that did not succeed
-    results_df = results_df.dropna(subset=['Total Energy (mJ)'])
+    # # visualization 
+    # # Remove policies that did not succeed
+    # results_df = results_df.dropna(subset=['Total Energy (mJ)'])
 
-    # (put total energy and total time in the same plot)
-    # Plot total energy consumption
-    plt.figure(figsize=(8, 6))
-    sns.barplot(x='Policy', y='Total Energy (mJ)', data=results_df)
-    plt.title('Total Energy Consumption by Policy')
-    plt.ylabel('Total Energy (mJ)')
-    plt.savefig(f'{output_dir}/total_energy_consumption.pdf')
-    # plt.show()
+    # # (put total energy and total time in the same plot)
+    # # Plot total energy consumption
+    # plt.figure(figsize=(8, 6))
+    # sns.barplot(x='Policy', y='Total Energy (mJ)', data=results_df)
+    # plt.title('Total Energy Consumption by Policy')
+    # plt.ylabel('Total Energy (mJ)')
+    # plt.savefig(f'{output_dir}/total_energy_consumption.pdf')
+    # # plt.show()
 
-    # Plot total execution time
-    plt.figure(figsize=(8, 6))
-    sns.barplot(x='Policy', y='Total Time (s)', data=results_df)
-    plt.title('Total Execution Time by Policy')
-    plt.ylabel('Total Time (s)')
-    plt.savefig(f'{output_dir}/total_execution_time.pdf')
-    # plt.show()
+    # # Plot total execution time
+    # plt.figure(figsize=(8, 6))
+    # sns.barplot(x='Policy', y='Total Time (s)', data=results_df)
+    # plt.title('Total Execution Time by Policy')
+    # plt.ylabel('Total Time (s)')
+    # plt.savefig(f'{output_dir}/total_execution_time.pdf')
+    # # plt.show()
+
+    power_model_multi_pe = MatmulPowerModelMultiPE(
+        sim_data=simulation_data,
+        output_dir=output_dir,
+        use_total_ops=False,
+        degree_time=1,
+        degree_dyn_power=1,
+        degree_static_power=0,
+        reference_frequency_MHz=100,
+        model_type_time='randomforest',
+        model_type_dyn_power='randomforest',
+        model_type_static_power='linear',
+        apply_log_transform_time=False,
+        apply_log_transform_dyn_power=False,
+        apply_log_transform_static_power=False,
+        positive=True,
+        alpha_time=1.0,
+        alpha_dyn_power=1.0,
+        alpha_static_power=1.0,
+        l1_ratio_time=0.5,
+        l1_ratio_dyn_power=0.5,
+        l1_ratio_static_power=0.5
+    )
+
+    # Define PEs and their corresponding operations
+    PEs = ['cgra', 'carus']  # Only 'cgra' is included
+    operations = [
+        {'row_a': 8, 'col_a': 8, 'col_b': 16},     # Operation for 'cgra'
+        {'row_a': 15, 'col_a': 15, 'col_b': 32},   # Operation for 'carus'
+    ]
+
+    # Predict for the included PEs
+    multi_pe_prediction = power_model_multi_pe.predict_multi_pe(
+        PEs=PEs,
+        operations=operations,
+        voltage=0.8
+    )
+
+    print("\n")
+
+    if multi_pe_prediction:
+        print("Multi-PE Prediction:")
+        print(f"Total Energy: {1e6*multi_pe_prediction['total_energy_mJ']:.2f} nJ")
+        print(f"Max Execution Time: {1e6*multi_pe_prediction['max_execution_time_s']:.6f} us")
+        print("Execution Times per PE:")
+        for PE, exec_time in multi_pe_prediction['execution_times_s'].items():
+            print(f"  {PE}: {1e6*exec_time:.6f} us")
+        print("\nDetailed Energy Breakdown:")
+        # PE-specific domains
+        for PE, domains in multi_pe_prediction['detailed_energy']['pe_specific'].items():
+            print(f"\nPE: {PE}")
+            for domain, energy_info in domains.items():
+                print(f"  Domain: {domain}")
+                print(f"    Dynamic Energy: {1e6*energy_info['dyn_energy_mJ']:.4f} nJ")
+                print(f"    Static Energy: {1e6*energy_info['static_energy_mJ']:.4f} nJ")
+                print(f"    Dynamic Power: {energy_info['dyn_power_mW']:.2f} mW")
+                print(f"    Static Power: {energy_info['static_power_mW']:.2f} mW")
+        # Shared domains
+        print("\nShared Domains:")
+        for domain, energy_info in multi_pe_prediction['detailed_energy']['shared'].items():
+            print(f"  Domain: {domain}")
+            print(f"    Dynamic Energy: {1e6*energy_info['dyn_energy_mJ']:.4f} nJ")
+            print(f"    Static Energy: {1e6*energy_info['static_energy_mJ']:.4f} nJ")
+            print(f"    Dynamic Power: {energy_info['dyn_power_mW']:.2f} mW")
+            print(f"    Static Power: {energy_info['static_power_mW']:.2f} mW")
 
 
+    predict_single_pe = power_model_multi_pe.predict_single_pe(
+        PE='cgra',
+        row_a=8,
+        col_a=8,
+        col_b=16,
+        voltage=0.8
+    )
 
 
+    # result = {
+    #             'PE': PE,
+    #             'row_a': row_a,
+    #             'col_a': col_a,
+    #             'col_b': col_b,
+    #             'voltage': voltage,
+    #             'frequency_MHz': frequency_MHz,
+    #             'execution_time_ns': adjusted_time_ns,
+    #             'dyn_power_mW': total_dyn_power_mW,
+    #             'static_power_mW': total_static_power_mW,
+    #             'total_power_mW': total_power_mW,
+    #             'domain_dyn_powers_mW': domain_dyn_powers,
+    #             'domain_static_powers_mW': domain_static_powers
+    #         }
+    print("\n")
 
+    if predict_single_pe:
+        print("Single-PE Prediction:")
+        print(f"Total Power: {predict_single_pe['total_power_mW']:.2f} mW")
+        print(f"Execution Time: {1e-3*predict_single_pe['execution_time_ns']:.6f} us")
+        print(f'total energy: {1e-3*predict_single_pe["total_power_mW"]*predict_single_pe["execution_time_ns"]:.2f} nJ')
+        # write a for loop that I show total power (static and dynamic) for each domain
+        print("\nDetailed Energy Breakdown:")
+        for domain, a in predict_single_pe['domain_dyn_powers_mW'].items():
+            print(f"  Domain: {domain}")
+            print(f"    Static Power: {predict_single_pe['domain_static_powers_mW'][domain]:.2f} mW")
+            print(f"    Dynamic Power: {predict_single_pe['domain_dyn_powers_mW'][domain]:.2f} mW")
+            total_power = predict_single_pe['domain_static_powers_mW'][domain] + predict_single_pe['domain_dyn_powers_mW'][domain]
+            print(f"    Total Power: {total_power:.2f} mW")
+
+    
+        
+    print("\n")
+
+    predict_single_pe = power_model_multi_pe.predict_single_pe(
+        PE='carus',
+        row_a=15,
+        col_a=15,
+        col_b=32,
+        voltage=0.8
+    )
+
+    if predict_single_pe:
+        print("Single-PE Prediction:")
+        print(f"Total Power: {predict_single_pe['total_power_mW']:.2f} mW")
+        print(f"Execution Time: {1e-3*predict_single_pe['execution_time_ns']:.6f} us")
+        print(f'total energy: {1e-3*predict_single_pe["total_power_mW"]*predict_single_pe["execution_time_ns"]:.2f} nJ')
+        # write a for loop that I show total power (static and dynamic) for each domain
+        print("\nDetailed Energy Breakdown:")
+        for domain, a in predict_single_pe['domain_dyn_powers_mW'].items():
+            print(f"  Domain: {domain}")
+            print(f"    Static Power: {predict_single_pe['domain_static_powers_mW'][domain]:.2f} mW")
+            print(f"    Dynamic Power: {predict_single_pe['domain_dyn_powers_mW'][domain]:.2f} mW")
+            total_power = predict_single_pe['domain_static_powers_mW'][domain] + predict_single_pe['domain_dyn_powers_mW'][domain]
+            print(f"    Total Power: {total_power:.2f} mW")
 
 
