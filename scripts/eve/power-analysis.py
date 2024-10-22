@@ -1781,8 +1781,9 @@ class MatmulPowerModel:
         # Adjust dynamic power linearly with frequency
         adjusted_dyn_power_mW = predicted_dyn_power_mW * freq_scaling
 
-        # Total power
+        # Total Energy
         total_power_mW = adjusted_dyn_power_mW + predicted_static_power_mW
+        total_energy_nJ = total_power_mW * adjusted_time_ns * 1e-3
 
         result = {
             'PE': PE,
@@ -1794,7 +1795,8 @@ class MatmulPowerModel:
             'execution_time_ns': adjusted_time_ns,
             'dyn_power_mW': adjusted_dyn_power_mW,
             'static_power_mW': predicted_static_power_mW,
-            'total_power_mW': total_power_mW
+            'total_power_mW': total_power_mW,
+            'total_energy_nJ': total_energy_nJ
         }
 
         return result
@@ -2648,6 +2650,31 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
 
         Returns:
             dict: Predicted execution time and power consumption.
+
+        Example:
+
+        predict_single_pe = power_model_multi_pe.predict_single_pe(
+            PE='cgra',
+            row_a=8,
+            col_a=8,
+            col_b=16,
+            voltage=0.8
+        )
+
+        if predict_single_pe:
+            print("Single-PE Prediction:")
+            print(f"Total Power: {predict_single_pe['total_power_mW']:.2f} mW")
+            print(f"Execution Time: {predict_single_pe['execution_time_ns']:.6f} ns")
+            print(f'total energy: {predict_single_pe["total_energy_nJ"]:.2f} nJ')
+            # write a for loop that I show total power (static and dynamic) for each domain
+            print("\nDetailed Energy Breakdown:")
+            for domain, a in predict_single_pe['domain_dyn_powers_mW'].items():
+                print(f"  Domain: {domain}")
+                print(f"    Total Energy: {predict_single_pe['domain_total_energy_nJ'][domain]:.2f} nJ")
+                print(f"    Static Power: {predict_single_pe['domain_static_powers_mW'][domain]:.2f} mW")
+                print(f"    Dynamic Power: {predict_single_pe['domain_dyn_powers_mW'][domain]:.2f} mW")
+                total_power = predict_single_pe['domain_static_powers_mW'][domain] + predict_single_pe['domain_dyn_powers_mW'][domain]
+                print(f"    Total Power: {total_power:.2f} mW")
         """
         if PE not in self.models or voltage not in self.models[PE]:
             print(f"No model available for PE={PE} at voltage={voltage}V.")
@@ -2699,6 +2726,7 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
         # Predict dynamic and static power for each domain
         domain_dyn_powers = {}
         domain_static_powers = {}
+        domain_total_energy_nJ = {}
         for domain_name, domain_models in domains.items():
             # Dynamic power
             poly_dyn_power = domain_models['poly_dyn_power']
@@ -2722,10 +2750,14 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
                     predicted_static_power_mW = np.exp(predicted_static_power_mW)
             domain_static_powers[domain_name] = predicted_static_power_mW
 
+            # total energy
+            domain_total_energy_nJ[domain_name] = (domain_static_powers[domain_name] + domain_dyn_powers[domain_name]) * adjusted_time_ns * 1e-3
+
         # Sum dynamic and static power across domains
         total_dyn_power_mW = sum(domain_dyn_powers.values())
         total_static_power_mW = sum(domain_static_powers.values())
         total_power_mW = total_dyn_power_mW + total_static_power_mW
+        total_energy_nJ = total_power_mW * adjusted_time_ns * 1e-3
 
         result = {
             'PE': PE,
@@ -2739,12 +2771,14 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
             'static_power_mW': total_static_power_mW,
             'total_power_mW': total_power_mW,
             'domain_dyn_powers_mW': domain_dyn_powers,
-            'domain_static_powers_mW': domain_static_powers
+            'domain_static_powers_mW': domain_static_powers,
+            'domain_total_energy_nJ': domain_total_energy_nJ,
+            'total_energy_nJ': total_energy_nJ
         }
 
         return result
 
-    def predict_multi_pe(self, PEs, operations, voltage):
+    def predict_multi_pe(self, PEs, operations, voltage, frequency_MHz=None):
         """
         Predicts execution time and energy consumption when multiple PEs are used simultaneously.
 
@@ -2752,6 +2786,7 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
             PEs (list): List of PEs to use.
             operations (list): List of operation parameters (dicts with 'row_a', 'col_a', 'col_b').
             voltage (float): Voltage level.
+            frequency_MHz (float, optional): Frequency in MHz. If not provided, uses max frequency.
 
         Returns:
             dict: Predicted total energy consumption, max execution time, and detailed information.
@@ -2759,13 +2794,13 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
         Example:
 
         # Define PEs and their corresponding operations
-        PEs = ['carus', 'cgra']
+        PEs = ['cgra', 'carus']  # Only 'cgra' is included
         operations = [
-            {'row_a': 16, 'col_a': 16, 'col_b': 32},  # Operation for 'carus'
-            {'row_a': 8, 'col_a': 8, 'col_b': 16}     # Operation for 'cgra'
+            {'row_a': 8, 'col_a': 8, 'col_b': 16},     # Operation for 'cgra'
+            {'row_a': 15, 'col_a': 15, 'col_b': 32},   # Operation for 'carus'
         ]
 
-        # Predict for multiple PEs running simultaneously
+        # Predict for the included PEs
         multi_pe_prediction = power_model_multi_pe.predict_multi_pe(
             PEs=PEs,
             operations=operations,
@@ -2774,10 +2809,36 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
 
         if multi_pe_prediction:
             print("Multi-PE Prediction:")
-            print(f"Total Energy: {multi_pe_prediction['total_energy_mJ']:.2f} mJ")
-            print(f"Max Execution Time: {multi_pe_prediction['max_execution_time_s']:.6f} s")
-            print(f"Execution Times per PE: {multi_pe_prediction['execution_times_s']}")
-            # Detailed energy information is available in multi_pe_prediction['detailed_energy']
+            print(f"Total Energy: {multi_pe_prediction['total_energy_nJ']:.2f} nJ")
+            print(f"Max Execution Time: {multi_pe_prediction['max_execution_time_ns']:.6f} ns")
+            print("Execution Times per PE:")
+            for PE, exec_time in multi_pe_prediction['execution_times_ns'].items():
+                print(f"  {PE}: {exec_time:.6f} ns")
+            print("Frequencies per PE:")
+            for PE, freq_MHz in multi_pe_prediction['frequency_MHz'].items():
+                print(f"  {PE}: {freq_MHz:.2f} MHz")
+            print("\nDetailed Energy Breakdown:")
+            # PE-specific domains
+            for PE, domains in multi_pe_prediction['detailed_energy']['pe_specific'].items():
+                print(f"\nPE: {PE}")
+                for domain, energy_info in domains.items():
+                    print(f"  Domain: {domain}")
+                    print(f"    Dynamic Energy: {energy_info['dyn_energy_nJ']:.4f} nJ")
+                    print(f"    Static Energy: {energy_info['static_energy_nJ']:.4f} nJ")
+                    print(f"    Dynamic Power: {energy_info['dyn_power_mW']:.2f} mW")
+                    print(f"    Static Power: {energy_info['static_power_mW']:.2f} mW")
+                    print(f"    Total Energy: {energy_info['total_energy_nJ']:.4f} nJ")
+                    print(f"    Execution Time: {energy_info['execution_time_ns']:.6f} ns")
+            # Shared domains
+            print("\nShared Domains:")
+            for domain, energy_info in multi_pe_prediction['detailed_energy']['shared'].items():
+                print(f"  Domain: {domain}")
+                print(f"    Dynamic Energy: {energy_info['dyn_energy_nJ']:.4f} nJ")
+                print(f"    Static Energy: {energy_info['static_energy_nJ']:.4f} nJ")
+                print(f"    Dynamic Power: {energy_info['dyn_power_mW']:.2f} mW")
+                print(f"    Static Power: {energy_info['static_power_mW']:.2f} mW")
+                print(f"    Total Energy: {energy_info['total_energy_nJ']:.4f} nJ")
+                print(f"    Execution Time: {energy_info['execution_time_ns']:.6f} ns")
         """
         if not isinstance(PEs, list):
             PEs = [PEs]
@@ -2788,7 +2849,7 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
             return None
 
         per_pe_results = {}
-        max_execution_time_s = 0.0
+        max_execution_time_ns = 0.0
 
         # Loop over PEs and operations
         for PE, op in zip(PEs, operations):
@@ -2797,20 +2858,17 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
                 row_a=op['row_a'],
                 col_a=op['col_a'],
                 col_b=op['col_b'],
-                voltage=voltage
+                voltage=voltage,
+                frequency_MHz=frequency_MHz
             )
             if result is None:
                 continue
 
-            execution_time_s = result['execution_time_ns'] * 1e-9  # Convert ns to s
-            per_pe_results[PE] = {
-                'execution_time_s': execution_time_s,
-                'domain_dyn_powers_mW': result['domain_dyn_powers_mW'],
-                'domain_static_powers_mW': result['domain_static_powers_mW'],
-            }
+            execution_time_ns = result['execution_time_ns']
+            per_pe_results[PE] = result  # Store the entire result for compatibility
 
-            if execution_time_s > max_execution_time_s:
-                max_execution_time_s = execution_time_s
+            if execution_time_ns > max_execution_time_ns:
+                max_execution_time_ns = execution_time_ns
 
         if not per_pe_results:
             print("No valid predictions were made.")
@@ -2826,53 +2884,55 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
 
         shared_domains = ['pow_sys', 'pow_cpu', 'pow_mem']
 
-        total_energy_mJ = 0.0
+        total_energy_nJ = 0.0
         detailed_energy = {
             'pe_specific': {},
             'shared': {}
         }
 
         # Calculate PE-specific energies
-        for PE, pe_data in per_pe_results.items():
-            execution_time_s = pe_data['execution_time_s']
-            dyn_powers = pe_data['domain_dyn_powers_mW']
-            static_powers = pe_data['domain_static_powers_mW']
+        for PE, result in per_pe_results.items():
+            execution_time_ns = result['execution_time_ns']
+            dyn_powers = result['domain_dyn_powers_mW']
+            static_powers = result['domain_static_powers_mW']
 
-            pe_dyn_energy_mJ = 0.0
-            pe_static_energy_mJ = 0.0
+            pe_dyn_energy_nJ = 0.0
+            pe_static_energy_nJ = 0.0
 
             for domain in pe_specific_domains:
                 if domain in dyn_powers:
                     dyn_power_mW = dyn_powers[domain]
                     static_power_mW = static_powers[domain]
 
-                    dyn_energy_mJ = dyn_power_mW * execution_time_s  # mW * s = mJ
-                    static_energy_mJ = static_power_mW * execution_time_s
+                    dyn_energy_nJ = dyn_power_mW * execution_time_ns  * 1e-3
+                    static_energy_nJ = static_power_mW * execution_time_ns * 1e-3
 
-                    pe_dyn_energy_mJ += dyn_energy_mJ
-                    pe_static_energy_mJ += static_energy_mJ
+                    pe_dyn_energy_nJ += dyn_energy_nJ
+                    pe_static_energy_nJ += static_energy_nJ
 
                     # Store detailed energies per domain
                     if PE not in detailed_energy['pe_specific']:
                         detailed_energy['pe_specific'][PE] = {}
                     detailed_energy['pe_specific'][PE][domain] = {
-                        'dyn_energy_mJ': dyn_energy_mJ,
-                        'static_energy_mJ': static_energy_mJ,
+                        'dyn_energy_nJ': dyn_energy_nJ,
+                        'static_energy_nJ': static_energy_nJ,
                         'dyn_power_mW': dyn_power_mW,
-                        'static_power_mW': static_power_mW
+                        'static_power_mW': static_power_mW,
+                        'total_energy_nJ': dyn_energy_nJ + static_energy_nJ,
+                        'execution_time_ns': execution_time_ns
                     }
 
-            # Sum PE-specific energies into total_energy_mJ
-            total_energy_mJ += pe_dyn_energy_mJ + pe_static_energy_mJ
+            # Sum PE-specific energies into total_energy_nJ
+            total_energy_nJ += pe_dyn_energy_nJ + pe_static_energy_nJ
 
         # Calculate shared domain energies considering only the included PEs
         for domain in shared_domains:
             # For each shared domain, find the max power among included PEs
             max_dyn_power_mW = max(
-                pe_data['domain_dyn_powers_mW'].get(domain, 0.0) for pe_data in per_pe_results.values()
+                result['domain_dyn_powers_mW'].get(domain, 0.0) for result in per_pe_results.values()
             )
             max_static_power_mW = max(
-                pe_data['domain_static_powers_mW'].get(domain, 0.0) for pe_data in per_pe_results.values()
+                result['domain_static_powers_mW'].get(domain, 0.0) for result in per_pe_results.values()
             )
 
             # Skip the domain if both powers are zero (i.e., none of the included PEs use this domain)
@@ -2880,30 +2940,33 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
                 continue
 
             # Calculate energies using max execution time
-            dyn_energy_mJ = max_dyn_power_mW * max_execution_time_s
-            static_energy_mJ = max_static_power_mW * max_execution_time_s
+            dyn_energy_nJ = max_dyn_power_mW * max_execution_time_ns * 1e-3
+            static_energy_nJ = max_static_power_mW * max_execution_time_ns * 1e-3
 
-            # Sum shared domain energies into total_energy_mJ
-            total_energy_mJ += dyn_energy_mJ + static_energy_mJ
+            # Sum shared domain energies into total_energy_nJ
+            total_energy_nJ += dyn_energy_nJ + static_energy_nJ
 
             # Store detailed energies per domain
             detailed_energy['shared'][domain] = {
-                'dyn_energy_mJ': dyn_energy_mJ,
-                'static_energy_mJ': static_energy_mJ,
+                'dyn_energy_nJ': dyn_energy_nJ,
+                'static_energy_nJ': static_energy_nJ,
                 'dyn_power_mW': max_dyn_power_mW,
-                'static_power_mW': max_static_power_mW
+                'static_power_mW': max_static_power_mW,
+                'total_energy_nJ': dyn_energy_nJ + static_energy_nJ,
+                'execution_time_ns': max_execution_time_ns
             }
 
         # Prepare result
         result = {
-            'total_energy_mJ': total_energy_mJ,
-            'max_execution_time_s': max_execution_time_s,
-            'execution_times_s': {PE: pe_data['execution_time_s'] for PE, pe_data in per_pe_results.items()},
+            'total_energy_nJ': total_energy_nJ,
+            'max_execution_time_ns': max_execution_time_ns,
+            'execution_times_ns': {PE: pe_data['execution_time_ns'] for PE, pe_data in per_pe_results.items()},
+            'frequency_MHz': {PE: pe_data['frequency_MHz'] for PE, pe_data in per_pe_results.items()},
+            'per_pe_results': per_pe_results,  # Include detailed per-PE results
             'detailed_energy': detailed_energy
         }
 
         return result
-
 
     def evaluate_model_domain_based(self, PEs=None, voltages=None):
         """
@@ -4038,48 +4101,6 @@ if __name__ == '__main__':
         l1_ratio_static_power=0.5
     )
 
-    # Define PEs and their corresponding operations
-    PEs = ['cgra', 'carus']  # Only 'cgra' is included
-    operations = [
-        {'row_a': 8, 'col_a': 8, 'col_b': 16},     # Operation for 'cgra'
-        {'row_a': 15, 'col_a': 15, 'col_b': 32},   # Operation for 'carus'
-    ]
-
-    # Predict for the included PEs
-    multi_pe_prediction = power_model_multi_pe.predict_multi_pe(
-        PEs=PEs,
-        operations=operations,
-        voltage=0.8
-    )
-
-    print("\n")
-
-    if multi_pe_prediction:
-        print("Multi-PE Prediction:")
-        print(f"Total Energy: {1e6*multi_pe_prediction['total_energy_mJ']:.2f} nJ")
-        print(f"Max Execution Time: {1e6*multi_pe_prediction['max_execution_time_s']:.6f} us")
-        print("Execution Times per PE:")
-        for PE, exec_time in multi_pe_prediction['execution_times_s'].items():
-            print(f"  {PE}: {1e6*exec_time:.6f} us")
-        print("\nDetailed Energy Breakdown:")
-        # PE-specific domains
-        for PE, domains in multi_pe_prediction['detailed_energy']['pe_specific'].items():
-            print(f"\nPE: {PE}")
-            for domain, energy_info in domains.items():
-                print(f"  Domain: {domain}")
-                print(f"    Dynamic Energy: {1e6*energy_info['dyn_energy_mJ']:.4f} nJ")
-                print(f"    Static Energy: {1e6*energy_info['static_energy_mJ']:.4f} nJ")
-                print(f"    Dynamic Power: {energy_info['dyn_power_mW']:.2f} mW")
-                print(f"    Static Power: {energy_info['static_power_mW']:.2f} mW")
-        # Shared domains
-        print("\nShared Domains:")
-        for domain, energy_info in multi_pe_prediction['detailed_energy']['shared'].items():
-            print(f"  Domain: {domain}")
-            print(f"    Dynamic Energy: {1e6*energy_info['dyn_energy_mJ']:.4f} nJ")
-            print(f"    Static Energy: {1e6*energy_info['static_energy_mJ']:.4f} nJ")
-            print(f"    Dynamic Power: {energy_info['dyn_power_mW']:.2f} mW")
-            print(f"    Static Power: {energy_info['static_power_mW']:.2f} mW")
-
 
     predict_single_pe = power_model_multi_pe.predict_single_pe(
         PE='cgra',
@@ -4090,31 +4111,18 @@ if __name__ == '__main__':
     )
 
 
-    # result = {
-    #             'PE': PE,
-    #             'row_a': row_a,
-    #             'col_a': col_a,
-    #             'col_b': col_b,
-    #             'voltage': voltage,
-    #             'frequency_MHz': frequency_MHz,
-    #             'execution_time_ns': adjusted_time_ns,
-    #             'dyn_power_mW': total_dyn_power_mW,
-    #             'static_power_mW': total_static_power_mW,
-    #             'total_power_mW': total_power_mW,
-    #             'domain_dyn_powers_mW': domain_dyn_powers,
-    #             'domain_static_powers_mW': domain_static_powers
-    #         }
     print("\n")
 
     if predict_single_pe:
         print("Single-PE Prediction:")
         print(f"Total Power: {predict_single_pe['total_power_mW']:.2f} mW")
-        print(f"Execution Time: {1e-3*predict_single_pe['execution_time_ns']:.6f} us")
-        print(f'total energy: {1e-3*predict_single_pe["total_power_mW"]*predict_single_pe["execution_time_ns"]:.2f} nJ')
+        print(f"Execution Time: {predict_single_pe['execution_time_ns']:.6f} ns")
+        print(f'total energy: {predict_single_pe["total_energy_nJ"]:.2f} nJ')
         # write a for loop that I show total power (static and dynamic) for each domain
         print("\nDetailed Energy Breakdown:")
         for domain, a in predict_single_pe['domain_dyn_powers_mW'].items():
             print(f"  Domain: {domain}")
+            print(f"    Total Energy: {predict_single_pe['domain_total_energy_nJ'][domain]:.2f} nJ")
             print(f"    Static Power: {predict_single_pe['domain_static_powers_mW'][domain]:.2f} mW")
             print(f"    Dynamic Power: {predict_single_pe['domain_dyn_powers_mW'][domain]:.2f} mW")
             total_power = predict_single_pe['domain_static_powers_mW'][domain] + predict_single_pe['domain_dyn_powers_mW'][domain]
@@ -4135,12 +4143,13 @@ if __name__ == '__main__':
     if predict_single_pe:
         print("Single-PE Prediction:")
         print(f"Total Power: {predict_single_pe['total_power_mW']:.2f} mW")
-        print(f"Execution Time: {1e-3*predict_single_pe['execution_time_ns']:.6f} us")
-        print(f'total energy: {1e-3*predict_single_pe["total_power_mW"]*predict_single_pe["execution_time_ns"]:.2f} nJ')
+        print(f"Execution Time: {predict_single_pe['execution_time_ns']:.6f} ns")
+        print(f'total energy: {predict_single_pe["total_energy_nJ"]:.2f} nJ')
         # write a for loop that I show total power (static and dynamic) for each domain
         print("\nDetailed Energy Breakdown:")
         for domain, a in predict_single_pe['domain_dyn_powers_mW'].items():
             print(f"  Domain: {domain}")
+            print(f"    Total Energy: {predict_single_pe['domain_total_energy_nJ'][domain]:.2f} nJ")
             print(f"    Static Power: {predict_single_pe['domain_static_powers_mW'][domain]:.2f} mW")
             print(f"    Dynamic Power: {predict_single_pe['domain_dyn_powers_mW'][domain]:.2f} mW")
             total_power = predict_single_pe['domain_static_powers_mW'][domain] + predict_single_pe['domain_dyn_powers_mW'][domain]
