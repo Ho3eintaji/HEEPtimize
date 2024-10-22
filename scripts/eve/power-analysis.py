@@ -2785,7 +2785,7 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
         Args:
             PEs (list): List of PEs to use.
             operations (list): List of operation parameters (dicts with 'row_a', 'col_a', 'col_b').
-            voltage (float): Voltage level.
+            voltage (list): Voltage level.
             frequency_MHz (float, optional): Frequency in MHz. If not provided, uses max frequency.
 
         Returns:
@@ -2809,13 +2809,15 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
 
         if multi_pe_prediction:
             print("Multi-PE Prediction:")
+            print(f"Pes: {PEs}")
             print(f"Total Energy: {multi_pe_prediction['total_energy_nJ']:.2f} nJ")
-            print(f"Max Execution Time: {multi_pe_prediction['max_execution_time_ns']:.6f} ns")
+            print(f"(Max) Execution Time: {multi_pe_prediction['execution_time_ns']:.6f} ns")
+            print(f"(avg) Total Power: {multi_pe_prediction['total_power_mW']:.2f} mW")
             print("Execution Times per PE:")
-            for PE, exec_time in multi_pe_prediction['execution_times_ns'].items():
+            for PE, exec_time in multi_pe_prediction['all_execution_times_ns'].items():
                 print(f"  {PE}: {exec_time:.6f} ns")
             print("Frequencies per PE:")
-            for PE, freq_MHz in multi_pe_prediction['frequency_MHz'].items():
+            for PE, freq_MHz in multi_pe_prediction['all_frequencies_MHz'].items():
                 print(f"  {PE}: {freq_MHz:.2f} MHz")
             print("\nDetailed Energy Breakdown:")
             # PE-specific domains
@@ -2958,16 +2960,18 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
 
         # Prepare result
         result = {
+            'PE': PEs,
             'total_energy_nJ': total_energy_nJ,
-            'max_execution_time_ns': max_execution_time_ns,
-            'execution_times_ns': {PE: pe_data['execution_time_ns'] for PE, pe_data in per_pe_results.items()},
-            'frequency_MHz': {PE: pe_data['frequency_MHz'] for PE, pe_data in per_pe_results.items()},
+            'execution_time_ns': max_execution_time_ns,
+            'total_power_mW': total_energy_nJ / max_execution_time_ns * 1e3,
+            'all_execution_times_ns': {PE: pe_data['execution_time_ns'] for PE, pe_data in per_pe_results.items()},
+            'all_frequencies_MHz': {PE: pe_data['frequency_MHz'] for PE, pe_data in per_pe_results.items()},
             'per_pe_results': per_pe_results,  # Include detailed per-PE results
             'detailed_energy': detailed_energy
         }
 
         return result
-
+    
     def evaluate_model_domain_based(self, PEs=None, voltages=None):
         """
         Evaluates the domain-separated models by calculating R² scores and Mean Squared Error (MSE)
@@ -3117,30 +3121,6 @@ class EVE:
         # Remove policies that did not succeed
         results_df = results_df.dropna(subset=['Total Energy (mJ)'])
 
-        # Plot total energy consumption
-        plt.figure(figsize=(8, 6))
-        sns.barplot(x='Policy', y='Total Energy (mJ)', data=results_df)
-        plt.title('Total Energy Consumption by Policy')
-        plt.ylabel('Total Energy (mJ)')
-        plt.savefig(f'{output_dir}/total_energy_consumption.pdf')   
-        # plt.show()
-
-        # Plot total execution time
-        plt.figure(figsize=(8, 6))
-        sns.barplot(x='Policy', y='Total Time (s)', data=results_df)
-        plt.title('Total Execution Time by Policy')
-        plt.ylabel('Total Time (s)')
-        plt.savefig(f'{output_dir}/total_execution_time.pdf')
-        # plt.show()
-
-        # Plot average energy per operation
-        plt.figure(figsize=(8, 6))
-        sns.barplot(x='Policy', y='Average Energy per Operation (mJ)', data=results_df)
-        plt.title('Average Energy per Operation by Policy')
-        plt.ylabel('Average Energy (mJ)')
-        plt.savefig(f'{output_dir}/average_energy_per_operation.pdf')
-
-
     """
     def __init__(self, models, workload, time_budget_s):
         """
@@ -3179,40 +3159,38 @@ class EVE:
             return
 
         total_energy_mJ = 0
-        total_time_s = 0
-        total_power_mW = 0
+        total_time_ms = 0
         detailed_results = []
         for idx, (operation, selection) in enumerate(zip(self.workload, selections)):
             if selection is None:
                 print(f"Operation {idx + 1} could not be configured.")
                 continue
-            prediction = selection['prediction']
-            energy_mJ = selection['energy_mJ']
-            execution_time_s = prediction['execution_time_ns'] * 1e-9
-            average_power_mW = selection['average_power_mW']
+            # prediction = selection['prediction']
+            energy_mJ = selection['total_energy_nJ'] * 1e-6  # Convert nJ to mJ
+            execution_time_ms = selection['execution_time_ns'] * 1e-6  # Convert ns to ms
             total_energy_mJ += energy_mJ
-            total_time_s += execution_time_s
-            total_power_mW += average_power_mW
+            total_time_ms += execution_time_ms
             detailed_results.append({
                 'operation': operation,
-                'PE': selection['PE'],
-                'voltage': selection['voltage'],
+                'PEs': selection['PEs'],
+                'voltages': selection['voltage'],
                 'frequency_MHz': selection['frequency_MHz'],
                 'energy_mJ': energy_mJ,
-                'execution_time_s': execution_time_s,
-                'average_power_mW': average_power_mW
+                'execution_time_ms': execution_time_ms
+                # Add other details as needed
+
             })
 
         average_energy_mJ = total_energy_mJ / len(self.workload)
-        average_time_s = total_time_s / len(self.workload)
-        average_power_mW = total_power_mW / len(self.workload)
+        average_time_ms = total_time_ms / len(self.workload)
+        average_power_mW = (total_energy_mJ * 1e3) / total_time_ms if total_time_ms > 0 else 0  # mW
 
         self.results[policy.name] = {
             'success': True,
             'total_energy_mJ': total_energy_mJ,
-            'total_time_s': total_time_s,
+            'total_time_ms': total_time_ms,
             'average_energy_mJ': average_energy_mJ,
-            'average_time_s': average_time_s,
+            'average_time_ms': average_time_ms,
             'average_power_mW': average_power_mW,
             'detailed_results': detailed_results
         }
@@ -3247,9 +3225,9 @@ class EVE:
                 results_list.append({
                     'Policy': policy_name,
                     'Total Energy (mJ)': result['total_energy_mJ'],
-                    'Total Time (s)': result['total_time_s'],
+                    'Total Time (ms)': result['total_time_ms'],
                     'Average Energy per Operation (mJ)': result['average_energy_mJ'],
-                    'Average Time per Operation (s)': result['average_time_s'],
+                    'Average Time per Operation (ms)': result['average_time_ms'],
                     'Average Power Consumption (mW)': result['average_power_mW']
                 })
             else:
@@ -3330,7 +3308,7 @@ class GreedyEnergyPolicy(Policy):
                 operation_configs.append([])
                 continue
             # Sort configurations by energy consumption (lowest first)
-            configs.sort(key=lambda x: x['energy_mJ'])
+            configs.sort(key=lambda x: x['total_energy_nJ'])
             operation_configs.append(configs)
 
         # Initial selection: choose the lowest energy configuration for each operation
@@ -3351,7 +3329,7 @@ class GreedyEnergyPolicy(Policy):
             if len(configs) > 1:
                 # Exclude the current selection
                 for conf in configs[1:]:
-                    delta_energy = conf['energy_mJ'] - selections[idx]['energy_mJ']
+                    delta_energy = conf['total_energy_nJ'] - selections[idx]['total_energy_nJ']
                     delta_time = conf['prediction']['execution_time_ns'] * 1e-9 - selections[idx]['prediction']['execution_time_ns'] * 1e-9
                     possible_selections.append({
                         'operation_idx': idx,
@@ -3409,14 +3387,18 @@ class GreedyEnergyPolicy(Policy):
                 )
                 if prediction is None:
                     continue
-                energy_mJ = prediction['total_power_mW'] * (prediction['execution_time_ns'] * 1e-9)
+                # energy_mJ = prediction['total_power_mW'] * (prediction['execution_time_ns'] * 1e-9)
+                total_energy_nJ = prediction['total_energy_nJ'] 
                 average_power_mW = prediction['total_power_mW']
+                execution_time_ns = prediction['execution_time_ns']
                 configs.append({
-                    'PE': PE,
+                    'PEs': PE,
                     'voltage': voltage,
                     'frequency_MHz': max_frequency,
                     'prediction': prediction,
-                    'energy_mJ': energy_mJ,
+                    # 'energy_mJ': energy_mJ,
+                    'execution_time_ns': execution_time_ns,
+                    'total_energy_nJ': total_energy_nJ,
                     'average_power_mW': average_power_mW
                 })
         return configs
@@ -3488,20 +3470,23 @@ class FixedPEPolicy(Policy):
             if prediction is None:
                 print(f"Prediction failed for operation: {operation}")
                 return None
-            execution_time_s = prediction['execution_time_ns'] * 1e-9
+            execution_time_ns = prediction['execution_time_ns']
+            execution_time_s = execution_time_ns * 1e-9
             total_time += execution_time_s
             if total_time > time_budget_s:
                 print("Unable to meet time budget with FixedPEPolicy.")
                 return None
-            energy_mJ = prediction['total_power_mW'] * execution_time_s
+            # energy_mJ = prediction['total_power_mW'] * execution_time_s
+            total_energy_nJ = prediction['total_energy_nJ']
             average_power_mW = prediction['total_power_mW']
             selection = {
-                'PE': self.PE,
+                'PEs': self.PE,
                 'voltage': self.voltage,
                 'frequency_MHz': self.frequency_MHz,
                 'prediction': prediction,
-                'energy_mJ': energy_mJ,
-                'average_power_mW': average_power_mW
+                'total_energy_nJ': total_energy_nJ,
+                'average_power_mW': average_power_mW,
+                'execution_time_ns': execution_time_ns
             }
             selections.append(selection)
         return selections
@@ -3624,14 +3609,18 @@ class OptimalMCKPEnergyPolicy(Policy):
                 )
                 if prediction is None:
                     continue
-                energy_mJ = prediction['total_power_mW'] * (prediction['execution_time_ns'] * 1e-9)
+                total_energy_nJ = prediction['total_energy_nJ']
+                energy_mJ = total_energy_nJ * 1e-6
                 average_power_mW = prediction['total_power_mW']
+                execution_time_ns = prediction['execution_time_ns']
                 configs.append({
-                    'PE': PE,
+                    'PEs': PE,
                     'voltage': voltage,
                     'frequency_MHz': max_frequency,
                     'prediction': prediction,
-                    'energy_mJ': energy_mJ,
+                    'energy_mJ': energy_mJ,         # I kept it bc previously written based on mJ
+                    'total_energy_nJ': total_energy_nJ,
+                    'execution_time_ns': execution_time_ns,
                     'average_power_mW': average_power_mW
                 })
         return configs
@@ -3705,15 +3694,18 @@ class MaxPerformancePolicy(Policy):
                 execution_time_ns = prediction['execution_time_ns']
                 if execution_time_ns < min_time:
                     min_time = execution_time_ns
-                    energy_mJ = prediction['total_power_mW'] * (execution_time_ns * 1e-9)
+                    # energy_mJ = prediction['total_power_mW'] * (execution_time_ns * 1e-9)
+                    total_energy_nJ = prediction['total_energy_nJ']
                     average_power_mW = prediction['total_power_mW']
                     best_config = {
-                        'PE': PE,
+                        'PEs': PE,
                         'voltage': voltage,
                         'frequency_MHz': max_frequency,
                         'prediction': prediction,
-                        'energy_mJ': energy_mJ,
-                        'average_power_mW': average_power_mW
+                        # 'energy_mJ': energy_mJ,
+                        'total_energy_nJ': total_energy_nJ,
+                        'average_power_mW': average_power_mW,
+                        'execution_time_ns': execution_time_ns
                     }
         return best_config
 class OptimalFixedVoltageEnergyPolicy(Policy):
@@ -3837,15 +3829,19 @@ class OptimalFixedVoltageEnergyPolicy(Policy):
             )
             if prediction is None:
                 continue
-            execution_time_s = prediction['execution_time_ns'] * 1e-9
-            energy_mJ = prediction['total_power_mW'] * execution_time_s
+            execution_time_ns = prediction['execution_time_ns'] 
+            # energy_mJ = prediction['total_power_mW'] * execution_time_s
+            total_energy_nJ = prediction['total_energy_nJ']
+            energy_mJ = total_energy_nJ * 1e-6
             average_power_mW = prediction['total_power_mW']
             configs.append({
-                'PE': PE,
+                'PEs': PE,
                 'voltage': voltage,
                 'frequency_MHz': max_frequency,
                 'prediction': prediction,
                 'energy_mJ': energy_mJ,
+                'total_energy_nJ': total_energy_nJ,
+                'execution_time_ns': execution_time_ns,
                 'average_power_mW': average_power_mW
             })
         return configs
@@ -3918,17 +3914,20 @@ class PerOperationFixedVoltageEnergyPolicy(Policy):
             )
             if prediction is None:
                 continue
-            execution_time_s = prediction['execution_time_ns'] * 1e-9
-            energy_mJ = prediction['total_power_mW'] * execution_time_s
+            execution_time_ns = prediction['execution_time_ns']
+            total_energy_nJ = prediction['total_energy_nJ']
+            energy_mJ = total_energy_nJ * 1e-6
             if energy_mJ < min_energy:
                 min_energy = energy_mJ
                 average_power_mW = prediction['total_power_mW']
                 best_config = {
-                    'PE': PE,
+                    'PEs': PE,
                     'voltage': voltage,
                     'frequency_MHz': max_frequency,
                     'prediction': prediction,
-                    'energy_mJ': energy_mJ,
+                    # 'energy_mJ': energy_mJ,
+                    'total_energy_nJ': total_energy_nJ,
+                    'execution_time_ns': execution_time_ns,
                     'average_power_mW': average_power_mW
                 }
         return best_config
@@ -4001,89 +4000,12 @@ if __name__ == '__main__':
     # data analysis class
     data_analysis = MatmulDataAnalysis(simulation_data=simulation_data, output_dir=output_dir)
 
-
-    models = MatmulPowerModel(
-        sim_data=simulation_data,
-        use_total_ops=False,
-        positive=False,
-        model_type_time='randomforest',
-        degree_time=2,
-        apply_log_transform_time=False,
-        alpha_time=100,
-        model_type_dyn_power='randomforest',
-        degree_dyn_power=2,
-        apply_log_transform_dyn_power=False,
-        alpha_dyn_power=1.0,
-        degree_static_power=0,
-        reference_frequency_MHz=100,
-        output_dir=output_dir
-    )
-
-
-
-    # Generate the workload using the WorkloadGenerator class
-    generator = WorkloadGenerator(ra_size=[2, 4, 8, 16], ca_size=[2, 4, 8, 16], cb_size=[4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048])
-    workload = generator.generate_workload(num_operations=100)
-
-    # Create the EVE emulator
-    time_budget_s = 1500 * 1e-6  # us
-    eve = EVE(models=models, workload=workload, time_budget_s=time_budget_s)
-
-    # # Instantiate the policy
-    # optimized_energy_policy = GreedyEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9])
-    # eve.run(policy=optimized_energy_policy)
-
-    # optimal_energy_policy = OptimalMCKPEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9])
-    # eve.run(policy=optimal_energy_policy)
-
-    # max_performance_policy = MaxPerformancePolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.9, 0.8, 0.65, 0.5])  # Highest to lowest voltage
-    # eve.run(policy=max_performance_policy)
-
-    # for voltage in [0.5, 0.65, 0.8, 0.9]:
-    #     optimal_fixed_voltage_policy = OptimalFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltage=voltage)
-    #     eve.run(policy=optimal_fixed_voltage_policy)
-
-    # for voltage in [0.5, 0.65, 0.8, 0.9]:
-    #     per_op_fixed_voltage_policy = PerOperationFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltage=voltage)
-    #     eve.run(policy=per_op_fixed_voltage_policy)
-
-    # for voltage in [0.5, 0.65, 0.8, 0.9]:
-    #     for PE in ['carus', 'caesar', 'cgra']:
-    #         fixed_pe_policy = FixedPEPolicy(models=models, PE=PE, voltage=voltage)
-    #         eve.run(policy=fixed_pe_policy)
-    
-
-    # # Get results as DataFrame
-    # results_df = eve.get_results_dataframe()
-    # print(results_df)
-
-    # # visualization 
-    # # Remove policies that did not succeed
-    # results_df = results_df.dropna(subset=['Total Energy (mJ)'])
-
-    # # (put total energy and total time in the same plot)
-    # # Plot total energy consumption
-    # plt.figure(figsize=(8, 6))
-    # sns.barplot(x='Policy', y='Total Energy (mJ)', data=results_df)
-    # plt.title('Total Energy Consumption by Policy')
-    # plt.ylabel('Total Energy (mJ)')
-    # plt.savefig(f'{output_dir}/total_energy_consumption.pdf')
-    # # plt.show()
-
-    # # Plot total execution time
-    # plt.figure(figsize=(8, 6))
-    # sns.barplot(x='Policy', y='Total Time (s)', data=results_df)
-    # plt.title('Total Execution Time by Policy')
-    # plt.ylabel('Total Time (s)')
-    # plt.savefig(f'{output_dir}/total_execution_time.pdf')
-    # # plt.show()
-
-    power_model_multi_pe = MatmulPowerModelMultiPE(
+    models = MatmulPowerModelMultiPE(
         sim_data=simulation_data,
         output_dir=output_dir,
         use_total_ops=False,
-        degree_time=1,
-        degree_dyn_power=1,
+        degree_time=2,
+        degree_dyn_power=2,
         degree_static_power=0,
         reference_frequency_MHz=100,
         model_type_time='randomforest',
@@ -4092,8 +4014,8 @@ if __name__ == '__main__':
         apply_log_transform_time=False,
         apply_log_transform_dyn_power=False,
         apply_log_transform_static_power=False,
-        positive=True,
-        alpha_time=1.0,
+        positive=False,
+        alpha_time=100,
         alpha_dyn_power=1.0,
         alpha_static_power=1.0,
         l1_ratio_time=0.5,
@@ -4102,57 +4024,40 @@ if __name__ == '__main__':
     )
 
 
-    predict_single_pe = power_model_multi_pe.predict_single_pe(
-        PE='cgra',
-        row_a=8,
-        col_a=8,
-        col_b=16,
-        voltage=0.8
-    )
+    # Generate the workload using the WorkloadGenerator class
+    generator = WorkloadGenerator(ra_size=[2, 4, 8, 16], ca_size=[2, 4, 8, 16], cb_size=[4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048])
+    workload = generator.generate_workload(num_operations=100)
 
+    # Create the EVE emulator
+    time_budget_s =  2000 * 1e-6  # 1500 * 1e-6  # us
+    eve = EVE(models=models, workload=workload, time_budget_s=time_budget_s)
 
-    print("\n")
+    # Instantiate the policy
+    optimized_energy_policy = GreedyEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9])
+    eve.run(policy=optimized_energy_policy)
 
-    if predict_single_pe:
-        print("Single-PE Prediction:")
-        print(f"Total Power: {predict_single_pe['total_power_mW']:.2f} mW")
-        print(f"Execution Time: {predict_single_pe['execution_time_ns']:.6f} ns")
-        print(f'total energy: {predict_single_pe["total_energy_nJ"]:.2f} nJ')
-        # write a for loop that I show total power (static and dynamic) for each domain
-        print("\nDetailed Energy Breakdown:")
-        for domain, a in predict_single_pe['domain_dyn_powers_mW'].items():
-            print(f"  Domain: {domain}")
-            print(f"    Total Energy: {predict_single_pe['domain_total_energy_nJ'][domain]:.2f} nJ")
-            print(f"    Static Power: {predict_single_pe['domain_static_powers_mW'][domain]:.2f} mW")
-            print(f"    Dynamic Power: {predict_single_pe['domain_dyn_powers_mW'][domain]:.2f} mW")
-            total_power = predict_single_pe['domain_static_powers_mW'][domain] + predict_single_pe['domain_dyn_powers_mW'][domain]
-            print(f"    Total Power: {total_power:.2f} mW")
+    optimal_energy_policy = OptimalMCKPEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra', 'cpu'], voltages=[0.5, 0.65, 0.8, 0.9])
+    eve.run(policy=optimal_energy_policy)
 
+    max_performance_policy = MaxPerformancePolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.9, 0.8, 0.65, 0.5])  # Highest to lowest voltage
+    eve.run(policy=max_performance_policy)
+
+    for voltage in [0.5, 0.65, 0.8, 0.9]:
+        optimal_fixed_voltage_policy = OptimalFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltage=voltage)
+        eve.run(policy=optimal_fixed_voltage_policy)
+
+    for voltage in [0.5, 0.65, 0.8, 0.9]:
+        per_op_fixed_voltage_policy = PerOperationFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltage=voltage)
+        eve.run(policy=per_op_fixed_voltage_policy)
+
+    for voltage in [0.5, 0.65, 0.8, 0.9]:
+        for PE in ['carus', 'caesar', 'cgra']:
+            fixed_pe_policy = FixedPEPolicy(models=models, PE=PE, voltage=voltage)
+            eve.run(policy=fixed_pe_policy)
     
-        
-    print("\n")
 
-    predict_single_pe = power_model_multi_pe.predict_single_pe(
-        PE='carus',
-        row_a=15,
-        col_a=15,
-        col_b=32,
-        voltage=0.8
-    )
-
-    if predict_single_pe:
-        print("Single-PE Prediction:")
-        print(f"Total Power: {predict_single_pe['total_power_mW']:.2f} mW")
-        print(f"Execution Time: {predict_single_pe['execution_time_ns']:.6f} ns")
-        print(f'total energy: {predict_single_pe["total_energy_nJ"]:.2f} nJ')
-        # write a for loop that I show total power (static and dynamic) for each domain
-        print("\nDetailed Energy Breakdown:")
-        for domain, a in predict_single_pe['domain_dyn_powers_mW'].items():
-            print(f"  Domain: {domain}")
-            print(f"    Total Energy: {predict_single_pe['domain_total_energy_nJ'][domain]:.2f} nJ")
-            print(f"    Static Power: {predict_single_pe['domain_static_powers_mW'][domain]:.2f} mW")
-            print(f"    Dynamic Power: {predict_single_pe['domain_dyn_powers_mW'][domain]:.2f} mW")
-            total_power = predict_single_pe['domain_static_powers_mW'][domain] + predict_single_pe['domain_dyn_powers_mW'][domain]
-            print(f"    Total Power: {total_power:.2f} mW")
-
+    # Get results as DataFrame
+    results_df = eve.get_results_dataframe()
+    print(results_df)
+    
 
