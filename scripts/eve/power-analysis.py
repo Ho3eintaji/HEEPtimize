@@ -47,6 +47,8 @@ import seaborn as sns
 from sklearn.model_selection import train_test_split
 from mpl_toolkits.mplot3d import Axes3D
 from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpBinary, PULP_CBC_CMD, LpStatus
+import itertools
+
 
 
 class MatmulSimulationData:
@@ -3076,6 +3078,51 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
                 #     print(f"    Mean Squared Error: {mse_static:.4f}")
 
                 print()
+class WorkloadGenerator:
+    """
+    Class to generate workloads of matmul operations.
+
+    Example:
+        generator = WorkloadGenerator(ra_size=[16, 32, 64, 128], ca_size=[16, 32, 64, 128], cb_size=[16, 32, 64, 128])
+        workload = generator.generate_workload(num_operations=100)
+    """
+    def __init__(self, ra_size, ca_size, cb_size):
+        """
+        Initializes the WorkloadGenerator.
+
+        Args:
+            ra_size (list): List of sizes to choose from. Defaults to [16, 32, 64, 128].
+            ca_size (list): List of sizes to choose from. Defaults to [16, 32, 64, 128].
+            cb_size (list): List of sizes to choose from. Defaults to [16, 32, 64, 128].
+        """
+        self.ra_size = ra_size
+        self.ca_size = ca_size
+        self.cb_size = cb_size
+
+    def generate_workload(self, num_operations):
+        """
+        Generates a workload of random matmul operations.
+
+        Args:
+            num_operations (int): Number of operations to generate.
+
+        Returns:
+            list: A list of operation dictionaries.
+
+        Example:
+            workload = generator.generate_workload(num_operations=100)
+        """
+        workload = []
+        for _ in range(num_operations):
+            row_a = random.choice(self.ra_size)
+            col_a = random.choice(self.ca_size)
+            col_b = random.choice(self.cb_size) 
+            workload.append({
+                'row_a': row_a,
+                'col_a': col_a,
+                'col_b': col_b
+            })
+        return workload
 class EVE:
     """
     Emulator for evaluating energy consumption and execution time of a workload
@@ -3234,7 +3281,7 @@ class EVE:
                 results_list.append({
                     'Policy': policy_name,
                     'Total Energy (mJ)': None,
-                    'Total Time (s)': None,
+                    'Total Time (ms)': None,
                     'Average Energy per Operation (mJ)': None,
                     'Average Time per Operation (s)': None,
                     'Average Power Consumption (mW)': None
@@ -3931,52 +3978,150 @@ class PerOperationFixedVoltageEnergyPolicy(Policy):
                     'average_power_mW': average_power_mW
                 }
         return best_config
-class WorkloadGenerator:
+
+class MultiPESplittingPolicy(Policy):
     """
-    Class to generate workloads of matmul operations.
+    Policy that splits each matrix multiplication operation across multiple PEs
+    to minimize energy consumption while respecting the time budget.
 
     Example:
-        generator = WorkloadGenerator(ra_size=[16, 32, 64, 128], ca_size=[16, 32, 64, 128], cb_size=[16, 32, 64, 128])
-        workload = generator.generate_workload(num_operations=100)
+        # Instantiate the policy
+        multi_pe_splitting_policy = MultiPESplittingPolicy(
+            models=models,
+            available_PEs=['carus', 'caesar', 'cgra'],
+            voltages=[0.5, 0.65, 0.8, 0.9],
+        )
+        # Run the emulator with the policy
+        eve.run(policy=multi_pe_splitting_policy)
     """
-    def __init__(self, ra_size, ca_size, cb_size):
+
+    def __init__(self, models, available_PEs, voltages):
         """
-        Initializes the WorkloadGenerator.
+        Initializes the MultiPESplittingPolicy.
 
         Args:
-            ra_size (list): List of sizes to choose from. Defaults to [16, 32, 64, 128].
-            ca_size (list): List of sizes to choose from. Defaults to [16, 32, 64, 128].
-            cb_size (list): List of sizes to choose from. Defaults to [16, 32, 64, 128].
-        """
-        self.ra_size = ra_size
-        self.ca_size = ca_size
-        self.cb_size = cb_size
-
-    def generate_workload(self, num_operations):
-        """
-        Generates a workload of random matmul operations.
-
-        Args:
-            num_operations (int): Number of operations to generate.
-
-        Returns:
-            list: A list of operation dictionaries.
+            models (MatmulPowerModelMultiPE): The power and performance models.
+            available_PEs (list): List of available Processing Elements (PEs).
+            voltages (list): List of voltages to consider.
 
         Example:
-            workload = generator.generate_workload(num_operations=100)
+            multi_pe_splitting_policy = MultiPESplittingPolicy(
+                models=models,
+                available_PEs=['carus', 'caesar', 'cgra'],
+                voltages=[0.5, 0.65, 0.8, 0.9],
+            )
         """
-        workload = []
-        for _ in range(num_operations):
-            row_a = random.choice(self.ra_size)
-            col_a = random.choice(self.ca_size)
-            col_b = random.choice(self.cb_size) 
-            workload.append({
-                'row_a': row_a,
-                'col_a': col_a,
-                'col_b': col_b
-            })
-        return workload
+        super().__init__(name="MultiPESplittingPolicy")
+        self.models = models
+        self.available_PEs = available_PEs
+        self.voltages = voltages
 
+    def select_configurations(self, workload, time_budget_s):
+        """
+        Selects configurations for each operation to minimize energy consumption
+        while ensuring the total execution time does not exceed the time budget.
+
+        Args:
+            workload (list): List of operations.
+            time_budget_s (float): Total time budget in seconds.
+
+        Returns:
+            list or None: Selected configurations for each operation, or None if time budget cannot be met.
+
+        Example:
+            selections = policy.select_configurations(workload, time_budget_s=1.0)
+        """
+        selections = []
+        total_time_s = 0
+
+        for operation in workload:
+            # Generate possible split configurations for the operation
+            configs = self._generate_split_configs(operation)
+
+            if not configs:
+                selections.append(None)
+                continue
+
+            # Sort configurations by energy consumption (lowest first)
+            configs.sort(key=lambda x: x['total_energy_nJ'])
+            selected_config = configs[0]
+            selections.append(selected_config)
+
+            # Update total time
+            total_time_s += selected_config['execution_time_ns'] * 1e-9
+
+        # Check if total time exceeds the time budget
+        if total_time_s > time_budget_s:
+            print("Unable to meet time budget with available configurations.")
+            return None
+
+        return selections
+
+    def _generate_split_configs(self, operation):
+        """
+        Generates possible split configurations for an operation.
+
+        Args:
+            operation (dict): The operation details.
+
+        Returns:
+            list: Configurations with predictions.
+
+        Example:
+            configs = policy._generate_split_configs(operation)
+        """
+        configs = []
+        num_rows = operation['row_a']
+
+        # Consider splitting the rows of matrix A among the available PEs
+        for num_splits in range(1, len(self.available_PEs) + 1):
+            # Generate all combinations of PEs for the given split
+            pe_combinations = itertools.combinations(self.available_PEs, num_splits)
+
+            for pe_combo in pe_combinations:
+                # Split the rows among the selected PEs
+                rows_per_split = num_rows // num_splits
+                extra_rows = num_rows % num_splits
+                sub_operations = []
+                PEs = []
+                start_row = 0
+
+                for i, PE in enumerate(pe_combo):
+                    assigned_rows = rows_per_split + (1 if i < extra_rows else 0)
+                    sub_op = {
+                        'row_a': assigned_rows,
+                        'col_a': operation['col_a'],
+                        'col_b': operation['col_b']
+                    }
+                    sub_operations.append(sub_op)
+                    PEs.append(PE)
+                    start_row += assigned_rows
+
+                # For each voltage, evaluate the configuration
+                for voltage in self.voltages:
+                    prediction = self.models.predict_multi_pe(
+                        PEs=PEs,
+                        operations=sub_operations,
+                        voltage=voltage
+                    )
+
+                    if prediction is None:
+                        continue
+
+                    total_energy_nJ = prediction['total_energy_nJ']
+                    execution_time_ns = prediction['execution_time_ns'] 
+
+                    configs.append({
+                        'PEs': PEs,
+                        'operations': sub_operations,
+                        'voltage': voltage,
+                        'frequency_MHz': prediction['all_frequencies_MHz'],
+                        'prediction': prediction,
+                        'total_energy_nJ': total_energy_nJ,
+                        'execution_time_s': execution_time_ns
+                    })
+
+        return configs
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Matmul Simulation Data Analysis')
@@ -4029,7 +4174,7 @@ if __name__ == '__main__':
     workload = generator.generate_workload(num_operations=100)
 
     # Create the EVE emulator
-    time_budget_s =  2000 * 1e-6  # 1500 * 1e-6  # us
+    time_budget_s =  1500 * 1e-6  # 1500 * 1e-6  # us
     eve = EVE(models=models, workload=workload, time_budget_s=time_budget_s)
 
     # Instantiate the policy
@@ -4054,6 +4199,9 @@ if __name__ == '__main__':
         for PE in ['carus', 'caesar', 'cgra']:
             fixed_pe_policy = FixedPEPolicy(models=models, PE=PE, voltage=voltage)
             eve.run(policy=fixed_pe_policy)
+    
+    # multi_pe_splitting_policy = MultiPESplittingPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9])
+    # eve.run(policy=multi_pe_splitting_policy)
     
 
     # Get results as DataFrame
