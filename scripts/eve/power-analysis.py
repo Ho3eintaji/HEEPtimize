@@ -3982,7 +3982,6 @@ class PerOperationFixedVoltageEnergyPolicy(Policy):
                     'average_power_mW': average_power_mW
                 }
         return best_config
-
 class MultiPESplittingPolicy(Policy):
     """
     Policy that splits each matrix multiplication operation across multiple PEs
@@ -4054,10 +4053,10 @@ class MultiPESplittingPolicy(Policy):
             # Update total time
             total_time_s += selected_config['execution_time_ns'] * 1e-9
 
-        # Check if total time exceeds the time budget
-        if total_time_s > time_budget_s:
-            print("Unable to meet time budget with available configurations.")
-            return None
+        # # Check if total time exceeds the time budget
+        # if total_time_s > time_budget_s:
+        #     print("Unable to meet time budget with available configurations.")
+        #     return None
 
         return selections
 
@@ -4075,7 +4074,8 @@ class MultiPESplittingPolicy(Policy):
             configs = policy._generate_split_configs(operation)
         """
         configs = []
-        num_rows = operation['row_a']
+        # num_rows = operation['row_a']
+        num_cols_b = operation['col_b']
 
         # Consider splitting the rows of matrix A among the available PEs
         for num_splits in range(1, len(self.available_PEs) + 1):
@@ -4084,22 +4084,30 @@ class MultiPESplittingPolicy(Policy):
 
             for pe_combo in pe_combinations:
                 # Split the rows among the selected PEs
-                rows_per_split = num_rows // num_splits
-                extra_rows = num_rows % num_splits
+                # rows_per_split = num_rows // num_splits
+                cols_b_per_split = num_cols_b // num_splits
+                # extra_rows = num_rows % num_splits
+                extra_cols_b = num_cols_b % num_splits
                 sub_operations = []
                 PEs = []
-                start_row = 0
+                # start_row = 0
+                start_col_b = 0
 
                 for i, PE in enumerate(pe_combo):
-                    assigned_rows = rows_per_split + (1 if i < extra_rows else 0)
+                    # assigned_rows = rows_per_split + (1 if i < extra_rows else 0)
+                    assigned_cols_b = cols_b_per_split + (1 if i < extra_cols_b else 0)
                     sub_op = {
-                        'row_a': assigned_rows,
+                        # 'row_a': assigned_rows,
+                        'row_a': operation['row_a'],
                         'col_a': operation['col_a'],
-                        'col_b': operation['col_b']
+                        # 'col_b': operation['col_b']
+                        'col_b': assigned_cols_b
+
                     }
                     sub_operations.append(sub_op)
                     PEs.append(PE)
-                    start_row += assigned_rows
+                    # start_row += assigned_rows
+                    start_col_b += assigned_cols_b
 
                 # For each voltage, evaluate the configuration
                 for voltage in self.voltages:
@@ -4122,7 +4130,7 @@ class MultiPESplittingPolicy(Policy):
                         'frequency_MHz': prediction['all_frequencies_MHz'],
                         'prediction': prediction,
                         'total_energy_nJ': total_energy_nJ,
-                        'execution_time_s': execution_time_ns
+                        'execution_time_ns': execution_time_ns
                     })
 
         return configs
@@ -4190,8 +4198,8 @@ if __name__ == '__main__':
     optimal_energy_policy = OptimalMCKPEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra', 'cpu'], voltages=[0.5, 0.65, 0.8, 0.9])
     eve.run(policy=optimal_energy_policy)
 
-    # max_performance_policy = MaxPerformancePolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.9, 0.8, 0.65, 0.5])  # Highest to lowest voltage
-    # eve.run(policy=max_performance_policy)
+    max_performance_policy = MaxPerformancePolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.9, 0.8, 0.65, 0.5])  # Highest to lowest voltage
+    eve.run(policy=max_performance_policy)
 
     # for voltage in [0.5, 0.65, 0.8, 0.9]:
     #     optimal_fixed_voltage_policy = OptimalFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltage=voltage)
@@ -4206,8 +4214,8 @@ if __name__ == '__main__':
     #         fixed_pe_policy = FixedPEPolicy(models=models, PE=PE, voltage=voltage)
     #         eve.run(policy=fixed_pe_policy)
     
-    # multi_pe_splitting_policy = MultiPESplittingPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9])
-    # eve.run(policy=multi_pe_splitting_policy)
+    multi_pe_splitting_policy = MultiPESplittingPolicy(models=models, available_PEs=['carus', 'cgra'], voltages=[0.8, 0.9])
+    eve.run(policy=multi_pe_splitting_policy)
     
 
     # Get results as DataFrame
