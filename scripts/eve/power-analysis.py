@@ -4171,7 +4171,9 @@ if __name__ == '__main__':
 
     # Generate the workload using the WorkloadGenerator class
     generator = WorkloadGenerator(ra_size=[2, 4, 8, 16], ca_size=[2, 4, 8, 16], cb_size=[4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048])
-    workload = generator.generate_workload(num_operations=100)
+    seed, workload = generator.generate_workload(num_operations=100, seed=2047636881)
+    print(f"Workload generated with seed: {seed}")
+
 
     # Create the EVE emulator
     time_budget_s =  1500 * 1e-6  # 1500 * 1e-6  # us
