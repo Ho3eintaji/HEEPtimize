@@ -3952,7 +3952,7 @@ class WorkloadGenerator:
         self.ca_size = ca_size
         self.cb_size = cb_size
 
-    def generate_workload(self, num_operations):
+    def generate_workload(self, num_operations, seed=None):
         """
         Generates a workload of random matmul operations.
 
@@ -3965,6 +3965,10 @@ class WorkloadGenerator:
         Example:
             workload = generator.generate_workload(num_operations=100)
         """
+        if seed is None:
+            seed = random.randint(0, 2**32 - 1)  # Generate a random seed if none is provided
+        random.seed(seed)  # Set the seed for reproducibility
+
         workload = []
         for _ in range(num_operations):
             row_a = random.choice(self.ra_size)
@@ -3975,7 +3979,7 @@ class WorkloadGenerator:
                 'col_a': col_a,
                 'col_b': col_b
             })
-        return workload
+        return seed, workload
 
 
 if __name__ == '__main__':
@@ -4026,7 +4030,9 @@ if __name__ == '__main__':
 
     # Generate the workload using the WorkloadGenerator class
     generator = WorkloadGenerator(ra_size=[2, 4, 8, 16], ca_size=[2, 4, 8, 16], cb_size=[4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048])
-    workload = generator.generate_workload(num_operations=100)
+    seed, workload = generator.generate_workload(num_operations=100, seed=2047636881)
+    print(f"Workload generated with seed: {seed}")
+
 
     # Create the EVE emulator
     time_budget_s =  2000 * 1e-6  # 1500 * 1e-6  # us
