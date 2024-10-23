@@ -3099,7 +3099,7 @@ class WorkloadGenerator:
         self.ca_size = ca_size
         self.cb_size = cb_size
 
-    def generate_workload(self, num_operations):
+    def generate_workload(self, num_operations, seed=None):
         """
         Generates a workload of random matmul operations.
 
@@ -3112,6 +3112,10 @@ class WorkloadGenerator:
         Example:
             workload = generator.generate_workload(num_operations=100)
         """
+        if seed is None:
+            seed = random.randint(0, 2**32 - 1)  # Generate a random seed if none is provided
+        random.seed(seed)  # Set the seed for reproducibility
+
         workload = []
         for _ in range(num_operations):
             row_a = random.choice(self.ra_size)
@@ -3122,7 +3126,7 @@ class WorkloadGenerator:
                 'col_a': col_a,
                 'col_b': col_b
             })
-        return workload
+        return seed, workload   
 class EVE:
     """
     Emulator for evaluating energy consumption and execution time of a workload
@@ -3283,7 +3287,7 @@ class EVE:
                     'Total Energy (mJ)': None,
                     'Total Time (ms)': None,
                     'Average Energy per Operation (mJ)': None,
-                    'Average Time per Operation (s)': None,
+                    'Average Time per Operation (ms)': None,
                     'Average Power Consumption (mW)': None
                 })
         df = pd.DataFrame(results_list)
@@ -4171,36 +4175,36 @@ if __name__ == '__main__':
 
     # Generate the workload using the WorkloadGenerator class
     generator = WorkloadGenerator(ra_size=[2, 4, 8, 16], ca_size=[2, 4, 8, 16], cb_size=[4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048])
-    seed, workload = generator.generate_workload(num_operations=100, seed=2047636881)
+    seed, workload = generator.generate_workload(num_operations=100, seed=None)
     print(f"Workload generated with seed: {seed}")
 
 
     # Create the EVE emulator
-    time_budget_s =  1500 * 1e-6  # 1500 * 1e-6  # us
+    time_budget_s =  2000 * 1e-6  # 1500 * 1e-6  # us
     eve = EVE(models=models, workload=workload, time_budget_s=time_budget_s)
 
     # Instantiate the policy
-    optimized_energy_policy = GreedyEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9])
-    eve.run(policy=optimized_energy_policy)
+    # optimized_energy_policy = GreedyEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9])
+    # eve.run(policy=optimized_energy_policy)
 
     optimal_energy_policy = OptimalMCKPEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra', 'cpu'], voltages=[0.5, 0.65, 0.8, 0.9])
     eve.run(policy=optimal_energy_policy)
 
-    max_performance_policy = MaxPerformancePolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.9, 0.8, 0.65, 0.5])  # Highest to lowest voltage
-    eve.run(policy=max_performance_policy)
+    # max_performance_policy = MaxPerformancePolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.9, 0.8, 0.65, 0.5])  # Highest to lowest voltage
+    # eve.run(policy=max_performance_policy)
 
-    for voltage in [0.5, 0.65, 0.8, 0.9]:
-        optimal_fixed_voltage_policy = OptimalFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltage=voltage)
-        eve.run(policy=optimal_fixed_voltage_policy)
+    # for voltage in [0.5, 0.65, 0.8, 0.9]:
+    #     optimal_fixed_voltage_policy = OptimalFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltage=voltage)
+    #     eve.run(policy=optimal_fixed_voltage_policy)
 
-    for voltage in [0.5, 0.65, 0.8, 0.9]:
-        per_op_fixed_voltage_policy = PerOperationFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltage=voltage)
-        eve.run(policy=per_op_fixed_voltage_policy)
+    # for voltage in [0.5, 0.65, 0.8, 0.9]:
+    #     per_op_fixed_voltage_policy = PerOperationFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltage=voltage)
+    #     eve.run(policy=per_op_fixed_voltage_policy)
 
-    for voltage in [0.5, 0.65, 0.8, 0.9]:
-        for PE in ['carus', 'caesar', 'cgra']:
-            fixed_pe_policy = FixedPEPolicy(models=models, PE=PE, voltage=voltage)
-            eve.run(policy=fixed_pe_policy)
+    # for voltage in [0.5, 0.65, 0.8, 0.9]:
+    #     for PE in ['carus', 'caesar', 'cgra']:
+    #         fixed_pe_policy = FixedPEPolicy(models=models, PE=PE, voltage=voltage)
+    #         eve.run(policy=fixed_pe_policy)
     
     # multi_pe_splitting_policy = MultiPESplittingPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9])
     # eve.run(policy=multi_pe_splitting_policy)
