@@ -4779,7 +4779,7 @@ if __name__ == '__main__':
     print(result_basic_df)
 
     results_full = eve.get_results()
-    print(results_full['OptimalMCKPEnergyPolicy']['energy_mJ'])
+    print(results_full['OptimalMCKPEnergyPolicy']['total_energy_mJ'])
 
     
 
