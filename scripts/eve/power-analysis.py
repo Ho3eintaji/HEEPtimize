@@ -49,7 +49,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpBinary, PULP_CBC_CMD, LpStatus
 import itertools
 
-
+from pulp import LpStatusOptimal, value
 
 class MatmulSimulationData:
     """
@@ -1786,6 +1786,8 @@ class MatmulPowerModel:
         # Total Energy
         total_power_mW = adjusted_dyn_power_mW + predicted_static_power_mW
         total_energy_nJ = total_power_mW * adjusted_time_ns * 1e-3
+        total_dyn_energy_nJ = adjusted_dyn_power_mW * adjusted_time_ns * 1e-3
+        total_static_energy_nJ = predicted_static_power_mW * adjusted_time_ns * 1e-3
 
         result = {
             'PE': PE,
@@ -1798,7 +1800,9 @@ class MatmulPowerModel:
             'dyn_power_mW': adjusted_dyn_power_mW,
             'static_power_mW': predicted_static_power_mW,
             'total_power_mW': total_power_mW,
-            'total_energy_nJ': total_energy_nJ
+            'total_energy_nJ': total_energy_nJ,
+            'total_dyn_energy_nJ': total_dyn_energy_nJ,
+            'total_static_energy_nJ': total_static_energy_nJ
         }
 
         return result
@@ -2760,6 +2764,8 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
         total_static_power_mW = sum(domain_static_powers.values())
         total_power_mW = total_dyn_power_mW + total_static_power_mW
         total_energy_nJ = total_power_mW * adjusted_time_ns * 1e-3
+        total_dyn_energy_nJ = total_dyn_power_mW * adjusted_time_ns * 1e-3
+        total_static_energy_nJ = total_static_power_mW * adjusted_time_ns * 1e-3
 
         result = {
             'PE': PE,
@@ -2775,7 +2781,9 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
             'domain_dyn_powers_mW': domain_dyn_powers,
             'domain_static_powers_mW': domain_static_powers,
             'domain_total_energy_nJ': domain_total_energy_nJ,
-            'total_energy_nJ': total_energy_nJ
+            'total_energy_nJ': total_energy_nJ,
+            'total_dyn_energy_nJ': total_dyn_energy_nJ,
+            'total_static_energy_nJ': total_static_energy_nJ
         }
 
         return result
@@ -2889,6 +2897,8 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
         shared_domains = ['pow_sys', 'pow_cpu', 'pow_mem']
 
         total_energy_nJ = 0.0
+        total_dyn_energy_nJ = 0.0
+        total_static_energy_nJ = 0.0
         detailed_energy = {
             'pe_specific': {},
             'shared': {}
@@ -2928,6 +2938,8 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
 
             # Sum PE-specific energies into total_energy_nJ
             total_energy_nJ += pe_dyn_energy_nJ + pe_static_energy_nJ
+            total_dyn_energy_nJ += pe_dyn_energy_nJ
+            total_static_energy_nJ += pe_static_energy_nJ
 
         # Calculate shared domain energies considering only the included PEs
         for domain in shared_domains:
@@ -2949,6 +2961,8 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
 
             # Sum shared domain energies into total_energy_nJ
             total_energy_nJ += dyn_energy_nJ + static_energy_nJ
+            total_dyn_energy_nJ += dyn_energy_nJ
+            total_static_energy_nJ += static_energy_nJ
 
             # Store detailed energies per domain
             detailed_energy['shared'][domain] = {
@@ -2964,6 +2978,8 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
         result = {
             'PE': PEs,
             'total_energy_nJ': total_energy_nJ,
+            'total_dyn_energy_nJ': total_dyn_energy_nJ,
+            'total_static_energy_nJ': total_static_energy_nJ,
             'execution_time_ns': max_execution_time_ns,
             'total_power_mW': total_energy_nJ / max_execution_time_ns * 1e3,
             'all_execution_times_ns': {PE: pe_data['execution_time_ns'] for PE, pe_data in per_pe_results.items()},
@@ -3260,7 +3276,7 @@ class EVE:
         for policy in policies:
             self.run(policy)
 
-    def get_results_dataframe(self):
+    def get_results_basic(self):
         """
         Returns the results as a pandas DataFrame for easy comparison.
 
@@ -3268,7 +3284,7 @@ class EVE:
             pandas.DataFrame: DataFrame containing results of all policies.
 
         Example:
-            df = eve.get_results_dataframe()
+            df = eve.get_results_basic()
         """
         results_list = []
         for policy_name, result in self.results.items():
@@ -3292,6 +3308,11 @@ class EVE:
                 })
         df = pd.DataFrame(results_list)
         return df
+
+    # now lets write a function that will return the results in a more detailed way
+    def get_results(self):
+        return self.results
+        
 class Policy:
     def __init__(self, name):
         self.name = name
@@ -3527,7 +3548,7 @@ class FixedPEPolicy(Policy):
             if total_time > time_budget_s:
                 print("Unable to meet time budget with FixedPEPolicy.")
                 return None
-            # energy_mJ = prediction['total_power_mW'] * execution_time_s
+            
             total_energy_nJ = prediction['total_energy_nJ']
             average_power_mW = prediction['total_power_mW']
             selection = {
@@ -4135,6 +4156,516 @@ class MultiPESplittingPolicy(Policy):
 
         return configs
 
+class MultiPEWeightedSplittingPolicy(Policy):
+    """
+    Policy that splits each matrix multiplication operation across multiple PEs
+    to minimize energy consumption while respecting the time budget.
+    """
+
+    def __init__(self, models, available_PEs, voltages):
+        """
+        Initializes the MultiPESplittingPolicy.
+
+        Args:
+            models (MatmulPowerModelMultiPE): The power and performance models.
+            available_PEs (list): List of available Processing Elements (PEs).
+            voltages (list): List of voltages to consider.
+
+        Example:
+            multi_pe_splitting_policy = MultiPESplittingPolicy(
+                models=models,
+                available_PEs=['carus', 'caesar', 'cgra'],
+                voltages=[0.5, 0.65, 0.8, 0.9],
+            )
+        """
+        super().__init__(name="MultiPEWeightedSplittingPolicy")
+        self.models = models
+        self.available_PEs = available_PEs
+        self.voltages = voltages
+
+    def select_configurations(self, workload, time_budget_s):
+        """
+        Selects configurations for each operation to minimize energy consumption
+        while ensuring the total execution time does not exceed the time budget.
+
+        Args:
+            workload (list): List of operations.
+            time_budget_s (float): Total time budget in seconds.
+
+        Returns:
+            list or None: Selected configurations for each operation, or None if time budget cannot be met.
+
+        Example:
+            selections = policy.select_configurations(workload, time_budget_s=1.0)
+        """
+        selections = []
+        total_time_s = 0
+
+        for operation in workload:
+            # Generate possible split configurations for the operation
+            configs = self._generate_split_configs(operation)
+
+            if not configs:
+                selections.append(None)
+                continue
+
+            # Sort configurations by energy consumption (lowest first)
+            configs.sort(key=lambda x: x['total_energy_nJ'])
+            selected_config = configs[0]
+            selections.append(selected_config)
+
+            # Update total time
+            total_time_s += selected_config['execution_time_ns'] * 1e-9
+
+        # # Check if total time exceeds the time budget
+        # if total_time_s > time_budget_s:
+        #     print("Unable to meet time budget with available configurations.")
+        #     return None
+
+        return selections
+
+    def _generate_split_configs(self, operation):
+        configs = []
+        num_cols_b = operation['col_b']
+
+        # Collect efficiency scores for PEs
+        pe_efficiencies = self._get_pe_efficiencies(operation)
+
+        # Normalize efficiency scores to get weights
+        total_efficiency = sum(pe_efficiencies.values())
+        pe_weights = {PE: eff / total_efficiency for PE, eff in pe_efficiencies.items()}
+
+        # Generate splits based on weights
+        assigned_cols_b = {PE: int(pe_weights[PE] * num_cols_b) for PE in self.available_PEs}
+
+        # Adjust for any rounding errors to ensure total columns match
+        total_assigned = sum(assigned_cols_b.values())
+        remainder = num_cols_b - total_assigned
+        for PE in self.available_PEs:
+            if remainder <= 0:
+                break
+            assigned_cols_b[PE] += 1
+            remainder -= 1
+
+        # Create sub-operations based on assigned columns
+        sub_operations = []
+        PEs = []
+        for PE in self.available_PEs:
+            cols_b = assigned_cols_b[PE]
+            if cols_b > 0:
+                sub_op = {
+                    'row_a': operation['row_a'],
+                    'col_a': operation['col_a'],
+                    'col_b': cols_b
+                }
+                sub_operations.append(sub_op)
+                PEs.append(PE)
+
+        # Evaluate configuration
+        for voltage in self.voltages:
+            prediction = self.models.predict_multi_pe(
+                PEs=PEs,
+                operations=sub_operations,
+                voltage=voltage
+            )
+            if prediction is None:
+                continue
+            total_energy_nJ = prediction['total_energy_nJ']
+            execution_time_ns = prediction['execution_time_ns']
+            configs.append({
+                'PEs': PEs,
+                'operations': sub_operations,
+                'voltage': voltage,
+                'frequency_MHz': prediction['all_frequencies_MHz'],
+                'prediction': prediction,
+                'total_energy_nJ': total_energy_nJ,
+                'execution_time_ns': execution_time_ns
+            })
+        return configs
+
+    def _get_pe_efficiencies(self, operation):
+        efficiencies = {}
+        for PE in self.available_PEs:
+            # Use a representative voltage and frequency
+            voltage = self.voltages[-1]  # Highest voltage
+            frequency_MHz = self.models.sim_data.max_frequency.get(voltage, None)
+            if frequency_MHz is None:
+                continue
+            # Predict performance for the full operation
+            prediction = self.models.predict_single_pe(
+                PE=PE,
+                row_a=operation['row_a'],
+                col_a=operation['col_a'],
+                col_b=operation['col_b'],
+                voltage=voltage,
+                frequency_MHz=frequency_MHz
+            )
+            if prediction is None:
+                continue
+            # Compute efficiency (e.g., operations per nJ)
+            total_ops = operation['row_a'] * operation['col_a'] * operation['col_b']
+            energy_nJ = prediction['total_energy_nJ']
+            if energy_nJ > 0:
+                efficiency = total_ops / energy_nJ
+                efficiencies[PE] = efficiency
+        return efficiencies
+
+class OptimalSplittingPolicy(Policy):
+    def __init__(self, models, available_PEs, voltages, time_budget_s):
+        super().__init__(name="OptimalSplittingPolicy")
+        self.models = models
+        self.available_PEs = available_PEs
+        self.voltages = voltages
+        self.time_budget_s = time_budget_s
+
+    def select_configurations(self, workload, time_budget_s):
+        selections = []
+        total_time_s = 0
+
+        for operation in workload:
+            # Solve the ILP for each operation
+            best_config = self._solve_ilp_for_operation(operation)
+            if best_config is None:
+                selections.append(None)
+                continue
+            selections.append(best_config)
+            total_time_s += best_config['max_execution_time_s']
+
+        if total_time_s > time_budget_s:
+            print("Unable to meet time budget with available configurations.")
+            return None
+
+        return selections
+
+    def _solve_ilp_for_operation(self, operation):
+        # Parameters
+        col_b_total = operation['col_b']
+        max_suboperations = min(col_b_total, 10)  # Limit to 10 sub-operations for tractability
+        suboperation_sizes = [i+1 for i in range(col_b_total)]  # Sizes from 1 to col_b_total
+
+        # Generate all possible combinations of sub-operation sizes
+        possible_suboperation_combinations = [combination for combination in itertools.combinations_with_replacement(suboperation_sizes, max_suboperations)
+                                              if sum(combination) == col_b_total]
+
+        best_total_energy_nJ = float('inf')
+        best_solution = None
+
+        for subop_sizes in possible_suboperation_combinations:
+            S = len(subop_sizes)
+            prob = LpProblem("OptimalSplitting", LpMinimize)
+
+            # Variables
+            x = LpVariable.dicts("x", [(p, s) for p in self.available_PEs for s in range(S)], cat=LpBinary)
+            T_p = LpVariable.dicts("T_p", self.available_PEs, lowBound=0)
+            T_max = LpVariable("T_max", lowBound=0)
+
+            # Prepare data structures
+            t_p_s = {}
+            e_dyn_p_s = {}
+            e_static_p_s = {}
+            for p in self.available_PEs:
+                for s in range(S):
+                    # Create sub-operation
+                    sub_op = {
+                        'row_a': operation['row_a'],
+                        'col_a': operation['col_a'],
+                        'col_b': subop_sizes[s]
+                    }
+                    # Use maximum voltage and frequency for simplicity
+                    voltage = max(self.voltages)
+                    max_frequency = self.models.sim_data.max_frequency.get(voltage, None)
+                    if max_frequency is None:
+                        continue
+                    prediction = self.models.predict_single_pe(
+                        PE=p,
+                        row_a=sub_op['row_a'],
+                        col_a=sub_op['col_a'],
+                        col_b=sub_op['col_b'],
+                        voltage=voltage,
+                        frequency_MHz=max_frequency
+                    )
+                    if prediction is None:
+                        t_p_s[(p, s)] = float('inf')
+                        e_dyn_p_s[(p, s)] = float('inf')
+                        e_static_p_s[(p, s)] = float('inf')
+                    else:
+                        t_p_s[(p, s)] = prediction['execution_time_ns'] * 1e-9  # Convert ns to s
+                        e_dyn_p_s[(p, s)] = prediction['total_dyn_energy_nJ']
+                        e_static_p_s[(p, s)] = prediction['total_static_energy_nJ']
+
+            # Objective function
+            E_total = lpSum([x[(p, s)] * (e_dyn_p_s[(p, s)] + e_static_p_s[(p, s)])
+                             for p in self.available_PEs for s in range(S)])
+
+            # Shared energy (using T_max)
+            # For simplicity, assume P_shared is constant (you can refine this)
+            P_shared_mW = self._get_shared_power()
+            E_shared = P_shared_mW * T_max * 1e3  # Convert mW to nJ (mW * s * 1e3)
+
+            prob += E_total + E_shared  # Minimize total energy including shared domains
+
+            # Constraints
+            # Each sub-operation is assigned to exactly one PE
+            for s in range(S):
+                prob += lpSum([x[(p, s)] for p in self.available_PEs]) == 1
+
+            # Execution time per PE
+            for p in self.available_PEs:
+                prob += T_p[p] == lpSum([x[(p, s)] * t_p_s[(p, s)] for s in range(S)])
+
+            # T_max is the maximum of T_p
+            for p in self.available_PEs:
+                prob += T_max >= T_p[p]
+
+            # Time budget constraint (for this operation)
+            prob += T_max <= self.time_budget_s
+
+            # Solve the problem
+            prob.solve()
+
+            if prob.status != LpStatusOptimal:
+                continue  # No optimal solution found for this combination
+
+            # Extract the solution
+            assigned_PEs = []
+            sub_operations = []
+            for s in range(S):
+                for p in self.available_PEs:
+                    if x[(p, s)].varValue == 1:
+                        assigned_PEs.append(p)
+                        sub_op = {
+                            'row_a': operation['row_a'],
+                            'col_a': operation['col_a'],
+                            'col_b': subop_sizes[s]
+                        }
+                        sub_operations.append(sub_op)
+                        break  # Move to next sub-operation
+
+            # Predict energy and time using the multi-PE model
+            prediction = self.models.predict_multi_pe(
+                PEs=assigned_PEs,
+                operations=sub_operations,
+                voltage=voltage  # Assuming same voltage for simplicity
+            )
+            if prediction is None:
+                continue
+
+            total_energy_nJ = prediction['total_energy_nJ']
+            max_execution_time_s = prediction['execution_time_ns'] * 1e-9
+
+            if total_energy_nJ < best_total_energy_nJ:
+                best_total_energy_nJ = total_energy_nJ
+                best_solution = {
+                    'PEs': assigned_PEs,
+                    'operations': sub_operations,
+                    'voltage': voltage,
+                    'frequency_MHz': prediction['all_frequencies_MHz'],
+                    'prediction': prediction,
+                    'total_energy_nJ': total_energy_nJ,
+                    'max_execution_time_s': max_execution_time_s
+                }
+
+        return best_solution
+
+    def _get_shared_power(self):
+        # Return an estimate of shared power consumption (mW)
+        # You can refine this based on your models or data
+        return 100.0  # Example value
+
+class LimitedConfigSplittingPolicy(Policy):
+    """
+    Policy that generates a limited set of configurations for each operation and
+    uses the Multiple-Choice Knapsack Problem (MCKP) formulation with PuLP to
+    select configurations that minimize energy consumption while respecting the time budget.
+
+    Example:
+        limited_config_splitting_policy = LimitedConfigSplittingPolicy(
+            models=models,
+            available_PEs=['carus', 'caesar', 'cgra', 'cpu'],
+            voltages=[0.5, 0.65, 0.8, 0.9],
+            splits=[1.0, 0.5, 0.8],  # 100%, 50/50, 80/20 splits
+            max_splits_per_operation=5
+        )
+        eve.run(policy=limited_config_splitting_policy)
+    """
+
+    def __init__(self, models, available_PEs, voltages, splits, max_splits_per_operation=5):
+        super().__init__(name="LimitedConfigSplittingPolicy")
+        self.models = models
+        self.available_PEs = available_PEs
+        self.voltages = voltages
+        self.splits = splits  # List of split ratios (e.g., [1.0, 0.5, 0.8])
+        self.max_splits_per_operation = max_splits_per_operation
+
+    def select_configurations(self, workload, time_budget_s):
+        """
+        Selects configurations for each operation to minimize energy consumption
+        while ensuring the total execution time does not exceed the time budget.
+
+        Args:
+            workload (list): List of operations.
+            time_budget_s (float): Total time budget in seconds.
+
+        Returns:
+            list or None: Selected configurations for each operation, or None if no feasible solution.
+        """
+        # Generate possible configurations for each operation
+        operation_configs = []
+        for operation in workload:
+            configs = self._generate_configs(operation)
+            if not configs:
+                operation_configs.append([])
+                continue
+            # Sort configurations by energy consumption (lowest first)
+            configs.sort(key=lambda x: x['total_energy_nJ'])
+            # Limit the number of configurations per operation
+            operation_configs.append(configs[:self.max_splits_per_operation])
+
+        # Check if any operation has no configurations
+        for idx, configs in enumerate(operation_configs):
+            if not configs:
+                print(f"No configurations available for operation {idx}.")
+                return None
+
+        # Formulate and solve the MCKP using PuLP
+        selections = self._solve_mckp(operation_configs, time_budget_s)
+
+        return selections
+
+    def _generate_configs(self, operation):
+        """
+        Generates a limited set of configurations for an operation.
+
+        Args:
+            operation (dict): The operation details.
+
+        Returns:
+            list: Configurations with predictions.
+        """
+        configs = []
+        col_b_total = operation['col_b']
+
+        # Generate splits based on provided split ratios
+        for split_ratio in self.splits:
+            # For each possible number of PEs
+            for num_PEs in range(1, len(self.available_PEs) + 1):
+                # Generate combinations of PEs
+                pe_combinations = itertools.combinations(self.available_PEs, num_PEs)
+                for pe_combo in pe_combinations:
+                    # Calculate split sizes based on split ratios
+                    if len(pe_combo) == 1:
+                        # Assign entire operation to one PE
+                        sub_operations = [operation.copy()]
+                        PEs = [pe_combo[0]]
+                    else:
+                        # Calculate split sizes
+                        split_sizes = []
+                        remaining_col_b = col_b_total
+                        for i, PE in enumerate(pe_combo):
+                            if i < len(pe_combo) - 1:
+                                assigned_col_b = int(col_b_total * split_ratio)
+                            else:
+                                assigned_col_b = remaining_col_b
+                            remaining_col_b -= assigned_col_b
+                            sub_op = operation.copy()
+                            sub_op['col_b'] = assigned_col_b
+                            sub_operations.append(sub_op)
+                            PEs.append(PE)
+                    # For each voltage
+                    for voltage in self.voltages:
+                        # Use the maximum frequency for the voltage
+                        max_frequency = self.models.sim_data.max_frequency.get(voltage, None)
+                        if max_frequency is None:
+                            continue
+                        # Predict using predict_multi_pe
+                        prediction = self.models.predict_multi_pe(
+                            PEs=PEs,
+                            operations=sub_operations,
+                            voltage=voltage,
+                            frequency_MHz=max_frequency  # Assuming same frequency for all PEs
+                        )
+                        if prediction is None:
+                            continue
+                        total_energy_nJ = prediction['total_energy_nJ']
+                        execution_time_ns = prediction['execution_time_ns']
+
+                        configs.append({
+                            'PEs': PEs,
+                            'operations': sub_operations,
+                            'voltage': voltage,
+                            'frequency_MHz': prediction['all_frequencies_MHz'],
+                            'total_energy_nJ': total_energy_nJ,
+                            'execution_time_ns': execution_time_ns,
+                            'prediction': prediction
+                        })
+        return configs
+
+    def _solve_mckp(self, operation_configs, time_budget_s):
+        """
+        Solves the Multiple-Choice Knapsack Problem using PuLP.
+
+        Args:
+            operation_configs (list): List of configurations per operation.
+            time_budget_s (float): Total time budget in seconds.
+
+        Returns:
+            list or None: Selected configurations for each operation, or None if no feasible solution.
+        """
+        num_operations = len(operation_configs)
+        prob = LpProblem("LimitedConfigSplittingPolicy_MCKP", LpMinimize)
+
+        # Decision variables
+        x = []
+        for i in range(num_operations):
+            x_i = []
+            for j in range(len(operation_configs[i])):
+                var = LpVariable(f"x_{i}_{j}", cat="Binary")
+                x_i.append(var)
+            x.append(x_i)
+
+        # Objective function: Minimize total energy
+        prob += lpSum([
+            x[i][j] * operation_configs[i][j]['total_energy_nJ']
+            for i in range(num_operations)
+            for j in range(len(operation_configs[i]))
+        ])
+
+        # Constraint: Select exactly one configuration per operation
+        for i in range(num_operations):
+            prob += lpSum(x[i]) == 1
+
+        # Constraint: Total time must be within the time budget
+        total_time = lpSum([
+            x[i][j] * (operation_configs[i][j]['execution_time_ns'] * 1e-9)
+            for i in range(num_operations)
+            for j in range(len(operation_configs[i]))
+        ])
+        prob += total_time <= time_budget_s
+
+        # Solve the problem
+        solver = PULP_CBC_CMD(msg=False)
+        result_status = prob.solve(solver)
+
+        if LpStatus[result_status] != 'Optimal':
+            print("No feasible solution found within the time budget.")
+            return None
+
+        # Extract the selected configurations
+        selections = []
+        for i in range(num_operations):
+            selected_j = None
+            for j in range(len(operation_configs[i])):
+                if x[i][j].varValue == 1:
+                    selected_j = j
+                    break
+            if selected_j is None:
+                print(f"No configuration selected for operation {i}.")
+                return None
+            selections.append(operation_configs[i][selected_j])
+
+        return selections
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Matmul Simulation Data Analysis')
     parser.add_argument('--data_dir', type=str, default='private/matmul_postsynth_sims_onlykernelnmc', help='Directory of simulation data')
@@ -4181,45 +4712,75 @@ if __name__ == '__main__':
     )
 
 
-    # Generate the workload using the WorkloadGenerator class
+    ######### Application Scenario #########
     generator = WorkloadGenerator(ra_size=[2, 4, 8, 16], ca_size=[2, 4, 8, 16], cb_size=[4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048])
     seed, workload = generator.generate_workload(num_operations=100, seed=None)
     print(f"Workload generated with seed: {seed}")
 
-
     # Create the EVE emulator
     time_budget_s =  2000 * 1e-6  # 1500 * 1e-6  # us
-    eve = EVE(models=models, workload=workload, time_budget_s=time_budget_s)
 
-    # Instantiate the policy
-    # optimized_energy_policy = GreedyEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9])
-    # eve.run(policy=optimized_energy_policy)
+    ######### POLICIES #########
+    policies = []
 
+    # GreedyEnergyPolicy
+    optimized_energy_policy = GreedyEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9])
+    policies.append(optimized_energy_policy)
+
+    # OptimalMCKPEnergyPolicy
     optimal_energy_policy = OptimalMCKPEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra', 'cpu'], voltages=[0.5, 0.65, 0.8, 0.9])
-    eve.run(policy=optimal_energy_policy)
+    policies.append(optimal_energy_policy)
 
-    max_performance_policy = MaxPerformancePolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.9, 0.8, 0.65, 0.5])  # Highest to lowest voltage
-    eve.run(policy=max_performance_policy)
+    # MaxPerformancePolicy
+    max_performance_policy = MaxPerformancePolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.9, 0.8, 0.65, 0.5])
+    policies.append(max_performance_policy)
 
-    # for voltage in [0.5, 0.65, 0.8, 0.9]:
-    #     optimal_fixed_voltage_policy = OptimalFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltage=voltage)
-    #     eve.run(policy=optimal_fixed_voltage_policy)
+    # OptimalFixedVoltageEnergyPolicy for each voltage
+    for voltage in [0.5, 0.65, 0.8, 0.9]:
+        policy = OptimalFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltage=voltage)
+        policy.name = f"OptimalFixedVoltageEnergyPolicy_{voltage}V"
+        policies.append(policy)
 
-    # for voltage in [0.5, 0.65, 0.8, 0.9]:
-    #     per_op_fixed_voltage_policy = PerOperationFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltage=voltage)
-    #     eve.run(policy=per_op_fixed_voltage_policy)
+    # PerOperationFixedVoltageEnergyPolicy for each voltage
+    for voltage in [0.5, 0.65, 0.8, 0.9]:
+        policy = PerOperationFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltage=voltage)
+        policy.name = f"PerOpFixedVoltageEnergyPolicy_{voltage}V"
+        policies.append(policy)
 
-    # for voltage in [0.5, 0.65, 0.8, 0.9]:
-    #     for PE in ['carus', 'caesar', 'cgra']:
-    #         fixed_pe_policy = FixedPEPolicy(models=models, PE=PE, voltage=voltage)
-    #         eve.run(policy=fixed_pe_policy)
+    # FixedPEPolicy for each PE and voltage
+    for voltage in [0.5, 0.65, 0.8, 0.9]:
+        for PE in ['carus', 'caesar', 'cgra']:
+            policy = FixedPEPolicy(models=models, PE=PE, voltage=voltage)
+            policy.name = f"FixedPEPolicy_{PE}_{voltage}V"
+            policies.append(policy)
+
+    # MultiPESplittingPolicy
+    # multi_pe_splitting_policy = MultiPESplittingPolicy(models=models, available_PEs=['carus', 'cgra', 'caesar'], voltages=[0.5, 0.65, 0.8, 0.9])
+    # policies.append(multi_pe_splitting_policy)
+
+    # # MultiPEWeightedSplittingPolicy
+    # multi_pe_weighted_splitting_policy = MultiPEWeightedSplittingPolicy(models=models, available_PEs=['carus', 'cgra', 'caesar'], voltages=[0.5, 0.65, 0.8, 0.9])
+    # policies.append(multi_pe_weighted_splitting_policy)
+
+    # # OptimalSplittingPolicy
+    # optimal_splitting_policy = OptimalSplittingPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.8, 0.9], time_budget_s=time_budget_s)
+    # policies.append(optimal_splitting_policy)
+
+    # # LimitedConfigSplittingPolicy
+    # limited_config_splitting_policy = LimitedConfigSplittingPolicy(models=models, available_PEs=['carus', 'cgra'], voltages=[0.65, 0.8, 0.9], splits=[1.0, 0.5, 0.8], max_splits_per_operation=3)
+    # policies.append(limited_config_splitting_policy)
+
+    ######### RUN POLICIES #########
+    eve = EVE(models=models, workload=workload, time_budget_s=time_budget_s)
+    eve.run_multiple(policies=policies)
+    policy_results = eve.results
+
+    result_basic_df = eve.get_results_basic()
+    print(result_basic_df)
+
+    results_full = eve.get_results()
+    print(results_full['OptimalMCKPEnergyPolicy']['energy_mJ'])
+
     
-    multi_pe_splitting_policy = MultiPESplittingPolicy(models=models, available_PEs=['carus', 'cgra'], voltages=[0.8, 0.9])
-    eve.run(policy=multi_pe_splitting_policy)
-    
 
-    # Get results as DataFrame
-    results_df = eve.get_results_dataframe()
-    print(results_df)
-    
 
