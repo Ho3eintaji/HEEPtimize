@@ -114,7 +114,9 @@ module heepatia_peripherals #(
   generate
     for (genvar i = 0; unsigned'(i) < CaesarNum; i++) begin : gen_caesar
       nm_caesar_wrapper #(
-        .REQ_PROXY(32'd0)  // imc_i synchronization ensured by software nops
+        .REQ_PROXY(32'd0),  // imc_i synchronization ensured by software nops,
+        .MEM_NUM_WORDS(heepatia_pkg::CaesarNumWords),  // 32kB
+        .MEM_DATA_WIDTH(heepatia_pkg::CaesarDataWidth)  // 32 bits
       ) u_nm_caesar_wrapper (
         .clk_i           (system_clk),
         .rst_ni          (caesar_rst_ni),

@@ -55,6 +55,8 @@ package heepatia_pkg;
   // NM-Caesar
   localparam int unsigned CaesarNum = 32'd${caesar_num};
   localparam int unsigned LogCaesarNum = CaesarNum > 32'd1 ? $clog2(CaesarNum) : 32'd1;
+  localparam int unsigned CaesarNumWords = 32'd${caesar_mem_num_words};
+  localparam int unsigned CaesarDataWidth = 32'd${caesar_mem_data_width};
 % for inst in range(caesar_num):
   localparam int unsigned Caesar${inst}Idx = 32'd${1 + caesar_num + inst};
   localparam logic [31:0] Caesar${inst}StartAddr = EXT_SLAVE_START_ADDRESS + 32'h${caesar_start_address + inst * caesar_size};

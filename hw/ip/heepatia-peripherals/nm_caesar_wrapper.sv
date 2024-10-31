@@ -13,7 +13,9 @@ module nm_caesar_wrapper #(
   // cycles before the first command is issued. Enabling this creates a
   // combinational path between the imc_i input signal and the bus_gnt_o
   // output signal.
-  parameter int unsigned REQ_PROXY = 32'd0  // defined as int for FuseSoC compatibility
+  parameter int unsigned REQ_PROXY = 32'd0,  // defined as int for FuseSoC compatibility,
+  parameter MEM_NUM_WORDS = 32'd4096,  // 32kB
+  parameter MEM_DATA_WIDTH = 32'd32  // 32 bits
 ) (
   // Clock and reset
   input logic clk_i,
@@ -84,7 +86,10 @@ module nm_caesar_wrapper #(
   // ---------
   // NM-CAESAR
   // ---------
-  caesar_top u_caesar_top (
+  caesar_top #(
+    .MEM_NUM_WORDS (MEM_NUM_WORDS),
+    .MEM_DATA_WIDTH(MEM_DATA_WIDTH)
+  ) u_caesar_top (
     .clk_i           (clk_i),
     .rst_ni          (rst_ni),
     .set_retentive_ni(set_retentive_ni),

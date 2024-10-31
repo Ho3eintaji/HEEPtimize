@@ -247,7 +247,7 @@ run-sim:
 	@SIM_NAME=$(SIM_NAME) PROJECT=$(PROJECT) VCD_MODE=$(VCD_MODE) TB_SYSCLK=$(TB_SYSCLK) PWR_ANALYSIS_MODE=$(PWR_ANALYSIS_MODE) \
   	bash ./scripts/sim/create-sim-dir.sh "$(MAKE_DIR_RUN_SIM)"
 
-TB_SYSCLK ?=  1450 ps # ps values: 8200ps, 2880ps, 1730ps, or 1450ps
+TB_SYSCLK ?=  10ns # ps values: 8200ps, 2880ps, 1730ps, or 1450ps
 .PHONY: set-tb-sysclk
 set-tb-sysclk:
 	@if [ -z "$(TB_SYSCLK)" ]; then \

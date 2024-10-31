@@ -182,8 +182,10 @@ def main():
     #Caesar memory
     caesar_start_address = int(cfg['ext_xbar_slaves']['caesar']['offset'], 16)
     caesar_start_address_hex = int2hexstr(caesar_start_address, 32)
-    caesar_size = int(cfg['ext_xbar_slaves']['caesar']['length'], 16)
+    caesar_size = int(cfg['ext_xbar_slaves']['caesar']['length'], 16) # it is in bytes
     caesar_size_hex = int2hexstr(caesar_size, 32)
+    caesar_mem_data_width = 32
+    caesar_mem_num_words = int(caesar_size // (4*2)) # there are two memory banks
 
     # Carus memory
     carus_start_address = int(cfg["ext_xbar_slaves"]["carus"]["offset"], 16)
@@ -243,6 +245,8 @@ def main():
         "caesar_num": caesar_num,
         "caesar_start_address": caesar_start_address_hex,
         "caesar_size": caesar_size_hex,
+        "caesar_mem_data_width": caesar_mem_data_width,
+        "caesar_mem_num_words": caesar_mem_num_words,
 
         "carus_num": carus_num,
         "carus_num_banks": carus_num_banks,
