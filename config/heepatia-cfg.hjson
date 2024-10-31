@@ -36,7 +36,7 @@
         }, 
         caesar: {
             offset:    "0x000010000",
-            length:    "0x00004000",
+            length:    "0x00002000",
             num:       1,
         },
     },
