@@ -16,7 +16,7 @@ module nm_caesar_wrapper #(
   parameter int unsigned REQ_PROXY = 32'd0,  // defined as int for FuseSoC compatibility,
   parameter MEM_NUM_WORDS = 32'd4096,  // 32kB
   parameter MEM_DATA_WIDTH = 32'd32,  // 32 bits
-  localparam int unsigned MEM_ACTUAL_AddrWidth = (MEM_NUM_WORDS > 32'd1) ? unsigned'($clog2(
+  localparam int unsigned MEM_ACTUAL_AddrWidth_FOR_EACH_BANK = (MEM_NUM_WORDS > 32'd1) ? unsigned'($clog2(
       MEM_NUM_WORDS
   )) : 32'd1
 ) (
@@ -57,14 +57,14 @@ module nm_caesar_wrapper #(
   */
   // assign mem_addr = bus_req_i.addr[14:2];  // ignore byte address
   generate
-    if (MEM_ACTUAL_AddrWidth == 13) begin
+    if (MEM_ACTUAL_AddrWidth_FOR_EACH_BANK == 12) begin
       assign mem_addr = bus_req_i.addr[14:2];
       //else if
     end else begin
       assign mem_addr = {
-        bus_req_i.addr[MEM_ACTUAL_AddrWidth+1],
-        {(13 - MEM_ACTUAL_AddrWidth) {1'b0}},
-        bus_req_i.addr[MEM_ACTUAL_AddrWidth:2]
+        bus_req_i.addr[MEM_ACTUAL_AddrWidth_FOR_EACH_BANK+1],
+        {(13 - MEM_ACTUAL_AddrWidth_FOR_EACH_BANK - 1) {1'b0}},
+        bus_req_i.addr[MEM_ACTUAL_AddrWidth_FOR_EACH_BANK:2]
       };
     end
   endgenerate

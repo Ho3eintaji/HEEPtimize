@@ -185,7 +185,7 @@ def main():
     caesar_size = int(cfg['ext_xbar_slaves']['caesar']['length'], 16) # it is in bytes
     caesar_size_hex = int2hexstr(caesar_size, 32)
     caesar_mem_data_width = 32
-    caesar_mem_num_words = int(caesar_size // (4*2)) # there are two memory banks
+    caesar_mem_num_words = int(caesar_size // (4*2)) # this is number of words for each
 
     # Carus memory
     carus_start_address = int(cfg["ext_xbar_slaves"]["carus"]["offset"], 16)
