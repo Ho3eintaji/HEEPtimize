@@ -15,7 +15,10 @@ module nm_caesar_wrapper #(
   // output signal.
   parameter int unsigned REQ_PROXY = 32'd0,  // defined as int for FuseSoC compatibility,
   parameter MEM_NUM_WORDS = 32'd4096,  // 32kB
-  parameter MEM_DATA_WIDTH = 32'd32  // 32 bits
+  parameter MEM_DATA_WIDTH = 32'd32,  // 32 bits
+  localparam int unsigned MEM_ACTUAL_AddrWidth = (MEM_NUM_WORDS > 32'd1) ? unsigned'($clog2(
+      MEM_NUM_WORDS
+  )) : 32'd1
 ) (
   // Clock and reset
   input logic clk_i,
@@ -48,7 +51,23 @@ module nm_caesar_wrapper #(
   // OBI bus to memory bridge
   // ------------------------
   // Address translation
-  assign mem_addr = bus_req_i.addr[14:2];  // ignore byte address
+  /*
+  * Caesar code is hardcoded for 2 of the 16KB SRAMs. which is divived based on MSB of the address. so to support 
+  * different sizes of SRAMs, we need to adjust the address based on the actual size of the SRAM.
+  */
+  // assign mem_addr = bus_req_i.addr[14:2];  // ignore byte address
+  generate
+    if (MEM_ACTUAL_AddrWidth == 13) begin
+      assign mem_addr = bus_req_i.addr[14:2];
+      //else if
+    end else begin
+      assign mem_addr = {
+        bus_req_i.addr[MEM_ACTUAL_AddrWidth+1],
+        {(13 - MEM_ACTUAL_AddrWidth) {1'b0}},
+        bus_req_i.addr[MEM_ACTUAL_AddrWidth:2]
+      };
+    end
+  endgenerate
 
   // rvalid flip-flop
   // NOTE: the rvalid signal is asserted one cycle after a request
