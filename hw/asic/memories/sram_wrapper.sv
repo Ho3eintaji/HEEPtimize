@@ -57,6 +57,86 @@ module sram_wrapper #(
     generate
     case (NumWords)
 
+      128: begin : gen_sram_128_32_512b
+
+        wire [1-1:0] asI;
+        wire [4-1:0] awI;
+        wire [2-1:0] acI;
+        assign {awI[4-1:2], asI, awI[1:0], acI} = addr_i;
+
+        sram128x32m4 mem_bank (
+          .CLK        (clk_i),
+          .CEN        (~req_i),
+          .RDWEN      (~we_i),
+          .DEEPSLEEP  (1'b0),
+          .POWERGATE  (~set_retentive_ni),
+          .AS         (asI),
+          .AW         (awI),
+          .AC         (acI),
+          .D          (wdata_i),
+          .BW         (bit_we),
+          .T_BIST     ('0),
+          .T_LOGIC    ('0),
+          .T_CEN      ('0),
+          .T_RDWEN    ('0),
+          .T_DEEPSLEEP('0),
+          .T_POWERGATE('0),
+          .T_AS       ('0),
+          .T_AW       ('0),
+          .T_AC       ('0),
+          .T_D        ('0),
+          .T_BW       ('0),
+          .T_WBT      ('0),
+          .T_STAB     ('0),
+          .MA_SAWL    ('0),
+          .MA_WL      ('0),
+          .MA_WRAS    ('0),
+          .MA_WRASD   ('0),
+          .Q          (rdata_o),
+          .OBSV_CTL   ()
+        );
+      end
+
+      256: begin : gen_sram_256_32_1kb
+
+        wire [1-1:0] asI;
+        wire [5-1:0] awI;
+        wire [2-1:0] acI;
+        assign {awI[5-1:2], asI, awI[1:0], acI} = addr_i;
+
+        sram256x32m4 mem_bank (
+          .CLK        (clk_i),
+          .CEN        (~req_i),
+          .RDWEN      (~we_i),
+          .DEEPSLEEP  (1'b0),
+          .POWERGATE  (~set_retentive_ni),
+          .AS         (asI),
+          .AW         (awI),
+          .AC         (acI),
+          .D          (wdata_i),
+          .BW         (bit_we),
+          .T_BIST     ('0),
+          .T_LOGIC    ('0),
+          .T_CEN      ('0),
+          .T_RDWEN    ('0),
+          .T_DEEPSLEEP('0),
+          .T_POWERGATE('0),
+          .T_AS       ('0),
+          .T_AW       ('0),
+          .T_AC       ('0),
+          .T_D        ('0),
+          .T_BW       ('0),
+          .T_WBT      ('0),
+          .T_STAB     ('0),
+          .MA_SAWL    ('0),
+          .MA_WL      ('0),
+          .MA_WRAS    ('0),
+          .MA_WRASD   ('0),
+          .Q          (rdata_o),
+          .OBSV_CTL   ()
+        );
+      end
+
       512: begin : gen_sram_512_32_2kb
         // check the generated memory for the size of asI, awI, and acI, and how addr_i is assigned to them
         wire [1-1:0] asI;
@@ -214,7 +294,8 @@ module sram_wrapper #(
         );
       end
 
-      default: begin : gen_sram_8192_32_32kb      
+      8192: begin : gen_sram_8192_32_32kb
+
         wire [3-1:0] asI;
         wire [8-1:0] awI;
         wire [2-1:0] acI;
@@ -252,6 +333,86 @@ module sram_wrapper #(
           .OBSV_CTL   ()
         );
       end
+
+      16384: begin : gen_sram_16384_32_64kb
+
+        wire [3-1:0] asI;
+        wire [8-1:0] awI;
+        wire [3-1:0] acI; 
+        assign {awI[8-1:2], asI, awI[1:0], acI} = addr_i;
+
+        sram8192x32m8 mem_bank (
+          .CLK        (clk_i),
+          .CEN        (~req_i),
+          .RDWEN      (~we_i),
+          .DEEPSLEEP  (1'b0),
+          .POWERGATE  (~set_retentive_ni),
+          .AS         (asI),
+          .AW         (awI),
+          .AC         (acI),
+          .D          (wdata_i),
+          .BW         (bit_we),
+          .T_BIST     ('0),
+          .T_LOGIC    ('0),
+          .T_CEN      ('0),
+          .T_RDWEN    ('0),
+          .T_DEEPSLEEP('0),
+          .T_POWERGATE('0),
+          .T_AS       ('0),
+          .T_AW       ('0),
+          .T_AC       ('0),
+          .T_D        ('0),
+          .T_BW       ('0),
+          .T_WBT      ('0),
+          .T_STAB     ('0),
+          .MA_SAWL    ('0),
+          .MA_WL      ('0),
+          .MA_WRAS    ('0),
+          .MA_WRASD   ('0),
+          .Q          (rdata_o),
+          .OBSV_CTL   ()
+        );
+      end
+
+      default: begin : gen_sram_1024_32_4kb_2
+        wire [1-1:0] asI;
+        wire [7-1:0] awI;
+        wire [2-1:0] acI;
+        assign {awI[7-1:2], asI, awI[1:0], acI} = addr_i;
+
+        sram1024x32m4 mem_bank (
+          .CLK        (clk_i),
+          .CEN        (~req_i),
+          .RDWEN      (~we_i),
+          .DEEPSLEEP  (1'b0),
+          .POWERGATE  (~set_retentive_ni),
+          .AS         (asI),
+          .AW         (awI),
+          .AC         (acI),
+          .D          (wdata_i),
+          .BW         (bit_we),
+          .T_BIST     ('0),
+          .T_LOGIC    ('0),
+          .T_CEN      ('0),
+          .T_RDWEN    ('0),
+          .T_DEEPSLEEP('0),
+          .T_POWERGATE('0),
+          .T_AS       ('0),
+          .T_AW       ('0),
+          .T_AC       ('0),
+          .T_D        ('0),
+          .T_BW       ('0),
+          .T_WBT      ('0),
+          .T_STAB     ('0),
+          .MA_SAWL    ('0),
+          .MA_WL      ('0),
+          .MA_WRAS    ('0),
+          .MA_WRASD   ('0),
+          .Q          (rdata_o),
+          .OBSV_CTL   ()
+        );
+      end      
+        
     endcase
   endgenerate
 
