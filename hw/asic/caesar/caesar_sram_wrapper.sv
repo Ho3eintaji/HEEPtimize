@@ -13,9 +13,9 @@ module caesar_sram_wrapper #(
     parameter int unsigned NUM_WORDS = 32'd1024,  // Number of Words in data array
     parameter int unsigned DATA_WIDTH = 32'd32,  // Data signal width
     // DEPENDENT PARAMETERS, DO NOT OVERWRITE!
-    localparam int unsigned AddrWidth = (NUM_WORDS > 32'd1) ? unsigned'($clog2(NUM_WORDS)) : 32'd1
+    // localparam int unsigned AddrWidth = (NUM_WORDS > 32'd1) ? unsigned'($clog2(NUM_WORDS)) : 32'd1
     // hardcoding the address width for 16KB SRAM which is 12 bits (problem is in caesar it is hardcoded!!)
-    // localparam int unsigned AddrWidth = 12
+    localparam int unsigned AddrWidth = 12
 ) (
     input  logic                 clk_i,
     input  logic                 rst_ni,

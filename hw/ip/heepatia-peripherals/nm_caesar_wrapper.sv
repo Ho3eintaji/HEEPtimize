@@ -62,9 +62,9 @@ module nm_caesar_wrapper #(
       //else if
     end else begin
       assign mem_addr = {
-        bus_req_i.addr[MEM_ACTUAL_AddrWidth_FOR_EACH_BANK+1],
+        bus_req_i.addr[MEM_ACTUAL_AddrWidth_FOR_EACH_BANK+2],
         {(13 - MEM_ACTUAL_AddrWidth_FOR_EACH_BANK - 1) {1'b0}},
-        bus_req_i.addr[MEM_ACTUAL_AddrWidth_FOR_EACH_BANK:2]
+        bus_req_i.addr[MEM_ACTUAL_AddrWidth_FOR_EACH_BANK+1:2]
       };
     end
   endgenerate
