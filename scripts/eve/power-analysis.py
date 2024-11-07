@@ -35,9 +35,10 @@ import argparse
 import glob
 
 from sims_data_models import MatmulSimulationData, MatmulDataAnalysis, MatmulPowerModel, MatmulPowerModelMultiPE
-from RandomWorkLoadGenerator import WorkloadGenerator as random_workload_generator
+from RandomWorkload import WorkloadGenerator as random_workload_generator
 from policies import GreedyEnergyPolicy, FixedPEPolicy, OptimalMCKPEnergyPolicy, MaxPerformancePolicy, OptimalFixedVoltageEnergyPolicy, PerOperationFixedVoltageEnergyPolicy, MultiPESplittingPolicy
 from eve_emulator import EVE
+import TransformerWorkload
 
 
 
@@ -66,7 +67,7 @@ if __name__ == '__main__':
     models = MatmulPowerModelMultiPE(
         sim_data=simulation_data,
         output_dir=output_dir,
-        use_total_ops=False,
+        use_total_ops=True, #TODO: check and change
         degree_time=2,
         degree_dyn_power=2,
         degree_static_power=0,
@@ -88,18 +89,31 @@ if __name__ == '__main__':
 
 
     ######### Application Scenario #########
-    generator = random_workload_generator(ra_size=[2, 4, 8, 16], ca_size=[2, 4, 8, 16], cb_size=[4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048])
-    seed, workload = generator.generate_workload(num_operations=100, seed=None)
-    print(f"Workload generated with seed: {seed}")
+    # RandomWorkloadGenerator = random_workload_generator(ra_size=[2, 4, 8, 16], ca_size=[2, 4, 8, 16], cb_size=[4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048])
+    # seed, workload = RandomWorkloadGenerator.generate_workload(num_operations=100, seed=None)
+    # print(f"Workload generated with seed: {seed}")
+
+    workload_details = TransformerWorkload.calculate_tsd_operations(verbose=False)
+    workload = TransformerWorkload.generate_workload_from_operations(workload_details['operations'])
+    
+    # Optionally, save operations to a file or process further
+    # For example, to save to a JSON file:
+    # import json
+    # with open('tsd_operations.json', 'w') as f:
+    #     json.dump(results['operations'], f, indent=4)
+
+    
+
+
 
     # Create the EVE emulator
-    time_budget_s =  2000 * 1e-6  # 1500 * 1e-6  # us
+    time_budget_s =  1   # 1500 * 1e-6  # us
 
     ######### POLICIES #########
     policies = []
 
     # GreedyEnergyPolicy
-    optimized_energy_policy = GreedyEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9])
+    optimized_energy_policy = GreedyEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra', 'cpu'], voltages=[0.5, 0.65, 0.8, 0.9])
     policies.append(optimized_energy_policy)
 
     # OptimalMCKPEnergyPolicy
@@ -107,24 +121,24 @@ if __name__ == '__main__':
     policies.append(optimal_energy_policy)
 
     # MaxPerformancePolicy
-    max_performance_policy = MaxPerformancePolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.9, 0.8, 0.65, 0.5])
+    max_performance_policy = MaxPerformancePolicy(models=models, available_PEs=['carus', 'caesar', 'cgra', 'cpu'], voltages=[0.9, 0.8, 0.65, 0.5])
     policies.append(max_performance_policy)
 
     # OptimalFixedVoltageEnergyPolicy for each voltage
     for voltage in [0.5, 0.65, 0.8, 0.9]:
-        policy = OptimalFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltage=voltage)
+        policy = OptimalFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra', 'cpu'], voltage=voltage)
         policy.name = f"OptimalFixedVoltageEnergyPolicy_{voltage}V"
         policies.append(policy)
 
     # PerOperationFixedVoltageEnergyPolicy for each voltage
     for voltage in [0.5, 0.65, 0.8, 0.9]:
-        policy = PerOperationFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra'], voltage=voltage)
+        policy = PerOperationFixedVoltageEnergyPolicy(models=models, available_PEs=['carus', 'caesar', 'cgra', 'cpu'], voltage=voltage)
         policy.name = f"PerOpFixedVoltageEnergyPolicy_{voltage}V"
         policies.append(policy)
 
     # FixedPEPolicy for each PE and voltage
     for voltage in [0.5, 0.65, 0.8, 0.9]:
-        for PE in ['carus', 'caesar', 'cgra']:
+        for PE in ['carus', 'caesar', 'cgra', 'cpu']:
             policy = FixedPEPolicy(models=models, PE=PE, voltage=voltage)
             policy.name = f"FixedPEPolicy_{PE}_{voltage}V"
             policies.append(policy)
