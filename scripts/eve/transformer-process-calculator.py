@@ -3,10 +3,34 @@
 import math
 import json
 
+def parse_size_string(size_str, variables):
+    """
+    Parses a size string like '(len_seq x d_m)' into a tuple of integers.
+
+    Args:
+        size_str (str): The size string to parse.
+        variables (dict): A dictionary mapping variable names to their integer values.
+
+    Returns:
+        tuple: A tuple of integers representing the dimensions.
+    """
+    size_str = size_str.strip('()')
+    dims = size_str.split('x')
+    dims = [dim.strip() for dim in dims]
+    parsed_dims = []
+    for dim in dims:
+        try:
+            value = eval(dim, {}, variables)
+            parsed_dims.append(value)
+        except:
+            # Handle cases where the dimension is a number
+            parsed_dims.append(int(dim))
+    return tuple(parsed_dims)
+
 def calculate_tsd_operations(
     T=12,                     # Duration of EEG signal in seconds
     F_sampling=256,           # Sampling frequency in Hz
-    C=10,                     # Number of EEG channels
+    C=20,                     # Number of EEG channels
     S=3,                      # Number of splits
     Num_bands=4,              # Number of frequency bands in STFT
     d_fft=128,                # Dimensionality of STFT output per band
@@ -283,8 +307,72 @@ def calculate_tsd_operations(
     # Return operations and total FLOPs
     return {
         'operations': operations,
-        'total_flops': total_flops
+        'total_flops': total_flops,
+        'variables': {
+            'len_seq': len_seq,
+            'd_m': d_m,
+            'd_fft': d_fft,
+            'd_q': d_q,
+            'd_k': d_k,
+            'd_v': d_v,
+            'd_ff': d_ff,
+            'Num_classes': Num_classes,
+            # Add other variables as needed
+        }
     }
+
+def generate_workload_from_operations(operations, variables):
+    """
+    Generates a workload suitable for the emulator from the list of operations.
+
+    Args:
+        operations (list): List of operation dictionaries.
+        variables (dict): Dictionary of variables used in operations.
+
+    Returns:
+        list: Workload for the emulator.
+    """
+    workload = []
+    for op in operations:
+        if op['operation'] == 'MatMul':
+            # Parse input and weight sizes
+            input_size = op.get('input_size', '')
+            weight_size = op.get('weight_size', '')
+            repeats = op.get('repeats', 1)
+
+            # For MatMul, we need the dimensions of the matrices
+            # Assuming input_size is (M x K) and weight_size is (K x N)
+            # The output will be (M x N)
+            if weight_size:
+                # Use weight_size to get K and N
+                weight_dims = parse_size_string(weight_size, variables)
+                if len(weight_dims) == 2:
+                    K, N = weight_dims
+                else:
+                    continue  # Skip if dimensions are not as expected
+            else:
+                continue  # Skip if weight_size is not provided
+
+            if input_size:
+                input_dims = parse_size_string(input_size, variables)
+                if len(input_dims) == 2:
+                    M, K_input = input_dims
+                    if K_input != K:
+                        # Dimensions do not match, skip this operation
+                        continue
+                else:
+                    continue  # Skip if dimensions are not as expected
+            else:
+                continue  # Skip if input_size is not provided
+
+            # Create the operation dictionary
+            for _ in range(repeats):
+                workload.append({
+                    'row_a': M,
+                    'col_a': K,
+                    'col_b': N
+                })
+    return workload
 
 # Example usage
 if __name__ == "__main__":
@@ -295,3 +383,12 @@ if __name__ == "__main__":
     # import json
     # with open('tsd_operations.json', 'w') as f:
     #     json.dump(results['operations'], f, indent=4)
+
+    operations = results['operations']
+    variables = results['variables']
+    workload = generate_workload_from_operations(operations, variables)
+
+    # print("\n=== Workload for Emulator ===")
+    # for idx, task in enumerate(workload):
+    #     print(f"Task {idx + 1}: {task}")
+
