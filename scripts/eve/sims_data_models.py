@@ -34,7 +34,7 @@ class MatmulSimulationData:
             0.9: 690,  # Corresponds to 1.45ns
         }
 
-    def extract_data(self, root_dir='private/matmul_postsynth_sims'):
+    def extract_data(self, root_dirs=['private/matmul_postsynth_sims']):
         """
         Extracts data from simulation files in the specified root directory.
 
@@ -42,7 +42,7 @@ class MatmulSimulationData:
             root_dir (str): The root directory containing simulation data.
         """
         # Allow specifying root directory
-        self.root_dir = root_dir
+        self.root_dirs = root_dirs
 
         # Define the mapping from PWR_MODE to voltage
         voltage_map = {
@@ -86,139 +86,140 @@ class MatmulSimulationData:
         pow_mem_pattern = re.compile(r'u_core_v_mini_mcu/memory_subsystem_i/ram\d*_i')
 
         # Start processing directories
-        for dir_name in os.listdir(self.root_dir):
-            dir_path = os.path.join(self.root_dir, dir_name)
-            if os.path.isdir(dir_path):
-                # Parse the directory name
-                pattern = r'ra(\d+)_ca(\d+)_cb(\d+)_(\w+)_(tt_\d+p\d+_25)'
-                match = re.match(pattern, dir_name)
-                if match:
-                    row_a = int(match.group(1))
-                    col_a = int(match.group(2))
-                    col_b = int(match.group(3))
-                    PE = match.group(4)
-                    PWR_MODE = match.group(5)
-                    voltage = voltage_map.get(PWR_MODE, None)
-                    if voltage is None:
-                        print(f"Unknown PWR_MODE {PWR_MODE} in {dir_name}")
-                        continue
+        for root_dir in root_dirs:
+            for dir_name in os.listdir(root_dir):
+                dir_path = os.path.join(root_dir, dir_name)
+                if os.path.isdir(dir_path):
+                    # Parse the directory name
+                    pattern = r'ra(\d+)_ca(\d+)_cb(\d+)_(\w+)_(tt_\d+p\d+_25)'
+                    match = re.match(pattern, dir_name)
+                    if match:
+                        row_a = int(match.group(1))
+                        col_a = int(match.group(2))
+                        col_b = int(match.group(3))
+                        PE = match.group(4)
+                        PWR_MODE = match.group(5)
+                        voltage = voltage_map.get(PWR_MODE, None)
+                        if voltage is None:
+                            print(f"Unknown PWR_MODE {PWR_MODE} in {dir_name}")
+                            continue
 
-                    # Initialize data dictionary
-                    data = {
-                        'operation': 'matmul',
-                        'row_a': row_a,
-                        'col_a': col_a,
-                        'col_b': col_b,
-                        'PE': PE,
-                        'voltage': voltage,
-                    }
+                        # Initialize data dictionary
+                        data = {
+                            'operation': 'matmul',
+                            'row_a': row_a,
+                            'col_a': col_a,
+                            'col_b': col_b,
+                            'PE': PE,
+                            'voltage': voltage,
+                        }
 
-                    # Read clk_ns.txt
-                    clk_ns_file = os.path.join(dir_path, 'clk_ns.txt')
-                    if os.path.isfile(clk_ns_file):
-                        with open(clk_ns_file, 'r') as f:
-                            clk_ns_str = f.read().strip()
-                            try:
-                                clk_ns = float(clk_ns_str)
-                                data['clock_period_ns'] = clk_ns
-                                data['clock_frequency_MHz'] = 1e3 / clk_ns  # MHz
-                            except ValueError:
-                                print(f"Invalid clock period in {clk_ns_file}")
-                                continue
-                    else:
-                        print(f"clk_ns.txt not found in {dir_path}")
-                        continue
-
-                    # Read time-?.txt
-                    time_file = None
-                    for filename in os.listdir(dir_path):
-                        if filename.startswith('time-') and filename.endswith('.txt'):
-                            time_file = os.path.join(dir_path, filename)
-                            break
-                    if time_file:
-                        with open(time_file, 'r') as f:
-                            time_ns_str = f.read().strip()
-                            try:
-                                execution_time_ns = float(time_ns_str)
-                                data['execution_time_ns'] = execution_time_ns
-                            except ValueError:
-                                print(f"Invalid execution time in {time_file}")
-                                continue
-                    else:
-                        print(f"time-?.txt not found in {dir_path}")
-                        continue
-
-                    # Read power.csv
-                    power_csv_file = os.path.join(dir_path, 'power.csv')
-                    if os.path.isfile(power_csv_file):
-                        # Initialize power accumulators (in mW)
-                        data['pow_sys_dyn'] = 0.0
-                        data['pow_sys_static'] = 0.0
-                        data['pow_cpu_dyn'] = 0.0
-                        data['pow_cpu_static'] = 0.0
-                        data['pow_mem_dyn'] = 0.0
-                        data['pow_mem_static'] = 0.0
-                        data['pow_carus_dyn'] = 0.0
-                        data['pow_carus_static'] = 0.0
-                        data['pow_cgra_dyn'] = 0.0
-                        data['pow_cgra_static'] = 0.0
-                        data['pow_caesar_dyn'] = 0.0
-                        data['pow_caesar_static'] = 0.0
-
-                        # Open and read the CSV file
-                        with open(power_csv_file, 'r') as csvfile:
-                            reader = csv.DictReader(csvfile)
-                            for row in reader:
-                                CELL = row['CELL'].strip()
+                        # Read clk_ns.txt
+                        clk_ns_file = os.path.join(dir_path, 'clk_ns.txt')
+                        if os.path.isfile(clk_ns_file):
+                            with open(clk_ns_file, 'r') as f:
+                                clk_ns_str = f.read().strip()
                                 try:
-                                    INTERNAL_POWER = float(row['INTERNAL_POWER'])
-                                    SWITCHING_POWER = float(row['SWITCHING_POWER'])
-                                    LEAKAGE_POWER = float(row['LEAKAGE_POWER'])
+                                    clk_ns = float(clk_ns_str)
+                                    data['clock_period_ns'] = clk_ns
+                                    data['clock_frequency_MHz'] = 1e3 / clk_ns  # MHz
                                 except ValueError:
-                                    # Skip rows with invalid data
+                                    print(f"Invalid clock period in {clk_ns_file}")
                                     continue
-                                # Convert power to mW
-                                dynamic_power = (INTERNAL_POWER + SWITCHING_POWER) * 1e3
-                                static_power = LEAKAGE_POWER * 1e3
+                        else:
+                            print(f"clk_ns.txt not found in {dir_path}")
+                            continue
 
-                                # Check if CELL belongs to pow_sys
-                                if CELL in pow_sys_cells:
-                                    data['pow_sys_dyn'] += dynamic_power
-                                    data['pow_sys_static'] += static_power
+                        # Read time-?.txt
+                        time_file = None
+                        for filename in os.listdir(dir_path):
+                            if filename.startswith('time-') and filename.endswith('.txt'):
+                                time_file = os.path.join(dir_path, filename)
+                                break
+                        if time_file:
+                            with open(time_file, 'r') as f:
+                                time_ns_str = f.read().strip()
+                                try:
+                                    execution_time_ns = float(time_ns_str)
+                                    data['execution_time_ns'] = execution_time_ns
+                                except ValueError:
+                                    print(f"Invalid execution time in {time_file}")
+                                    continue
+                        else:
+                            print(f"time-?.txt not found in {dir_path}")
+                            continue
 
-                                # Check if CELL matches pow_mem pattern
-                                if pow_mem_pattern.match(CELL):
-                                    data['pow_mem_dyn'] += dynamic_power
-                                    data['pow_mem_static'] += static_power
+                        # Read power.csv
+                        power_csv_file = os.path.join(dir_path, 'power.csv')
+                        if os.path.isfile(power_csv_file):
+                            # Initialize power accumulators (in mW)
+                            data['pow_sys_dyn'] = 0.0
+                            data['pow_sys_static'] = 0.0
+                            data['pow_cpu_dyn'] = 0.0
+                            data['pow_cpu_static'] = 0.0
+                            data['pow_mem_dyn'] = 0.0
+                            data['pow_mem_static'] = 0.0
+                            data['pow_carus_dyn'] = 0.0
+                            data['pow_carus_static'] = 0.0
+                            data['pow_cgra_dyn'] = 0.0
+                            data['pow_cgra_static'] = 0.0
+                            data['pow_caesar_dyn'] = 0.0
+                            data['pow_caesar_static'] = 0.0
 
-                                # Check if CELL belongs to pow_cpu
-                                if CELL in pow_cpu_cells:
-                                    data['pow_cpu_dyn'] += dynamic_power
-                                    data['pow_cpu_static'] += static_power
+                            # Open and read the CSV file
+                            with open(power_csv_file, 'r') as csvfile:
+                                reader = csv.DictReader(csvfile)
+                                for row in reader:
+                                    CELL = row['CELL'].strip()
+                                    try:
+                                        INTERNAL_POWER = float(row['INTERNAL_POWER'])
+                                        SWITCHING_POWER = float(row['SWITCHING_POWER'])
+                                        LEAKAGE_POWER = float(row['LEAKAGE_POWER'])
+                                    except ValueError:
+                                        # Skip rows with invalid data
+                                        continue
+                                    # Convert power to mW
+                                    dynamic_power = (INTERNAL_POWER + SWITCHING_POWER) * 1e3
+                                    static_power = LEAKAGE_POWER * 1e3
 
-                                # Check if CELL belongs to pow_carus
-                                if CELL in pow_carus_cells:
-                                    data['pow_carus_dyn'] += dynamic_power
-                                    data['pow_carus_static'] += static_power
+                                    # Check if CELL belongs to pow_sys
+                                    if CELL in pow_sys_cells:
+                                        data['pow_sys_dyn'] += dynamic_power
+                                        data['pow_sys_static'] += static_power
 
-                                # Check if CELL belongs to pow_cgra
-                                if CELL in pow_cgra_cells:
-                                    data['pow_cgra_dyn'] += dynamic_power
-                                    data['pow_cgra_static'] += static_power
+                                    # Check if CELL matches pow_mem pattern
+                                    if pow_mem_pattern.match(CELL):
+                                        data['pow_mem_dyn'] += dynamic_power
+                                        data['pow_mem_static'] += static_power
 
-                                # Check if CELL belongs to pow_caesar
-                                if CELL in pow_caesar_cells:
-                                    data['pow_caesar_dyn'] += dynamic_power
-                                    data['pow_caesar_static'] += static_power
+                                    # Check if CELL belongs to pow_cpu
+                                    if CELL in pow_cpu_cells:
+                                        data['pow_cpu_dyn'] += dynamic_power
+                                        data['pow_cpu_static'] += static_power
 
-                        # Append the data to the list
-                        self.data_list.append(data)
+                                    # Check if CELL belongs to pow_carus
+                                    if CELL in pow_carus_cells:
+                                        data['pow_carus_dyn'] += dynamic_power
+                                        data['pow_carus_static'] += static_power
+
+                                    # Check if CELL belongs to pow_cgra
+                                    if CELL in pow_cgra_cells:
+                                        data['pow_cgra_dyn'] += dynamic_power
+                                        data['pow_cgra_static'] += static_power
+
+                                    # Check if CELL belongs to pow_caesar
+                                    if CELL in pow_caesar_cells:
+                                        data['pow_caesar_dyn'] += dynamic_power
+                                        data['pow_caesar_static'] += static_power
+
+                            # Append the data to the list
+                            self.data_list.append(data)
+                        else:
+                            print(f"power.csv not found in {dir_path}")
+                            continue
                     else:
-                        print(f"power.csv not found in {dir_path}")
+                        print(f"Directory name {dir_name} does not match expected pattern")
                         continue
-                else:
-                    print(f"Directory name {dir_name} does not match expected pattern")
-                    continue
 
     def save_data(self, filename='simulation_data.pkl'):
         """
@@ -415,6 +416,7 @@ class MatmulSimulationData:
             print(f"{power_label}: {result['power_mW']} mW")
         else:
             print("No data to report.")
+
 class MatmulDataAnalysis:
     """
     A class for analyzing and plotting matrix multiplication simulation data.
@@ -3058,3 +3060,191 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
                 #     print(f"    Mean Squared Error: {mse_static:.4f}")
 
                 print()
+    
+    def visualize_prediction_single_pe(self, PE, voltage, frequency_MHz, sweep_param, sweep_range, fixed_params):
+        """
+        Visualizes the power and timing predictions for a single PE while varying a specified parameter.
+
+        Args:
+            PE (str): The processing element.
+            voltage (float): Voltage level.
+            frequency_MHz (float): Frequency in MHz.
+            sweep_param (str): The parameter to sweep over (e.g., 'row_a', 'col_a', 'col_b').
+            sweep_range (tuple or list): Range to sweep over (tuple for (start, stop, step) or a list of values).
+            fixed_params (dict): Dictionary of fixed parameters (e.g., {'col_a': 8, 'col_b': 8}).
+
+        Example:
+            models.visualize_prediction_single_pe(
+                PE='cgra',
+                voltage=0.8,
+                frequency_MHz=100,
+                sweep_param='row_a',          # Sweep over 'row_a'
+                sweep_range=(8, 2048, 8),       # Sweep 'row_a' from 8 to 64 with step 8
+                fixed_params={'col_a': 16, 'col_b': 16}  # Keep 'col_a' and 'col_b' fixed
+            )
+        """
+        # Determine the values to sweep
+        if isinstance(sweep_range, tuple) and len(sweep_range) == 3:
+            sweep_values = range(*sweep_range)
+        elif isinstance(sweep_range, list):
+            sweep_values = sweep_range
+        else:
+            raise ValueError(f"sweep_range must be either a tuple (start, stop, step) or a list of values.")
+
+        exec_times = []
+        total_powers = []
+        dyn_powers = []
+        static_powers = []
+
+        # Predict for each value in the sweep range
+        for value in sweep_values:
+            params = fixed_params.copy()
+            params[sweep_param] = value
+
+            row_a = params.get('row_a', 8)
+            col_a = params.get('col_a', 8)
+            col_b = params.get('col_b', 8)
+
+            prediction = self.predict_single_pe(
+                PE=PE,
+                row_a=row_a,
+                col_a=col_a,
+                col_b=col_b,
+                voltage=voltage,
+                frequency_MHz=frequency_MHz
+            )
+            if prediction:
+                exec_times.append(prediction['execution_time_ns'])
+                total_powers.append(prediction['total_power_mW'])
+                dyn_powers.append(prediction['dyn_power_mW'])
+                static_powers.append(prediction['static_power_mW'])
+        
+        # Plotting the results
+        plt.figure(figsize=(14, 8))
+
+        # Plot Execution Time
+        plt.subplot(2, 1, 1)
+        plt.plot(sweep_values, exec_times, marker='o', label='Execution Time (ns)')
+        plt.xlabel(sweep_param)
+        plt.ylabel('Execution Time (ns)')
+        plt.title(f'Execution Time for PE: {PE}, Voltage: {voltage}V, Frequency: {frequency_MHz}MHz')
+        plt.grid(True)
+        plt.legend()
+
+        # Plot Power Consumption
+        plt.subplot(2, 1, 2)
+        plt.plot(sweep_values, total_powers, marker='o', label='Total Power (mW)', color='b')
+        plt.plot(sweep_values, dyn_powers, marker='o', label='Dynamic Power (mW)', color='g')
+        plt.plot(sweep_values, static_powers, marker='o', label='Static Power (mW)', color='r')
+        plt.xlabel(sweep_param)
+        plt.ylabel('Power (mW)')
+        plt.title(f'Power Consumption for PE: {PE}, Voltage: {voltage}V, Frequency: {frequency_MHz}MHz')
+        plt.grid(True)
+        plt.legend()
+
+        plt.tight_layout()
+        # plt.show()
+        filename = f'{self.output_dir}/prediction_{PE}_{voltage}V_{frequency_MHz}MHz.png'
+        plt.savefig(filename)
+
+    def visualize_comparison_multiple_pes(self, PEs, voltage, frequency_MHz, sweep_param, sweep_range, fixed_params):
+        """
+        Visualizes and compares power and timing predictions for multiple PEs while varying a specified parameter.
+
+        Args:
+            PEs (list): List of processing elements.
+            voltage (float): Voltage level.
+            frequency_MHz (float): Frequency in MHz.
+            sweep_param (str): The parameter to sweep over (e.g., 'row_a', 'col_a', 'col_b').
+            sweep_range (tuple or list): Range to sweep over (tuple for (start, stop, step) or a list of values).
+            fixed_params (dict): Dictionary of fixed parameters (e.g., {'col_a': 8, 'col_b': 8}).
+
+        Example:
+        
+        models.visualize_comparison_multiple_pes(
+            PEs=['cgra', 'carus', 'caesar'],
+            voltage=0.8,
+            frequency_MHz=100,
+            sweep_param='col_b',          
+            sweep_range= (8,256,8),      #[8, 16, 32, 64],  
+            fixed_params={'row_a': 8, 'col_a': 8}  
+        )
+        """
+        # Determine the values to sweep
+        if isinstance(sweep_range, tuple) and len(sweep_range) == 3:
+            sweep_values = range(*sweep_range)
+        elif isinstance(sweep_range, list):
+            sweep_values = sweep_range
+        else:
+            raise ValueError(f"sweep_range must be either a tuple (start, stop, step) or a list of values.")
+
+        plt.figure(figsize=(14, 10))
+
+        # Plot Execution Time for Each PE
+        plt.subplot(2, 1, 1)
+        for PE in PEs:
+            exec_times = []
+
+            for value in sweep_values:
+                params = fixed_params.copy()
+                params[sweep_param] = value
+
+                row_a = params.get('row_a', 8)
+                col_a = params.get('col_a', 8)
+                col_b = params.get('col_b', 8)
+
+                prediction = self.predict_single_pe(
+                    PE=PE,
+                    row_a=row_a,
+                    col_a=col_a,
+                    col_b=col_b,
+                    voltage=voltage,
+                    frequency_MHz=frequency_MHz
+                )
+                if prediction:
+                    exec_times.append(prediction['execution_time_ns'])
+
+            plt.plot(sweep_values, exec_times, marker='o', label=f'Execution Time - {PE}')
+
+        plt.xlabel(sweep_param)
+        plt.ylabel('Execution Time (ns)')
+        plt.title(f'Execution Time Comparison for PEs, Voltage: {voltage}V, Frequency: {frequency_MHz}MHz')
+        plt.grid(True)
+        plt.legend()
+
+        # Plot Power Consumption for Each PE
+        plt.subplot(2, 1, 2)
+        for PE in PEs:
+            total_powers = []
+
+            for value in sweep_values:
+                params = fixed_params.copy()
+                params[sweep_param] = value
+
+                row_a = params.get('row_a', 8)
+                col_a = params.get('col_a', 8)
+                col_b = params.get('col_b', 8)
+
+                prediction = self.predict_single_pe(
+                    PE=PE,
+                    row_a=row_a,
+                    col_a=col_a,
+                    col_b=col_b,
+                    voltage=voltage,
+                    frequency_MHz=frequency_MHz
+                )
+                if prediction:
+                    total_powers.append(prediction['total_power_mW'])
+
+            plt.plot(sweep_values, total_powers, marker='o', label=f'Total Power - {PE}')
+
+        plt.xlabel(sweep_param)
+        plt.ylabel('Total Power (mW)')
+        plt.title(f'Power Consumption Comparison for PEs, Voltage: {voltage}V, Frequency: {frequency_MHz}MHz')
+        plt.grid(True)
+        plt.legend()
+
+        plt.tight_layout()
+        # plt.show()
+        filename = f'{self.output_dir}/comparison_{PEs}_{voltage}V_{frequency_MHz}MHz.png'
+        plt.savefig(filename)
