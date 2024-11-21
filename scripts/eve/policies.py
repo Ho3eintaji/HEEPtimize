@@ -1,13 +1,85 @@
 import numpy as np
 from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpBinary, PULP_CBC_CMD, LpStatus
 import itertools
+from tilings import generate_tiling_sequence
 
 class Policy:
     def __init__(self, name):
         self.name = name
 
-    def select_configurations(self, workload, time_budget_s):
+    def run(self, models, workload, time_budget_s, pe_memory_capacity_byte):
+        """
+        Run the emulator based on the policy's logic.
+
+        Args:
+            workload (list): The list of operations to be run.
+            time_budget_s (float): The time budget in seconds.
+            pe_memory_capacity_byte (dict): The memory limit for each PE.
+
+        Returns:
+            dict: A dictionary containing results (success, energy, timing, etc.)
+        """
         raise NotImplementedError("This method should be overridden by subclasses.")
+    
+    def _run_selected_cfg(self, selections, workload):
+        """
+        A typical implementation of the run method for a policy that selects configurations and then runs them.
+
+        Args:
+            selections (list): The selected configurations for each operation.
+            workload (list): The list of operations to be run.
+
+        Returns:
+            dict: A dictionary containing results (success, energy, timing, etc.)
+        """
+
+        if selections is None:
+            results = {
+                'success': False,
+                'message': 'Time budget could not be met with available configurations.'
+            }
+            return results
+        
+        total_energy_mJ = 0
+        total_time_ms = 0
+        detailed_results = []
+        for idx, (operation, selection) in enumerate(zip(workload, selections)):
+            if selection is None:
+                print(f"Operation {idx + 1} could not be configured.")
+                continue
+            # prediction = selection['prediction']
+            energy_mJ = selection['total_energy_nJ'] * 1e-6  # Convert nJ to mJ
+            execution_time_ms = selection['execution_time_ns'] * 1e-6  # Convert ns to ms
+            total_energy_mJ += energy_mJ
+            total_time_ms += execution_time_ms
+            detailed_results.append({
+                'operation': operation,
+                'PEs': selection['PEs'],
+                'voltages': selection['voltage'],
+                'frequency_MHz': selection['frequency_MHz'],
+                'energy_mJ': energy_mJ,
+                'execution_time_ms': execution_time_ms
+                # Add other details as needed
+
+            })
+
+        average_energy_mJ = total_energy_mJ / len(workload)
+        average_time_ms = total_time_ms / len(workload)
+        average_power_mW = (total_energy_mJ * 1e3) / total_time_ms if total_time_ms > 0 else 0  # mW
+
+        results = {
+            'success': True,
+            'total_energy_mJ': total_energy_mJ,
+            'total_time_ms': total_time_ms,
+            'average_energy_mJ': average_energy_mJ,
+            'average_time_ms': average_time_ms,
+            'average_power_mW': average_power_mW,
+            'detailed_results': detailed_results
+        }
+        return results
+
+
+
 
 
 class GreedyEnergyPolicy(Policy):
@@ -27,7 +99,7 @@ class GreedyEnergyPolicy(Policy):
         eve.run(policy=optimized_energy_policy)
     """
 
-    def __init__(self, models, available_PEs, voltages):
+    def __init__(self, available_PEs, voltages):
         """
         Initializes the GreedyEnergyPolicy.
 
@@ -44,11 +116,11 @@ class GreedyEnergyPolicy(Policy):
             )
         """
         super().__init__(name="GreedyEnergyPolicy")
-        self.models = models
+        # self.models = models
         self.available_PEs = available_PEs
         self.voltages = voltages
 
-    def select_configurations(self, workload, time_budget_s):
+    def run(self, models, workload, time_budget_s, pe_memory_capacity_byte):
         """
         Selects configurations for each operation to minimize energy consumption
         while ensuring the total execution time does not exceed the time budget.
@@ -63,10 +135,62 @@ class GreedyEnergyPolicy(Policy):
         Example:
             selections = policy.select_configurations(workload, time_budget_s=1.0)
         """
+        # self.models = models
         # Generate possible configurations for each operation
+        selections = self._generate_selection(models, workload, time_budget_s)
+        result = super()._run_selected_cfg(selections, workload)
+        return result
+
+    def _generate_configs(self, operation, models):
+        """
+        Generates possible configurations for an operation.
+
+        Args:
+            operation (dict): The operation details.
+
+        Returns:
+            list: Configurations with predictions.
+
+        Example:
+            configs = policy._generate_configs(operation)
+        """
+        configs = []
+        for PE in self.available_PEs:
+            for voltage in self.voltages:
+                # Get max frequency for this voltage
+                max_frequency = models.sim_data.max_frequency.get(voltage, None)
+                if max_frequency is None:
+                    continue
+                prediction = models.predict(
+                    PE=PE,
+                    row_a=operation['row_a'],
+                    col_a=operation['col_a'],
+                    col_b=operation['col_b'],
+                    voltage=voltage,
+                    frequency_MHz=max_frequency
+                )
+                if prediction is None:
+                    continue
+                # energy_mJ = prediction['total_power_mW'] * (prediction['execution_time_ns'] * 1e-9)
+                total_energy_nJ = prediction['total_energy_nJ'] 
+                average_power_mW = prediction['total_power_mW']
+                execution_time_ns = prediction['execution_time_ns']
+                configs.append({
+                    'PEs': PE,
+                    'voltage': voltage,
+                    'frequency_MHz': max_frequency,
+                    'prediction': prediction,
+                    # 'energy_mJ': energy_mJ,
+                    'execution_time_ns': execution_time_ns,
+                    'total_energy_nJ': total_energy_nJ,
+                    'average_power_mW': average_power_mW
+                })
+        return configs
+    
+    def _generate_selection(self, models, workload, time_budget_s):
         operation_configs = []
         for operation in workload:
-            configs = self._generate_configs(operation)
+            configs = self._generate_configs(operation, models)
             if not configs:
                 operation_configs.append([])
                 continue
@@ -120,51 +244,6 @@ class GreedyEnergyPolicy(Policy):
 
         return selections
 
-    def _generate_configs(self, operation):
-        """
-        Generates possible configurations for an operation.
-
-        Args:
-            operation (dict): The operation details.
-
-        Returns:
-            list: Configurations with predictions.
-
-        Example:
-            configs = policy._generate_configs(operation)
-        """
-        configs = []
-        for PE in self.available_PEs:
-            for voltage in self.voltages:
-                # Get max frequency for this voltage
-                max_frequency = self.models.sim_data.max_frequency.get(voltage, None)
-                if max_frequency is None:
-                    continue
-                prediction = self.models.predict(
-                    PE=PE,
-                    row_a=operation['row_a'],
-                    col_a=operation['col_a'],
-                    col_b=operation['col_b'],
-                    voltage=voltage,
-                    frequency_MHz=max_frequency
-                )
-                if prediction is None:
-                    continue
-                # energy_mJ = prediction['total_power_mW'] * (prediction['execution_time_ns'] * 1e-9)
-                total_energy_nJ = prediction['total_energy_nJ'] 
-                average_power_mW = prediction['total_power_mW']
-                execution_time_ns = prediction['execution_time_ns']
-                configs.append({
-                    'PEs': PE,
-                    'voltage': voltage,
-                    'frequency_MHz': max_frequency,
-                    'prediction': prediction,
-                    # 'energy_mJ': energy_mJ,
-                    'execution_time_ns': execution_time_ns,
-                    'total_energy_nJ': total_energy_nJ,
-                    'average_power_mW': average_power_mW
-                })
-        return configs
 class FixedPEPolicy(Policy):
     """
     Policy that always selects a specified PE and voltage for all operations.
@@ -180,7 +259,7 @@ class FixedPEPolicy(Policy):
         eve.run(policy=fixed_pe_policy)
     """
 
-    def __init__(self, models, PE, voltage):
+    def __init__(self, PE, voltage):
         """
         Initializes the FixedPEPolicy.
 
@@ -197,15 +276,10 @@ class FixedPEPolicy(Policy):
             )
         """
         super().__init__(name=f"FixedPE_{PE}_{voltage}V")
-        self.models = models
         self.PE = PE
         self.voltage = voltage
-        # Get the maximum frequency for the given voltage
-        self.frequency_MHz = models.sim_data.max_frequency.get(voltage, None)
-        if self.frequency_MHz is None:
-            raise ValueError(f"No maximum frequency found for voltage {voltage}V.")
 
-    def select_configurations(self, workload, time_budget_s):
+    def run(self, models, workload, time_budget_s, pe_memory_capacity_byte):
         """
         Selects the specified PE and voltage for all operations.
 
@@ -219,16 +293,25 @@ class FixedPEPolicy(Policy):
         Example:
             selections = policy.select_configurations(workload, time_budget_s=1.0)
         """
+        selections = self._generate_selection(models, workload, time_budget_s)
+        return super()._run_selected_cfg(selections, workload)
+        
+    def _generate_selection(self, models, workload, time_budget_s):
+        # Get the maximum frequency for the given voltage
+        frequency_MHz = models.sim_data.max_frequency.get(self.voltage, None)
+        if frequency_MHz is None:
+            raise ValueError(f"No maximum frequency found for voltage {self.voltage}V.")
+        
         selections = []
         total_time = 0
         for operation in workload:
-            prediction = self.models.predict(
+            prediction = models.predict(
                 PE=self.PE,
                 row_a=operation['row_a'],
                 col_a=operation['col_a'],
                 col_b=operation['col_b'],
                 voltage=self.voltage,
-                frequency_MHz=self.frequency_MHz
+                frequency_MHz=frequency_MHz
             )
             if prediction is None:
                 print(f"Prediction failed for operation: {operation}")
@@ -245,7 +328,7 @@ class FixedPEPolicy(Policy):
             selection = {
                 'PEs': self.PE,
                 'voltage': self.voltage,
-                'frequency_MHz': self.frequency_MHz,
+                'frequency_MHz': frequency_MHz,
                 'prediction': prediction,
                 'total_energy_nJ': total_energy_nJ,
                 'average_power_mW': average_power_mW,
@@ -253,6 +336,7 @@ class FixedPEPolicy(Policy):
             }
             selections.append(selection)
         return selections
+
 class OptimalMCKPEnergyPolicy(Policy):
     """
     Policy that selects configurations to minimize total energy consumption
@@ -267,13 +351,17 @@ class OptimalMCKPEnergyPolicy(Policy):
         eve.run(policy=optimal_energy_policy)
     """
 
-    def __init__(self, models, available_PEs, voltages):
+    def __init__(self, available_PEs, voltages):
         super().__init__(name="OptimalMCKPEnergyPolicy")
-        self.models = models
         self.available_PEs = available_PEs
         self.voltages = voltages
 
-    def select_configurations(self, workload, time_budget_s):
+    def run(self, models, workload, time_budget_s, pe_memory_capacity_byte):
+        selections = self._generate_selection(workload, time_budget_s, models)
+        return super()._run_selected_cfg(selections, workload)
+
+
+    def _generate_selection(self, workload, time_budget_s, models):
         """
         Selects configurations using an optimization solver.
 
@@ -288,7 +376,7 @@ class OptimalMCKPEnergyPolicy(Policy):
         # Generate possible configurations for each operation
         operation_configs = []
         for operation in workload:
-            configs = self._generate_configs(operation)
+            configs = self._generate_configs(operation, models)
             if not configs:
                 operation_configs.append([])
             else:
@@ -354,15 +442,15 @@ class OptimalMCKPEnergyPolicy(Policy):
 
         return selections
 
-    def _generate_configs(self, operation):
+    def _generate_configs(self, operation, models):
         configs = []
         for PE in self.available_PEs:
             for voltage in self.voltages:
                 # Get max frequency for this voltage
-                max_frequency = self.models.sim_data.max_frequency.get(voltage, None)
+                max_frequency = models.sim_data.max_frequency.get(voltage, None)
                 if max_frequency is None:
                     continue
-                prediction = self.models.predict(
+                prediction = models.predict(
                     PE=PE,
                     row_a=operation['row_a'],
                     col_a=operation['col_a'],
@@ -401,13 +489,16 @@ class MaxPerformancePolicy(Policy):
         eve.run(policy=max_performance_policy)
     """
 
-    def __init__(self, models, available_PEs, voltages):
+    def __init__(self, available_PEs, voltages):
         super().__init__(name="MaxPerformance")
-        self.models = models
         self.available_PEs = available_PEs
         self.voltages = voltages
+    
+    def run(self, models, workload, time_budget_s, pe_memory_capacity_byte):
+        selections = self._generate_selection(workload, time_budget_s, models, pe_memory_capacity_byte)
+        return super()._run_selected_cfg(selections, workload)
 
-    def select_configurations(self, workload, time_budget_s):
+    def _generate_selection(self, workload, time_budget_s, models, pe_memory_capacity_byte):
         """
         Selects configurations to minimize total execution time.
 
@@ -421,7 +512,7 @@ class MaxPerformancePolicy(Policy):
         selections = []
         total_time = 0
         for operation in workload:
-            fastest_config = self._get_fastest_configuration(operation)
+            fastest_config = self._get_fastest_configuration(operation, models)
             if fastest_config is None:
                 print(f"No valid configuration for operation: {operation}")
                 return None
@@ -435,16 +526,16 @@ class MaxPerformancePolicy(Policy):
 
         return selections
 
-    def _get_fastest_configuration(self, operation):
+    def _get_fastest_configuration(self, operation, models):
         best_config = None
         min_time = float('inf')
         for PE in self.available_PEs:
             for voltage in self.voltages:
                 # Get max frequency for this voltage
-                max_frequency = self.models.sim_data.max_frequency.get(voltage, None)
+                max_frequency = models.sim_data.max_frequency.get(voltage, None)
                 if max_frequency is None:
                     continue
-                prediction = self.models.predict(
+                prediction = models.predict(
                     PE=PE,
                     row_a=operation['row_a'],
                     col_a=operation['col_a'],
@@ -485,13 +576,16 @@ class OptimalFixedVoltageEnergyPolicy(Policy):
         eve.run(policy=optimal_fixed_voltage_policy)
     """
 
-    def __init__(self, models, available_PEs, voltage):
+    def __init__(self, available_PEs, voltage):
         super().__init__(name=f"OptimalFixedVoltageEnergy_{voltage}V")
-        self.models = models
         self.available_PEs = available_PEs
         self.voltage = voltage
+    
+    def run(self, models, workload, time_budget_s, pe_memory_capacity_byte):
+        selections = self._generate_selection(workload, time_budget_s, models, pe_memory_capacity_byte)
+        return super()._run_selected_cfg(selections, workload)
 
-    def select_configurations(self, workload, time_budget_s):
+    def _generate_selection(self, workload, time_budget_s, models, pe_memory_capacity_byte):
         """
         Selects configurations using an optimization solver.
 
@@ -507,7 +601,7 @@ class OptimalFixedVoltageEnergyPolicy(Policy):
         # Generate possible configurations for each operation
         operation_configs = []
         for operation in workload:
-            configs = self._generate_configs(operation)
+            configs = self._generate_configs(operation, models)
             if not configs:
                 print(f"No configurations available for operation: {operation}")
                 return None
@@ -574,15 +668,15 @@ class OptimalFixedVoltageEnergyPolicy(Policy):
 
         return selections
 
-    def _generate_configs(self, operation):
+    def _generate_configs(self, operation, models):
         configs = []
         voltage = self.voltage
-        max_frequency = self.models.sim_data.max_frequency.get(voltage, None)
+        max_frequency = models.sim_data.max_frequency.get(voltage, None)
         if max_frequency is None:
             print(f"No max frequency found for voltage {voltage}V.")
             return []
         for PE in self.available_PEs:
-            prediction = self.models.predict(
+            prediction = models.predict(
                 PE=PE,
                 row_a=operation['row_a'],
                 col_a=operation['col_a'],
@@ -622,13 +716,16 @@ class PerOperationFixedVoltageEnergyPolicy(Policy):
         eve.run(policy=per_op_fixed_voltage_policy)
     """
 
-    def __init__(self, models, available_PEs, voltage):
+    def __init__(self, available_PEs, voltage):
         super().__init__(name=f"PerOperationEnergy_{voltage}V")
-        self.models = models
         self.available_PEs = available_PEs
         self.voltage = voltage
 
-    def select_configurations(self, workload, time_budget_s):
+    def run(self, models, workload, time_budget_s, pe_memory_capacity_byte):
+        selections = self._generate_selection(workload, time_budget_s, models, pe_memory_capacity_byte)
+        return super()._run_selected_cfg(selections, workload)
+
+    def _generate_selection(self, workload, time_budget_s, models, pe_memory_capacity_byte):
         """
         Selects the most energy-efficient configuration for each operation at the fixed voltage.
 
@@ -642,7 +739,7 @@ class PerOperationFixedVoltageEnergyPolicy(Policy):
         selections = []
         total_time = 0
         for operation in workload:
-            best_config = self._get_most_energy_efficient_configuration(operation)
+            best_config = self._get_most_energy_efficient_configuration(operation, models)
             if best_config is None:
                 print(f"No valid configuration for operation: {operation}")
                 return None
@@ -658,16 +755,16 @@ class PerOperationFixedVoltageEnergyPolicy(Policy):
         # Note: This policy does not check the time budget, but you can add a check if needed
         return selections
 
-    def _get_most_energy_efficient_configuration(self, operation):
+    def _get_most_energy_efficient_configuration(self, operation, models):
         best_config = None
         min_energy = float('inf')
         voltage = self.voltage
-        max_frequency = self.models.sim_data.max_frequency.get(voltage, None)
+        max_frequency = models.sim_data.max_frequency.get(voltage, None)
         if max_frequency is None:
             print(f"No max frequency found for voltage {voltage}V.")
             return None
         for PE in self.available_PEs:
-            prediction = self.models.predict(
+            prediction = models.predict(
                 PE=PE,
                 row_a=operation['row_a'],
                 col_a=operation['col_a'],
@@ -710,7 +807,7 @@ class MultiPESplittingPolicy(Policy):
         eve.run(policy=multi_pe_splitting_policy)
     """
 
-    def __init__(self, models, available_PEs, voltages):
+    def __init__(self, available_PEs, voltages):
         """
         Initializes the MultiPESplittingPolicy.
 
@@ -727,11 +824,14 @@ class MultiPESplittingPolicy(Policy):
             )
         """
         super().__init__(name="MultiPESplittingPolicy")
-        self.models = models
         self.available_PEs = available_PEs
         self.voltages = voltages
+    
+    def run(self, models, workload, time_budget_s, pe_memory_capacity_byte):
+        selections = self._generate_selection(workload, time_budget_s, models, pe_memory_capacity_byte)
+        return super()._run_selected_cfg(selections, workload)
 
-    def select_configurations(self, workload, time_budget_s):
+    def _generate_selection(self, workload, time_budget_s, models, pe_memory_capacity_byte):
         """
         Selects configurations for each operation to minimize energy consumption
         while ensuring the total execution time does not exceed the time budget.
@@ -751,7 +851,7 @@ class MultiPESplittingPolicy(Policy):
 
         for operation in workload:
             # Generate possible split configurations for the operation
-            configs = self._generate_split_configs(operation)
+            configs = self._generate_split_configs(operation, models)
 
             if not configs:
                 selections.append(None)
@@ -772,7 +872,7 @@ class MultiPESplittingPolicy(Policy):
 
         return selections
 
-    def _generate_split_configs(self, operation):
+    def _generate_split_configs(self, operation, models):
         """
         Generates possible split configurations for an operation.
 
@@ -823,7 +923,7 @@ class MultiPESplittingPolicy(Policy):
 
                 # For each voltage, evaluate the configuration
                 for voltage in self.voltages:
-                    prediction = self.models.predict_multi_pe(
+                    prediction = models.predict_multi_pe(
                         PEs=PEs,
                         operations=sub_operations,
                         voltage=voltage
@@ -848,12 +948,13 @@ class MultiPESplittingPolicy(Policy):
         return configs
 
 class MultiPEWeightedSplittingPolicy(Policy):
+    # TODO: there is a bug inside it
     """
     Policy that splits each matrix multiplication operation across multiple PEs
     to minimize energy consumption while respecting the time budget.
     """
 
-    def __init__(self, models, available_PEs, voltages):
+    def __init__(self, available_PEs, voltages):
         """
         Initializes the MultiPESplittingPolicy.
 
@@ -870,11 +971,14 @@ class MultiPEWeightedSplittingPolicy(Policy):
             )
         """
         super().__init__(name="MultiPEWeightedSplittingPolicy")
-        self.models = models
         self.available_PEs = available_PEs
         self.voltages = voltages
+    
+    def run(self, models, workload, time_budget_s, pe_memory_capacity_byte):
+        selections = self._generate_selection(workload, time_budget_s, models, pe_memory_capacity_byte)
+        return super()._run_selected_cfg(selections, workload)
 
-    def select_configurations(self, workload, time_budget_s):
+    def _generate_selection(self, workload, time_budget_s, models, pe_memory_capacity_byte):
         """
         Selects configurations for each operation to minimize energy consumption
         while ensuring the total execution time does not exceed the time budget.
@@ -894,7 +998,7 @@ class MultiPEWeightedSplittingPolicy(Policy):
 
         for operation in workload:
             # Generate possible split configurations for the operation
-            configs = self._generate_split_configs(operation)
+            configs = self._generate_split_configs(operation, models)
 
             if not configs:
                 selections.append(None)
@@ -915,12 +1019,12 @@ class MultiPEWeightedSplittingPolicy(Policy):
 
         return selections
 
-    def _generate_split_configs(self, operation):
+    def _generate_split_configs(self, operation, models):
         configs = []
         num_cols_b = operation['col_b']
 
         # Collect efficiency scores for PEs
-        pe_efficiencies = self._get_pe_efficiencies(operation)
+        pe_efficiencies = self._get_pe_efficiencies(operation, models)
 
         # Normalize efficiency scores to get weights
         total_efficiency = sum(pe_efficiencies.values())
@@ -954,7 +1058,7 @@ class MultiPEWeightedSplittingPolicy(Policy):
 
         # Evaluate configuration
         for voltage in self.voltages:
-            prediction = self.models.predict_multi_pe(
+            prediction = models.predict_multi_pe(
                 PEs=PEs,
                 operations=sub_operations,
                 voltage=voltage
@@ -974,16 +1078,16 @@ class MultiPEWeightedSplittingPolicy(Policy):
             })
         return configs
 
-    def _get_pe_efficiencies(self, operation):
+    def _get_pe_efficiencies(self, operation, models):
         efficiencies = {}
         for PE in self.available_PEs:
             # Use a representative voltage and frequency
             voltage = self.voltages[-1]  # Highest voltage
-            frequency_MHz = self.models.sim_data.max_frequency.get(voltage, None)
+            frequency_MHz = models.sim_data.max_frequency.get(voltage, None)
             if frequency_MHz is None:
                 continue
             # Predict performance for the full operation
-            prediction = self.models.predict_single_pe(
+            prediction = models.predict_single_pe(
                 PE=PE,
                 row_a=operation['row_a'],
                 col_a=operation['col_a'],
@@ -1002,20 +1106,23 @@ class MultiPEWeightedSplittingPolicy(Policy):
         return efficiencies
 
 class OptimalSplittingPolicy(Policy):
-    def __init__(self, models, available_PEs, voltages, time_budget_s):
+    def __init__(self, available_PEs, voltages, time_budget_s):
         super().__init__(name="OptimalSplittingPolicy")
-        self.models = models
         self.available_PEs = available_PEs
         self.voltages = voltages
         self.time_budget_s = time_budget_s
+    
+    def run(self, models, workload, time_budget_s, pe_memory_capacity_byte):
+        selections = self._generate_selection(workload, time_budget_s, models, pe_memory_capacity_byte)
+        return super()._run_selected_cfg(selections, workload)
 
-    def select_configurations(self, workload, time_budget_s):
+    def _generate_selection(self, workload, time_budget_s, models, pe_memory_capacity_byte):
         selections = []
         total_time_s = 0
 
         for operation in workload:
             # Solve the ILP for each operation
-            best_config = self._solve_ilp_for_operation(operation)
+            best_config = self._solve_ilp_for_operation(operation, models)
             if best_config is None:
                 selections.append(None)
                 continue
@@ -1028,7 +1135,7 @@ class OptimalSplittingPolicy(Policy):
 
         return selections
 
-    def _solve_ilp_for_operation(self, operation):
+    def _solve_ilp_for_operation(self, operation, models):
         # Parameters
         col_b_total = operation['col_b']
         max_suboperations = min(col_b_total, 10)  # Limit to 10 sub-operations for tractability
@@ -1064,10 +1171,10 @@ class OptimalSplittingPolicy(Policy):
                     }
                     # Use maximum voltage and frequency for simplicity
                     voltage = max(self.voltages)
-                    max_frequency = self.models.sim_data.max_frequency.get(voltage, None)
+                    max_frequency = models.sim_data.max_frequency.get(voltage, None)
                     if max_frequency is None:
                         continue
-                    prediction = self.models.predict_single_pe(
+                    prediction = models.predict_single_pe(
                         PE=p,
                         row_a=sub_op['row_a'],
                         col_a=sub_op['col_a'],
@@ -1133,7 +1240,7 @@ class OptimalSplittingPolicy(Policy):
                         break  # Move to next sub-operation
 
             # Predict energy and time using the multi-PE model
-            prediction = self.models.predict_multi_pe(
+            prediction = models.predict_multi_pe(
                 PEs=assigned_PEs,
                 operations=sub_operations,
                 voltage=voltage  # Assuming same voltage for simplicity
@@ -1180,15 +1287,18 @@ class LimitedConfigSplittingPolicy(Policy):
         eve.run(policy=limited_config_splitting_policy)
     """
 
-    def __init__(self, models, available_PEs, voltages, splits, max_splits_per_operation=5):
+    def __init__(self, available_PEs, voltages, splits, max_splits_per_operation=5):
         super().__init__(name="LimitedConfigSplittingPolicy")
-        self.models = models
         self.available_PEs = available_PEs
         self.voltages = voltages
         self.splits = splits  # List of split ratios (e.g., [1.0, 0.5, 0.8])
         self.max_splits_per_operation = max_splits_per_operation
+    
+    def run(self, models, workload, time_budget_s, pe_memory_capacity_byte):
+        selections = self._generate_selection(workload, time_budget_s, pe_memory_capacity_byte)
+        return super()._run_selected_cfg(selections, workload)
 
-    def select_configurations(self, workload, time_budget_s):
+    def _generate_selection(self, workload, time_budget_s, pe_memory_capacity_byte):
         """
         Selects configurations for each operation to minimize energy consumption
         while ensuring the total execution time does not exceed the time budget.
@@ -1354,4 +1464,80 @@ class LimitedConfigSplittingPolicy(Policy):
                 return None
             selections.append(operation_configs[i][selected_j])
 
+        return selections
+
+class FixedPEPolicyWMem(Policy):
+    """
+    Policy that always selects a specified PE and voltage for all operations. It is considering amount of available memory while running on the PE.
+    """
+
+    def __init__(self, PE, voltage):
+        """
+        Initializes the FixedPEPolicy.
+
+        Args:
+            models (MatmulPowerModel): The power and performance models.
+            PE (str): The Processing Element to use.
+            voltage (float): The voltage to use.
+        """
+        super().__init__(name=f"FixedPE_{PE}_{voltage}V")
+        self.PE = PE
+        self.voltage = voltage
+    
+    def run(self, models, workload, time_budget_s, pe_memory_capacity_byte):
+        selections = self._generate_selection(workload, time_budget_s, models, pe_memory_capacity_byte)
+        return super()._run_selected_cfg(selections, workload)
+
+    def _generate_selection(self, workload, time_budget_s, models, pe_memory_capacity_byte):
+        """
+        Selects the specified PE and voltage for all operations.
+
+        Args:
+            workload (list): List of operations.
+            time_budget_s (float): Total time budget in seconds.
+
+        Returns:
+            list or None: Selected configurations for each operation, or None if time budget cannot be met.
+
+        Example:
+            selections = policy.select_configurations(workload, time_budget_s=1.0)
+        """
+        # Get the maximum frequency for the given voltage
+        frequency_MHz = models.sim_data.max_frequency.get(self.voltage, None)
+        if frequency_MHz is None:
+            raise ValueError(f"No maximum frequency found for voltage {self.voltage}V.")
+        
+        selections = []
+        total_time = 0
+        for operation in workload:
+            prediction = models.predict(
+                PE=self.PE,
+                row_a=operation['row_a'],
+                col_a=operation['col_a'],
+                col_b=operation['col_b'],
+                voltage=self.voltage,
+                frequency_MHz=frequency_MHz
+            )
+            if prediction is None:
+                print(f"Prediction failed for operation: {operation}")
+                return None
+            execution_time_ns = prediction['execution_time_ns']
+            execution_time_s = execution_time_ns * 1e-9
+            total_time += execution_time_s
+            if total_time > time_budget_s:
+                print("Unable to meet time budget with FixedPEPolicy.")
+                return None
+            
+            total_energy_nJ = prediction['total_energy_nJ']
+            average_power_mW = prediction['total_power_mW']
+            selection = {
+                'PEs': self.PE,
+                'voltage': self.voltage,
+                'frequency_MHz': frequency_MHz,
+                'prediction': prediction,
+                'total_energy_nJ': total_energy_nJ,
+                'average_power_mW': average_power_mW,
+                'execution_time_ns': execution_time_ns
+            }
+            selections.append(selection)
         return selections

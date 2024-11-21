@@ -49,7 +49,8 @@ class EVE:
         results_df = results_df.dropna(subset=['Total Energy (mJ)'])
 
     """
-    def __init__(self, models, workload, time_budget_s):
+    def __init__(self, models, workload, time_budget_s, 
+                 pe_memory_capacity_byte={'cpu': 256 * 1024,  'cgra': 256 * 1024, 'carus': 32 * 1024,  'caesar': 32 * 1024}):
         """
         Initializes the EVE emulator.
 
@@ -64,6 +65,7 @@ class EVE:
         self.models = models
         self.workload = workload
         self.time_budget_s = time_budget_s
+        self.pe_memory_capacity_byte = pe_memory_capacity_byte
         self.results = {}
 
     def run(self, policy):
@@ -76,51 +78,11 @@ class EVE:
         Example:
             eve.run(policy=optimized_energy_policy)
         """
-        selections = policy.select_configurations(self.workload, self.time_budget_s)
-        if selections is None:
+        result = policy.run(self.models, self.workload, self.time_budget_s, self.pe_memory_capacity_byte)
+        self.results[policy.name] = result
+        if result.get('success') == False:
             print(f"Policy {policy.name} could not meet the time budget.")
-            self.results[policy.name] = {
-                'success': False,
-                'message': 'Time budget could not be met with available configurations.'
-            }
-            return
-
-        total_energy_mJ = 0
-        total_time_ms = 0
-        detailed_results = []
-        for idx, (operation, selection) in enumerate(zip(self.workload, selections)):
-            if selection is None:
-                print(f"Operation {idx + 1} could not be configured.")
-                continue
-            # prediction = selection['prediction']
-            energy_mJ = selection['total_energy_nJ'] * 1e-6  # Convert nJ to mJ
-            execution_time_ms = selection['execution_time_ns'] * 1e-6  # Convert ns to ms
-            total_energy_mJ += energy_mJ
-            total_time_ms += execution_time_ms
-            detailed_results.append({
-                'operation': operation,
-                'PEs': selection['PEs'],
-                'voltages': selection['voltage'],
-                'frequency_MHz': selection['frequency_MHz'],
-                'energy_mJ': energy_mJ,
-                'execution_time_ms': execution_time_ms
-                # Add other details as needed
-
-            })
-
-        average_energy_mJ = total_energy_mJ / len(self.workload)
-        average_time_ms = total_time_ms / len(self.workload)
-        average_power_mW = (total_energy_mJ * 1e3) / total_time_ms if total_time_ms > 0 else 0  # mW
-
-        self.results[policy.name] = {
-            'success': True,
-            'total_energy_mJ': total_energy_mJ,
-            'total_time_ms': total_time_ms,
-            'average_energy_mJ': average_energy_mJ,
-            'average_time_ms': average_time_ms,
-            'average_power_mW': average_power_mW,
-            'detailed_results': detailed_results
-        }
+        
 
     def run_multiple(self, policies): 
         """
