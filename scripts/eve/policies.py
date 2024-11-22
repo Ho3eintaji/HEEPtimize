@@ -1717,7 +1717,6 @@ class MaxPerformancePolicyWMem(Policy):
             'detailed_results': detailed_results
         }
 
-from pulp import LpProblem, LpMinimize, LpVariable, LpStatus, lpSum, PULP_CBC_CMD
 
 class OptimalMCKPEnergyPolicyWMem(Policy):
     """
@@ -1725,17 +1724,19 @@ class OptimalMCKPEnergyPolicyWMem(Policy):
     while meeting the time budget using optimization (MCKP).
     """
 
-    def __init__(self, available_PEs, voltages):
+    def __init__(self, available_PEs, voltages, verbose=False):
         """
         Initializes the OptimalMCKPEnergyPolicyWMem.
 
         Args:
             available_PEs (list): List of available PEs for execution.
             voltages (list): List of voltages to consider for each PE.
+            verbose (bool): Whether to enable verbose output for monitoring progress.
         """
         super().__init__(name="OptimalMCKPEnergyPolicyWMem")
         self.available_PEs = available_PEs
         self.voltages = voltages
+        self.verbose = verbose
 
     def run(self, models, workload, time_budget_s, pe_memory_capacity_byte):
         """
@@ -1751,8 +1752,13 @@ class OptimalMCKPEnergyPolicyWMem(Policy):
             dict: Results of running the workload including total energy, time, and detailed results.
         """
         # Step 1: Generate possible configurations for each operation
+        if self.verbose:
+            print(f"Generating possible configurations for each of {len(workload)} operations...")
+        
         operation_configs = []
-        for operation in workload:
+        for idx, operation in enumerate(workload):
+            if self.verbose:
+                print(f"  Generating configurations for operation {idx + 1}/{len(workload)}...")
             configs = self._generate_configs(models, operation, pe_memory_capacity_byte)
             if not configs:
                 operation_configs.append([])
@@ -1769,6 +1775,8 @@ class OptimalMCKPEnergyPolicyWMem(Policy):
                 }
 
         # Step 3: Solve the optimization problem using MCKP solver (Pulp)
+        if self.verbose:
+            print("Solving MCKP to find the optimal set of configurations...")
         selections = self._solve_mckp(operation_configs, time_budget_s)
 
         # If no feasible solution, return failure message
@@ -1779,6 +1787,8 @@ class OptimalMCKPEnergyPolicyWMem(Policy):
             }
 
         # Step 4: Aggregate results from selected configurations
+        if self.verbose:
+            print("Aggregating results from the selected configurations...")
         return self._aggregate_results(selections, workload)
 
     def _generate_configs(self, models, operation, pe_memory_capacity_byte):
@@ -1801,12 +1811,16 @@ class OptimalMCKPEnergyPolicyWMem(Policy):
             if PE not in pe_memory_capacity_byte:
                 continue
 
-            memory_limit_bytes = pe_memory_capacity_byte[PE]
-            tiling_sequence = generate_tiling_sequence(memory_limit_bytes, row_a, col_a, col_b)
+            memory_limit = pe_memory_capacity_byte[PE]
+            tiling_sequence = generate_tiling_sequence(memory_limit, row_a, col_a, col_b)
 
             for voltage in self.voltages:
                 energy_mJ_accumulated = 0
                 time_ms_accumulated = 0
+
+                if self.verbose:
+                    print(f"    Evaluating tiling sequence for PE {PE} at {voltage}V...")
+                
                 for tile_idx, tile in enumerate(tiling_sequence):
                     tile_ra, tile_ca, tile_cb = tile['tile_ra'], tile['tile_ca'], tile['tile_cb']
 
@@ -1875,7 +1889,9 @@ class OptimalMCKPEnergyPolicyWMem(Policy):
         prob += total_time <= time_budget_s
 
         # Solve the problem
-        solver = PULP_CBC_CMD(msg=False)
+        if self.verbose:
+            print("    Solving the MCKP optimization problem...")
+        solver = PULP_CBC_CMD(msg=True if self.verbose else False)
         result_status = prob.solve(solver)
 
         if LpStatus[result_status] != 'Optimal':
@@ -1883,6 +1899,9 @@ class OptimalMCKPEnergyPolicyWMem(Policy):
             return None
 
         # Extract the selected configurations
+        if self.verbose:
+            print("    Extracting the selected configurations...")
+
         selections = []
         for i in range(num_operations):
             selected_j = None
@@ -1908,6 +1927,9 @@ class OptimalMCKPEnergyPolicyWMem(Policy):
         Returns:
             dict: Results of running the workload.
         """
+        if self.verbose:
+            print("  Aggregating results from the selected configurations...")
+
         total_energy_mJ = 0
         total_time_ms = 0
         detailed_results = []
@@ -1915,6 +1937,9 @@ class OptimalMCKPEnergyPolicyWMem(Policy):
         for idx, (operation, selection) in enumerate(zip(workload, selections)):
             if selection is None:
                 continue
+
+            if self.verbose:
+                print(f"    Operation {idx + 1}: Using PE {selection['PE']} at voltage {selection['voltage']}V")
 
             total_energy_mJ += selection['total_energy_mJ']
             total_time_ms += selection['total_time_ms']
@@ -1942,6 +1967,7 @@ class OptimalMCKPEnergyPolicyWMem(Policy):
             'average_power_mW': average_power_mW,
             'detailed_results': detailed_results
         }
+
 
 
 
