@@ -38,7 +38,7 @@ from sims_data_models import MatmulSimulationData, MatmulDataAnalysis, MatmulPow
 from RandomWorkload import WorkloadGenerator as random_workload_generator
 from policies import GreedyEnergyPolicy, FixedPEPolicy, OptimalMCKPEnergyPolicy, MaxPerformancePolicy, OptimalFixedVoltageEnergyPolicy, PerOperationFixedVoltageEnergyPolicy 
 from policies import MultiPESplittingPolicy, MultiPEWeightedSplittingPolicy, OptimalSplittingPolicy, LimitedConfigSplittingPolicy
-from policies import FixedPEPolicyWMem
+from policies import FixedPEPolicyWMem, MaxPerformancePolicyWMem, OptimalMCKPEnergyPolicyWMem
 from eve_emulator import EVE
 import TransformerWorkload
 
@@ -73,6 +73,8 @@ if __name__ == '__main__':
     # data analysis class
     data_analysis = MatmulDataAnalysis(simulation_data=sim_data, output_dir=output_dir)
 
+
+
     models = MatmulPowerModelMultiPE(
         sim_data=sim_data,
         output_dir=output_dir,
@@ -82,7 +84,7 @@ if __name__ == '__main__':
         degree_static_power=0,
         reference_frequency_MHz=100,
         model_type_time='linear',
-        model_type_dyn_power='linear',
+        model_type_dyn_power='randomforest',
         model_type_static_power='linear',
         apply_log_transform_time=False,
         apply_log_transform_dyn_power=False,
@@ -96,9 +98,28 @@ if __name__ == '__main__':
         l1_ratio_static_power=0.5
     )
 
+    # data_analysis.plot_metric_vs_size(
+    #     sweep_params=['col_b'],
+    #     fixed_params={'row_a': 8, 'col_a': 8},
+    #     voltage=0.9,
+    #     metrics=['power'],
+    #     PEs=['carus', 'caesar', 'cgra', 'cpu']
+    # )
+
+    # models.visualize_comparison_multiple_pes(
+    #         PEs=['cgra', 'carus', 'caesar', 'cpu'],
+    #         voltage=0.9,
+    #         frequency_MHz=100,
+    #         sweep_param='col_b',          
+    #         sweep_range= (8,256,4),      #[8, 16, 32, 64],  
+    #         fixed_params={'row_a': 8, 'col_a': 8}  
+    #     )
+
+
+
     ######### Application Scenario #########
     RandomWorkloadGenerator = random_workload_generator(ra_size=[2, 4, 8, 16], ca_size=[2, 4, 8, 16], cb_size=[4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048])
-    seed, workload = RandomWorkloadGenerator.generate_workload(num_operations=10, seed=None)
+    seed, workload = RandomWorkloadGenerator.generate_workload(num_operations=200, seed=None)
     print(f"Workload generated with seed: {seed}")
 
     # workload_details = TransformerWorkload.calculate_tsd_operations(verbose=False)
@@ -111,10 +132,10 @@ if __name__ == '__main__':
     #     json.dump(results['operations'], f, indent=4)
 
     # memory constraints
-    pe_memory_capacity_byte={'cpu': 256 * 1024,  'cgra': 256 * 1024, 'carus': 16 * 1024,  'caesar': 32 * 1024}
+    pe_memory_capacity_byte={'cpu': 100 * 1024,  'cgra': 100 * 1024, 'carus': 20 * 1024,  'caesar': 20 * 1024}
 
     # Create the EVE emulator
-    time_budget_s =  1   # 1500 * 1e-6  # us
+    time_budget_s =  5 * 1e-3   # 1500 * 1e-6  # us
 
     # emulator
     eve = EVE(models=models, workload=workload, time_budget_s=time_budget_s, pe_memory_capacity_byte=pe_memory_capacity_byte)
@@ -122,36 +143,36 @@ if __name__ == '__main__':
     ######### POLICIES #########
     policies = []
 
-    # GreedyEnergyPolicy
-    optimized_energy_policy = GreedyEnergyPolicy(available_PEs=['carus', 'caesar', 'cgra', 'cpu'], voltages=[0.5, 0.65, 0.8, 0.9])
-    policies.append(optimized_energy_policy)
+    # # GreedyEnergyPolicy
+    # optimized_energy_policy = GreedyEnergyPolicy(available_PEs=['carus', 'caesar', 'cgra', 'cpu'], voltages=[0.5, 0.65, 0.8, 0.9])
+    # policies.append(optimized_energy_policy)
 
-    # OptimalMCKPEnergyPolicy
-    optimal_energy_policy = OptimalMCKPEnergyPolicy(available_PEs=['carus', 'caesar', 'cgra', 'cpu'], voltages=[0.5, 0.65, 0.8, 0.9])
-    policies.append(optimal_energy_policy)
+    # # OptimalMCKPEnergyPolicy
+    # optimal_energy_policy = OptimalMCKPEnergyPolicy(available_PEs=['carus', 'caesar', 'cgra', 'cpu'], voltages=[0.5, 0.65, 0.8, 0.9])
+    # policies.append(optimal_energy_policy)
 
-    # MaxPerformancePolicy
-    max_performance_policy = MaxPerformancePolicy( available_PEs=['carus', 'caesar', 'cgra', 'cpu'], voltages=[0.9, 0.8, 0.65, 0.5])
-    policies.append(max_performance_policy)
+    # # MaxPerformancePolicy
+    # max_performance_policy = MaxPerformancePolicy( available_PEs=['carus', 'caesar', 'cgra', 'cpu'], voltages=[0.9, 0.8, 0.65, 0.5])
+    # policies.append(max_performance_policy)
 
-    # OptimalFixedVoltageEnergyPolicy for each voltage
-    for voltage in [0.5, 0.65, 0.8, 0.9]:
-        policy = OptimalFixedVoltageEnergyPolicy(available_PEs=['carus', 'caesar', 'cgra', 'cpu'], voltage=voltage)
-        policy.name = f"OptimalFixedVoltageEnergyPolicy_{voltage}V"
-        policies.append(policy)
+    # # OptimalFixedVoltageEnergyPolicy for each voltage
+    # for voltage in [0.5, 0.65, 0.8, 0.9]:
+    #     policy = OptimalFixedVoltageEnergyPolicy(available_PEs=['carus', 'caesar', 'cgra', 'cpu'], voltage=voltage)
+    #     policy.name = f"OptimalFixedVoltageEnergyPolicy_{voltage}V"
+    #     policies.append(policy)
 
-    # PerOperationFixedVoltageEnergyPolicy for each voltage
-    for voltage in [0.5, 0.65, 0.8, 0.9]:
-        policy = PerOperationFixedVoltageEnergyPolicy(available_PEs=['carus', 'caesar', 'cgra', 'cpu'], voltage=voltage)
-        policy.name = f"PerOpFixedVoltageEnergyPolicy_{voltage}V"
-        policies.append(policy)
+    # # PerOperationFixedVoltageEnergyPolicy for each voltage
+    # for voltage in [0.5, 0.65, 0.8, 0.9]:
+    #     policy = PerOperationFixedVoltageEnergyPolicy(available_PEs=['carus', 'caesar', 'cgra', 'cpu'], voltage=voltage)
+    #     policy.name = f"PerOpFixedVoltageEnergyPolicy_{voltage}V"
+    #     policies.append(policy)
 
-    # FixedPEPolicy for each PE and voltage
-    for voltage in [0.5, 0.65, 0.8, 0.9]:
-        for PE in ['carus', 'caesar', 'cgra', 'cpu']:
-            policy = FixedPEPolicy(PE=PE, voltage=voltage)
-            policy.name = f"FixedPEPolicy_{PE}_{voltage}V"
-            policies.append(policy)
+    # # FixedPEPolicy for each PE and voltage
+    # for voltage in [0.5, 0.65, 0.8, 0.9]:
+    #     for PE in ['carus', 'caesar', 'cgra', 'cpu']:
+    #         policy = FixedPEPolicy(PE=PE, voltage=voltage)
+    #         policy.name = f"FixedPEPolicy_{PE}_{voltage}V"
+    #         policies.append(policy)
 
     # # MultiPESplittingPolicy
     # multi_pe_splitting_policy = MultiPESplittingPolicy( available_PEs=['carus', 'cgra', 'caesar'], voltages=[0.5, 0.65, 0.8, 0.9])
@@ -169,17 +190,27 @@ if __name__ == '__main__':
     # limited_config_splitting_policy = LimitedConfigSplittingPolicy(available_PEs=['carus', 'cgra'], voltages=[0.65, 0.8, 0.9], splits=[1.0, 0.5, 0.8], max_splits_per_operation=3)
     # policies.append(limited_config_splitting_policy)
 
+    # OptimalMCKPEnergyPolicy
+    optimal_energy_policy_wmem = OptimalMCKPEnergyPolicyWMem(available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9])
+    policies.append(optimal_energy_policy_wmem)
+
+    # MaxPerformancePolicy
+    max_performance_policy_wmem = MaxPerformancePolicyWMem( available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.65, 0.5, 0.8, 0.9])
+    policies.append(max_performance_policy_wmem)
+    
     # FixedPEPolicy for each PE and voltage
+    # for voltage in [0.5, 0.65, 0.8, 0.9]:
     for voltage in [0.5, 0.65, 0.8, 0.9]:
-        for PE in ['carus', 'caesar', 'cgra', 'cpu']:
+        for PE in ['carus', 'caesar', 'cgra']:
             policy = FixedPEPolicyWMem(PE=PE, voltage=voltage)
-            policy.name = f"FixedPEPolicyWMem_{PE}_{voltage}V"
             policies.append(policy)
 
     ######### RUN POLICIES #########
     # TODO: uncomment below lines to run the policies
     eve.run_multiple(policies=policies)
     policy_results = eve.results
+
+    # # save results to a file
 
     result_basic_df = eve.get_results_basic()
     print(result_basic_df)

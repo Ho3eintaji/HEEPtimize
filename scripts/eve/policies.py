@@ -1468,76 +1468,480 @@ class LimitedConfigSplittingPolicy(Policy):
 
 class FixedPEPolicyWMem(Policy):
     """
-    Policy that always selects a specified PE and voltage for all operations. It is considering amount of available memory while running on the PE.
-    """
+    A policy that executes a workload on a specific PE and voltage, while considering memory limitations.
+    If an operation exceeds the memory capacity of the PE, the operation is tiled and executed piece by piece.
 
+    Example:
+        fixed_pe_policy_w_mem = FixedPEPolicyWMem(
+            PE='carus',
+            voltage=0.8
+        )
+        eve.run(policy=fixed_pe_policy_w_mem)
+    """
     def __init__(self, PE, voltage):
         """
-        Initializes the FixedPEPolicy.
+        Initializes the FixedPEPolicyWMem.
 
         Args:
             models (MatmulPowerModel): The power and performance models.
-            PE (str): The Processing Element to use.
-            voltage (float): The voltage to use.
+            PE (str): The specific Processing Element (PE) to use.
+            voltage (float): The voltage to use for the PE.
+            pe_memory_capacity_byte (dict): The memory capacity in bytes for each PE.
         """
-        super().__init__(name=f"FixedPE_{PE}_{voltage}V")
+        super().__init__(name=f"FixedPEPolicyWMem_{PE}_{voltage:.2f}V")
         self.PE = PE
         self.voltage = voltage
-    
-    def run(self, models, workload, time_budget_s, pe_memory_capacity_byte):
-        selections = self._generate_selection(workload, time_budget_s, models, pe_memory_capacity_byte)
-        return super()._run_selected_cfg(selections, workload)
 
-    def _generate_selection(self, workload, time_budget_s, models, pe_memory_capacity_byte):
+    def run(self, models, workload, time_budget_s, pe_memory_capacity_byte):
         """
-        Selects the specified PE and voltage for all operations.
+        Run the workload using the specified PE and voltage, considering the memory capacity.
 
         Args:
-            workload (list): List of operations.
-            time_budget_s (float): Total time budget in seconds.
+            workload (list): The list of operations to be run.
+            time_budget_s (float): The time budget in seconds.
+            pe_memory_capacity_byte (dict): The memory capacity in bytes for each PE.
 
         Returns:
-            list or None: Selected configurations for each operation, or None if time budget cannot be met.
-
-        Example:
-            selections = policy.select_configurations(workload, time_budget_s=1.0)
+            dict: A dictionary containing results (success, energy, timing, etc.)
         """
-        # Get the maximum frequency for the given voltage
-        frequency_MHz = models.sim_data.max_frequency.get(self.voltage, None)
-        if frequency_MHz is None:
-            raise ValueError(f"No maximum frequency found for voltage {self.voltage}V.")
-        
-        selections = []
-        total_time = 0
-        for operation in workload:
-            prediction = models.predict(
-                PE=self.PE,
-                row_a=operation['row_a'],
-                col_a=operation['col_a'],
-                col_b=operation['col_b'],
-                voltage=self.voltage,
-                frequency_MHz=frequency_MHz
-            )
-            if prediction is None:
-                print(f"Prediction failed for operation: {operation}")
-                return None
-            execution_time_ns = prediction['execution_time_ns']
-            execution_time_s = execution_time_ns * 1e-9
-            total_time += execution_time_s
-            if total_time > time_budget_s:
-                print("Unable to meet time budget with FixedPEPolicy.")
-                return None
-            
-            total_energy_nJ = prediction['total_energy_nJ']
-            average_power_mW = prediction['total_power_mW']
-            selection = {
-                'PEs': self.PE,
-                'voltage': self.voltage,
-                'frequency_MHz': frequency_MHz,
-                'prediction': prediction,
-                'total_energy_nJ': total_energy_nJ,
-                'average_power_mW': average_power_mW,
-                'execution_time_ns': execution_time_ns
+        memory_limit_bytes = pe_memory_capacity_byte.get(self.PE, None)
+        if memory_limit_bytes is None:
+            return {
+                'success': False,
+                'message': f'Memory capacity for PE "{self.PE}" is not defined.'
             }
-            selections.append(selection)
+
+        total_energy_mJ = 0
+        total_time_ms = 0
+        detailed_results = []
+
+        for idx, operation in enumerate(workload):
+            row_a, col_a, col_b = operation['row_a'], operation['col_a'], operation['col_b']
+            
+            # Generate tiling sequence using the memory capacity
+            tiling_sequence = generate_tiling_sequence(
+                memory_limit_bytes=memory_limit_bytes,
+                ra=row_a,
+                ca=col_a,
+                cb=col_b,
+                bytes_per_element=4
+            )
+
+            if not tiling_sequence:
+                print(f"Unable to generate tiling sequence for operation {idx + 1} due to memory limitation.")
+                continue
+
+            # Iterate over each tile, predict and accumulate results
+            for tile_idx, tile in enumerate(tiling_sequence):
+                # tile_row_a, tile_col_a, tile_col_b = tile
+                tile_row_a = tile['tile_ra']
+                tile_col_a = tile['tile_ca']
+                tile_col_b = tile['tile_cb']
+                
+                # Predict the energy and execution time for the given tile
+                prediction = models.predict_single_pe(
+                    PE=self.PE,
+                    row_a=tile_row_a,
+                    col_a=tile_col_a,
+                    col_b=tile_col_b,
+                    voltage=self.voltage
+                )
+
+                if prediction is None:
+                    print(f"Prediction failed for tile {tile_idx + 1} of operation {idx + 1}.")
+                    continue
+
+                # Get energy and execution time for the current tile
+                # energy_mJ = prediction['total_power_mW'] * (prediction['execution_time_ns'] * 1e-9) * 1e-3  # mJ
+                energy_mJ = prediction['total_energy_nJ'] * 1e-6
+                execution_time_ms = prediction['execution_time_ns'] * 1e-6  # ms
+
+                total_energy_mJ += energy_mJ
+                total_time_ms += execution_time_ms
+
+                # Append detailed results for this tile
+                detailed_results.append({
+                    'operation': f"Operation {idx + 1} - Tile {tile_idx + 1}",
+                    'PE': self.PE,
+                    'voltage': self.voltage,
+                    'frequency_MHz': prediction['frequency_MHz'],
+                    'energy_mJ': energy_mJ,
+                    'execution_time_ms': execution_time_ms,
+                    'tile_size': (tile_row_a, tile_col_a, tile_col_b)
+                })
+
+        # Calculate averages
+        if total_time_ms > 0 and len(workload) > 0:
+            average_energy_mJ = total_energy_mJ / len(workload)
+            average_time_ms = total_time_ms / len(workload)
+            average_power_mW = (total_energy_mJ * 1e3) / total_time_ms  # mW
+        else:
+            return {
+                'success': False,
+                'message': 'Time budget could not be met or no valid operations found.'
+            }
+
+        # Check if we meet the time budget
+        if (total_time_ms * 1e-3) > time_budget_s:
+            return {
+                'success': False,
+                'message': 'Time budget could not be met with tiling and given memory limitations.'
+            }
+
+        # Return the results in the expected format
+        return {
+            'success': True,
+            'total_energy_mJ': total_energy_mJ,
+            'total_time_ms': total_time_ms,
+            'average_energy_mJ': average_energy_mJ,
+            'average_time_ms': average_time_ms,
+            'average_power_mW': average_power_mW,
+            'detailed_results': detailed_results
+        }
+
+
+class MaxPerformancePolicyWMem(Policy):
+    """
+    Policy that selects the highest-performing configuration for each operation while considering memory limitations.
+    """
+
+    def __init__(self, available_PEs, voltages):
+        """
+        Initializes the MaxPerformancePolicyWMem with the specified PEs and voltages.
+
+        Args:
+            available_PEs (list): List of available PEs for execution.
+            voltages (list): List of voltages to consider for each PE.
+        """
+        super().__init__(name="MaxPerformancePolicyWMem")
+        self.available_PEs = available_PEs
+        self.voltages = voltages
+
+    def run(self, models, workload, time_budget_s, pe_memory_capacity_byte):
+        """
+        Runs the policy and returns the results of running the workload.
+
+        Args:
+            models (MatmulPowerModel): The power and performance models.
+            workload (list): List of operations to be executed.
+            time_budget_s (float): Time budget for the workload.
+            pe_memory_capacity_byte (dict): Dictionary of available memory for each PE.
+
+        Returns:
+            dict: Results of running the workload including total energy, time, and detailed results.
+        """
+        total_energy_mJ = 0
+        total_time_ms = 0
+        detailed_results = []
+
+        for idx, operation in enumerate(workload):
+            row_a, col_a, col_b = operation['row_a'], operation['col_a'], operation['col_b']
+            selected_config = None
+            best_time_ms = float('inf')
+
+            # Iterate over all available PEs and voltages in descending order to prioritize performance
+            for PE in self.available_PEs:
+                if PE not in pe_memory_capacity_byte:
+                    continue
+
+                memory_limit = pe_memory_capacity_byte[PE]
+                # Generate the largest possible tiles that fit into memory
+                tiling_sequence = generate_tiling_sequence(memory_limit, row_a, col_a, col_b)
+
+                for voltage in sorted(self.voltages, reverse=True):  # Highest voltage first
+                    energy_mJ_accumulated = 0
+                    time_ms_accumulated = 0
+                
+                    for tile_idx, tile in enumerate(tiling_sequence):
+                        tile_ra, tile_ca, tile_cb = tile['tile_ra'], tile['tile_ca'], tile['tile_cb']
+                        # Predict energy and time for each tile
+                        prediction = models.predict_single_pe(PE, tile_ra, tile_ca, tile_cb, voltage)
+                        if prediction is None:
+                            continue
+
+                        # Calculate energy and time for the tile from the prediction
+                        energy_mJ = prediction['total_energy_nJ'] * 1e-6  # Convert nJ to mJ
+                        execution_time_ms = prediction['execution_time_ns'] * 1e-6  # Convert ns to ms
+                        energy_mJ_accumulated += energy_mJ
+                        time_ms_accumulated += execution_time_ms
+
+                    # Select the best (minimum time) configuration for this operation
+                    if time_ms_accumulated < best_time_ms:
+                        best_time_ms = time_ms_accumulated
+                        selected_config = {
+                            'PE': PE,
+                            'voltage': voltage,
+                            'frequency_MHz': prediction['frequency_MHz'],
+                            'total_energy_mJ': energy_mJ_accumulated,
+                            'total_time_ms': time_ms_accumulated,
+                            'tiling_sequence': tiling_sequence
+                        }
+
+            if selected_config is None:
+                print(f"Operation {idx + 1} could not be configured due to memory limitations.")
+                continue
+
+            total_energy_mJ += selected_config['total_energy_mJ']
+            total_time_ms += selected_config['total_time_ms']
+            detailed_results.append({
+                'operation': operation,
+                'PE': selected_config['PE'],
+                'voltage': selected_config['voltage'],
+                'frequency_MHz': selected_config['frequency_MHz'],
+                'energy_mJ': selected_config['total_energy_mJ'],
+                'execution_time_ms': selected_config['total_time_ms'],
+                'tiling_sequence': selected_config['tiling_sequence']
+            })
+
+        # Calculate averages and return results
+        num_operations = len(detailed_results)
+        average_energy_mJ = total_energy_mJ / num_operations if num_operations > 0 else 0
+        average_time_ms = total_time_ms / num_operations if num_operations > 0 else 0
+        average_power_mW = (total_energy_mJ * 1e3) / total_time_ms if total_time_ms > 0 else 0  # mW
+
+        # Check if the total time exceeds the time budget
+        if (total_time_ms * 1e-3) > time_budget_s:
+            return {
+                'success': False,
+                'message': 'Time budget could not be met with available configurations.'
+            }
+
+        # Return the final results
+        return {
+            'success': True,
+            'total_energy_mJ': total_energy_mJ,
+            'total_time_ms': total_time_ms,
+            'average_energy_mJ': average_energy_mJ,
+            'average_time_ms': average_time_ms,
+            'average_power_mW': average_power_mW,
+            'detailed_results': detailed_results
+        }
+
+from pulp import LpProblem, LpMinimize, LpVariable, LpStatus, lpSum, PULP_CBC_CMD
+
+class OptimalMCKPEnergyPolicyWMem(Policy):
+    """
+    Policy that selects configurations to minimize total energy consumption
+    while meeting the time budget using optimization (MCKP).
+    """
+
+    def __init__(self, available_PEs, voltages):
+        """
+        Initializes the OptimalMCKPEnergyPolicyWMem.
+
+        Args:
+            available_PEs (list): List of available PEs for execution.
+            voltages (list): List of voltages to consider for each PE.
+        """
+        super().__init__(name="OptimalMCKPEnergyPolicyWMem")
+        self.available_PEs = available_PEs
+        self.voltages = voltages
+
+    def run(self, models, workload, time_budget_s, pe_memory_capacity_byte):
+        """
+        Runs the policy and returns the results of running the workload.
+
+        Args:
+            models (MatmulPowerModel): The power and performance models.
+            workload (list): List of operations to be executed.
+            time_budget_s (float): Time budget for the workload.
+            pe_memory_capacity_byte (dict): Dictionary of available memory for each PE.
+
+        Returns:
+            dict: Results of running the workload including total energy, time, and detailed results.
+        """
+        # Step 1: Generate possible configurations for each operation
+        operation_configs = []
+        for operation in workload:
+            configs = self._generate_configs(models, operation, pe_memory_capacity_byte)
+            if not configs:
+                operation_configs.append([])
+            else:
+                operation_configs.append(configs)
+
+        # Step 2: Check if any operation has no feasible configurations
+        for idx, configs in enumerate(operation_configs):
+            if not configs:
+                print(f"No configurations available for operation {idx}.")
+                return {
+                    'success': False,
+                    'message': f"No feasible configuration found for operation {idx}."
+                }
+
+        # Step 3: Solve the optimization problem using MCKP solver (Pulp)
+        selections = self._solve_mckp(operation_configs, time_budget_s)
+
+        # If no feasible solution, return failure message
+        if selections is None:
+            return {
+                'success': False,
+                'message': 'Time budget could not be met with available configurations.'
+            }
+
+        # Step 4: Aggregate results from selected configurations
+        return self._aggregate_results(selections, workload)
+
+    def _generate_configs(self, models, operation, pe_memory_capacity_byte):
+        """
+        Generates possible configurations for an operation, considering memory limitations.
+
+        Args:
+            models (MatmulPowerModel): The power and performance models.
+            operation (dict): The operation details.
+            pe_memory_capacity_byte (dict): Dictionary of available memory for each PE.
+
+        Returns:
+            list: Configurations with predictions.
+        """
+        configs = []
+        row_a, col_a, col_b = operation['row_a'], operation['col_a'], operation['col_b']
+
+        # Iterate over all available PEs and voltages to generate configurations
+        for PE in self.available_PEs:
+            if PE not in pe_memory_capacity_byte:
+                continue
+
+            memory_limit_bytes = pe_memory_capacity_byte[PE]
+            tiling_sequence = generate_tiling_sequence(memory_limit_bytes, row_a, col_a, col_b)
+
+            for voltage in self.voltages:
+                energy_mJ_accumulated = 0
+                time_ms_accumulated = 0
+                for tile_idx, tile in enumerate(tiling_sequence):
+                    tile_ra, tile_ca, tile_cb = tile['tile_ra'], tile['tile_ca'], tile['tile_cb']
+
+                    # Predict energy and time for the tile
+                    prediction = models.predict_single_pe(PE, tile_ra, tile_ca, tile_cb, voltage)
+                    if prediction is None:
+                        continue
+
+                    # Calculate energy and time for the tile from the prediction
+                    energy_mJ = prediction['total_energy_nJ'] * 1e-6  # Convert nJ to mJ
+                    execution_time_ms = prediction['execution_time_ns'] * 1e-6  # Convert ns to ms
+                    energy_mJ_accumulated += energy_mJ
+                    time_ms_accumulated += execution_time_ms
+
+                # Create configuration dictionary
+                configs.append({
+                    'PE': PE,
+                    'voltage': voltage,
+                    'frequency_MHz': prediction['frequency_MHz'],
+                    'total_energy_mJ': energy_mJ_accumulated,
+                    'total_time_ms': time_ms_accumulated,
+                    'tiling_sequence': tiling_sequence
+                })
+        return configs
+
+    def _solve_mckp(self, operation_configs, time_budget_s):
+        """
+        Solves the MCKP problem to find the optimal set of configurations.
+
+        Args:
+            operation_configs (list): List of possible configurations for each operation.
+            time_budget_s (float): Time budget for the workload.
+
+        Returns:
+            list or None: Selected configurations for each operation, or None if no feasible solution.
+        """
+        num_operations = len(operation_configs)
+        prob = LpProblem("OptimalMCKPEnergyPolicyWMem", LpMinimize)
+
+        # Decision variables
+        x = []
+        for i in range(num_operations):
+            x_i = []
+            for j in range(len(operation_configs[i])):
+                var = LpVariable(f"x_{i}_{j}", cat="Binary")
+                x_i.append(var)
+            x.append(x_i)
+
+        # Objective function: Minimize total energy
+        prob += lpSum([
+            x[i][j] * operation_configs[i][j]['total_energy_mJ']
+            for i in range(num_operations)
+            for j in range(len(operation_configs[i]))
+        ])
+
+        # Constraint: Select exactly one configuration per operation
+        for i in range(num_operations):
+            prob += lpSum(x[i]) == 1
+
+        # Constraint: Total time must be within the time budget
+        total_time = lpSum([
+            x[i][j] * operation_configs[i][j]['total_time_ms'] * 1e-3  # Convert ms to s
+            for i in range(num_operations)
+            for j in range(len(operation_configs[i]))
+        ])
+        prob += total_time <= time_budget_s
+
+        # Solve the problem
+        solver = PULP_CBC_CMD(msg=False)
+        result_status = prob.solve(solver)
+
+        if LpStatus[result_status] != 'Optimal':
+            print("No feasible solution found within the time budget.")
+            return None
+
+        # Extract the selected configurations
+        selections = []
+        for i in range(num_operations):
+            selected_j = None
+            for j in range(len(operation_configs[i])):
+                if x[i][j].varValue == 1:
+                    selected_j = j
+                    break
+            if selected_j is None:
+                print(f"No configuration selected for operation {i}.")
+                return None
+            selections.append(operation_configs[i][selected_j])
+
         return selections
+
+    def _aggregate_results(self, selections, workload):
+        """
+        Aggregates the results of the selected configurations for the workload.
+
+        Args:
+            selections (list): List of selected configurations for each operation.
+            workload (list): List of operations to be executed.
+
+        Returns:
+            dict: Results of running the workload.
+        """
+        total_energy_mJ = 0
+        total_time_ms = 0
+        detailed_results = []
+
+        for idx, (operation, selection) in enumerate(zip(workload, selections)):
+            if selection is None:
+                continue
+
+            total_energy_mJ += selection['total_energy_mJ']
+            total_time_ms += selection['total_time_ms']
+            detailed_results.append({
+                'operation': operation,
+                'PE': selection['PE'],
+                'voltage': selection['voltage'],
+                'frequency_MHz': selection['frequency_MHz'],
+                'energy_mJ': selection['total_energy_mJ'],
+                'execution_time_ms': selection['total_time_ms'],
+                'tiling_sequence': selection['tiling_sequence']
+            })
+
+        num_operations = len(detailed_results)
+        average_energy_mJ = total_energy_mJ / num_operations if num_operations > 0 else 0
+        average_time_ms = total_time_ms / num_operations if num_operations > 0 else 0
+        average_power_mW = (total_energy_mJ * 1e3) / total_time_ms if total_time_ms > 0 else 0  # mW
+
+        return {
+            'success': True,
+            'total_energy_mJ': total_energy_mJ,
+            'total_time_ms': total_time_ms,
+            'average_energy_mJ': average_energy_mJ,
+            'average_time_ms': average_time_ms,
+            'average_power_mW': average_power_mW,
+            'detailed_results': detailed_results
+        }
+
+
+
