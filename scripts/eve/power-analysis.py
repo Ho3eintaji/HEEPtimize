@@ -37,11 +37,9 @@ import glob
 from sims_data_models import MatmulSimulationData, MatmulDataAnalysis, MatmulPowerModel, MatmulPowerModelMultiPE
 from RandomWorkload import WorkloadGenerator as random_workload_generator
 from policies import GreedyEnergyPolicy, FixedPEPolicy, OptimalMCKPEnergyPolicy, MaxPerformancePolicy, OptimalFixedVoltageEnergyPolicy, PerOperationFixedVoltageEnergyPolicy 
-from policies import MultiPESplittingPolicy, MultiPEWeightedSplittingPolicy, OptimalSplittingPolicy, LimitedConfigSplittingPolicy
-from policies import FixedPEPolicyWMem, MaxPerformancePolicyWMem, OptimalMCKPEnergyPolicyWMem
+from policies import FixedPEPolicyWMem, MaxPerformancePolicyWMem, OptimalMCKPEnergyPolicyWMem, ParallelTilingPolicy
 from eve_emulator import EVE
 import TransformerWorkload
-
 
 
 if __name__ == '__main__':
@@ -118,8 +116,8 @@ if __name__ == '__main__':
 
 
     ######### Application Scenario #########
-    RandomWorkloadGenerator = random_workload_generator(ra_size=[2, 4, 8, 16], ca_size=[2, 4, 8, 16], cb_size=[4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048])
-    seed, workload = RandomWorkloadGenerator.generate_workload(num_operations=200, seed=None)
+    RandomWorkloadGenerator = random_workload_generator(ra_size=[16, 32], ca_size=[16, 32], cb_size=[256, 512, 1024, 2048])
+    seed, workload = RandomWorkloadGenerator.generate_workload(num_operations=10, seed=None)
     print(f"Workload generated with seed: {seed}")
 
     # workload_details = TransformerWorkload.calculate_tsd_operations(verbose=False)
@@ -135,7 +133,7 @@ if __name__ == '__main__':
     pe_memory_capacity_byte={'cpu': 100 * 1024,  'cgra': 100 * 1024, 'carus': 20 * 1024,  'caesar': 20 * 1024}
 
     # Create the EVE emulator
-    time_budget_s =  5 * 1e-3   # 1500 * 1e-6  # us
+    time_budget_s =  1000 * 1e-3   # 1500 * 1e-6  # us
 
     # emulator
     eve = EVE(models=models, workload=workload, time_budget_s=time_budget_s, pe_memory_capacity_byte=pe_memory_capacity_byte)
@@ -191,18 +189,31 @@ if __name__ == '__main__':
     # policies.append(limited_config_splitting_policy)
 
     # OptimalMCKPEnergyPolicy
-    optimal_energy_policy_wmem = OptimalMCKPEnergyPolicyWMem(available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9])
-    policies.append(optimal_energy_policy_wmem)
+    # optimal_energy_policy_wmem = OptimalMCKPEnergyPolicyWMem(available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.5, 0.65, 0.8, 0.9], verbose=True)
+    # policies.append(optimal_energy_policy_wmem)
 
-    # MaxPerformancePolicy
-    max_performance_policy_wmem = MaxPerformancePolicyWMem( available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.65, 0.5, 0.8, 0.9])
-    policies.append(max_performance_policy_wmem)
+    # # MaxPerformancePolicy
+    # max_performance_policy_wmem = MaxPerformancePolicyWMem( available_PEs=['carus', 'caesar', 'cgra'], voltages=[0.65, 0.5, 0.8, 0.9])
+    # policies.append(max_performance_policy_wmem)
+
+    # # MultiAcceleratorMaxPerformancePolicy
+    # multi_accelerator_max_performance_policy = MultiAcceleratorMaxPerformancePolicy(available_PEs=['carus', 'cgra'], voltage=0.5, verbose=True)
+    # policies.append(multi_accelerator_max_performance_policy)
+
+    # # BalancedParallelMaxPerformancePolicy
+    # balanced_parallel_max_performance_policy = BalancedParallelMaxPerformancePolicy(available_PEs=['carus', 'cgra'], voltages=[0.5], verbose=True)
+    # policies.append(balanced_parallel_max_performance_policy)
+
+    # ParallelTilingPolicy
+    for voltage in [0.5, 0.65]:
+        parallel_tiling_policy = ParallelTilingPolicy(available_PEs=['carus', 'cgra'], voltage=voltage, verbose=False)
+        policies.append(parallel_tiling_policy)
     
     # FixedPEPolicy for each PE and voltage
     # for voltage in [0.5, 0.65, 0.8, 0.9]:
-    for voltage in [0.5, 0.65, 0.8, 0.9]:
-        for PE in ['carus', 'caesar', 'cgra']:
-            policy = FixedPEPolicyWMem(PE=PE, voltage=voltage)
+    for voltage in [0.5, 0.65]:
+        for PE in ['cgra', 'carus', 'caesar']:
+            policy = FixedPEPolicyWMem(PE=PE, voltage=voltage, verbose=False)
             policies.append(policy)
 
     ######### RUN POLICIES #########
@@ -218,4 +229,4 @@ if __name__ == '__main__':
     # results_full = eve.get_results()
     # # print(results_full['OptimalMCKPEnergyPolicy']['total_energy_mJ'])
 
-
+    

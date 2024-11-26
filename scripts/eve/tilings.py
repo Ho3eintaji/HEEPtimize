@@ -93,8 +93,397 @@ def generate_tiling_sequence(memory_limit_bytes, ra, ca, cb, bytes_per_element=4
     
     return tiles_sequence
 
+def generate_tiling_sequence_for_pe(memory_limit_bytes, ra, ca, cb, bytes_per_element=4, verbose=False):
+    """
+    Generates a tiling sequence for a single PE with given memory constraints and assigned cb.
+
+    Example:
+    
+    memory_limit_bytes = 100 * 1024  # 32 KB
+    ra, ca, cb = 32, 1024, 32   # Example matmul dimensions
+    tiles = generate_tiling_sequence_for_pe(memory_limit_bytes, ra, ca, cb, verbose=False)
+    print("Generated Tiles Sequence:")
+    for idx, tile in enumerate(tiles, 1):
+        print(f"Tile {idx}: A({tile['tile_ra']} x {tile['tile_ca']}) B({tile['tile_ca']} x {tile['tile_cb']}) C({tile['tile_ra']} x {tile['tile_cb']})")
+    """
+    tiles_sequence = []
+
+    if verbose:
+        print("=== Generating Tiling Sequence ===")
+        print(f"Input Size: A({ra} x {ca}) B({ca} x {cb})")
+        print(f"Memory Limit: {memory_limit_bytes / 1024:.2f} KB\n")
+
+    remaining_ra = ra
+
+    while remaining_ra > 0:
+        # Determine the largest possible tile size for `tile_ra`
+        tile_ra = remaining_ra
+
+        while tile_ra > 0:
+            size_a = tile_ra * ca * bytes_per_element
+            size_c = tile_ra * cb * bytes_per_element
+            if size_a + size_c <= memory_limit_bytes:
+                break
+            tile_ra -= 1
+
+        remaining_ca = ca  # Assuming full ca is used
+
+        # Add the current tile to the sequence
+        tiles_sequence.append({
+            'tile_ra': tile_ra,
+            'tile_ca': ca,
+            'tile_cb': cb
+        })
+
+        if verbose:
+            size_a = tile_ra * ca * bytes_per_element
+            size_b = ca * cb * bytes_per_element
+            size_c = tile_ra * cb * bytes_per_element
+            total_memory = size_a + size_b + size_c
+            print(f"Tile Added: A({tile_ra} x {ca}) B({ca} x {cb}) C({tile_ra} x {cb})")
+            print(f"Memory Required: {total_memory / 1024:.2f} KB")
+            print(f"Remaining Rows (ra): {remaining_ra}\n")
+
+        # Move to the next set of rows
+        remaining_ra -= tile_ra
+
+    if verbose:
+        print("=== Tiling Sequence Generation Completed ===\n")
+        
+    return tiles_sequence
+
+def generate_tiling_sequence_multiple_pes(pe_configs, ra, ca, cb, bytes_per_element=4, verbose=False):
+    """
+    Generates tiling sequences for multiple PEs with different memory constraints,
+    by dynamically splitting the workload along either `ra` or `cb`.
+
+    Args:
+        pe_configs (list of dict): A list where each dict contains:
+            - 'id': Unique identifier for the PE.
+            - 'name': Name of the PE.
+            - 'memory_limit_bytes': Memory limit of the PE in bytes.
+        ra (int): Number of rows in matrix A.
+        ca (int): Number of columns in matrix A (also rows in matrix B).
+        cb (int): Number of columns in matrix B.
+        bytes_per_element (int, optional): Size of each matrix element in bytes. Defaults to 4.
+        verbose (bool, optional): If True, provides detailed commentary. Defaults to False.
+    
+    Returns:
+        List of batches, where each batch is a list of tiles assigned to PEs.
+
+    # Example usage with PEs having different memory constraints
+    pe_configs = [
+        {'id': 0, 'name': 'cgra', 'memory_limit_bytes': 100 * 1024},  # PE 0 with 100 KB
+        {'id': 1, 'name': 'carus', 'memory_limit_bytes': 20 * 1024},   # PE 1 with 20 KB
+    ]
+
+    ra, ca, cb = 32, 32, 1024  # Matmul dimensions
+    batches = generate_tiling_sequence_multiple_pes(pe_configs, ra, ca, cb, verbose=False)
+
+    # Printing the generated batches
+    for batch_idx, batch in enumerate(batches, 1):
+        print(f"\nBatch {batch_idx}:")
+        for tile in batch:
+            pe_name = tile['pe_name']
+            print(f"  PE {pe_name} executes tile: A({tile['tile_ra']} x {tile['tile_ca']}) "
+                f"B({tile['tile_ca']} x {tile['tile_cb']}) "
+                f"C({tile['tile_ra']} x {tile['tile_cb']}) "
+                f"at position ({tile['start_row']}, {tile['start_col']})")
+
+    """
+    # Determine which dimension to split based on size
+    split_dimension = 'cb' if cb > ra else 'ra'
+    if verbose:
+        print(f"Splitting along dimension: {split_dimension}\n")
+    
+    # Step 1: Split the chosen dimension proportionally among PEs
+    total_memory = sum(pe['memory_limit_bytes'] for pe in pe_configs)
+    assigned_parts = {}
+    
+    if split_dimension == 'cb':
+        # Split along `cb`
+        total_assigned_cb = 0
+        for pe in pe_configs:
+            fraction = pe['memory_limit_bytes'] / total_memory
+            assigned_columns = int(round(fraction * cb))
+            total_assigned_cb += assigned_columns
+            assigned_parts[pe['id']] = {'assigned_cb': assigned_columns, 'name': pe['name']}
+    
+        # Adjust if total assigned columns do not sum up to `cb`
+        if total_assigned_cb != cb:
+            difference = cb - total_assigned_cb
+            # Adjust the first PE's assigned columns
+            first_pe_id = pe_configs[0]['id']
+            assigned_parts[first_pe_id]['assigned_cb'] += difference
+    
+    elif split_dimension == 'ra':
+        # Split along `ra`
+        total_assigned_ra = 0
+        for pe in pe_configs:
+            fraction = pe['memory_limit_bytes'] / total_memory
+            assigned_rows = int(round(fraction * ra))
+            total_assigned_ra += assigned_rows
+            assigned_parts[pe['id']] = {'assigned_ra': assigned_rows, 'name': pe['name']}
+    
+        # Adjust if total assigned rows do not sum up to `ra`
+        if total_assigned_ra != ra:
+            difference = ra - total_assigned_ra
+            # Adjust the first PE's assigned rows
+            first_pe_id = pe_configs[0]['id']
+            assigned_parts[first_pe_id]['assigned_ra'] += difference
+    
+    # Step 2: Generate tiling sequences for each PE
+    pe_tiling_sequences = {}
+    offset = 0  # Keep track of offset for each PE in the chosen dimension
+    
+    max_num_tiles = 0  # To keep track of the maximum number of tiles among all PEs
+    
+    for pe in pe_configs:
+        pe_id = pe['id']
+        memory_limit_bytes = pe['memory_limit_bytes']
+        pe_name = assigned_parts[pe_id]['name']
+    
+        if split_dimension == 'cb':
+            pe_cb = assigned_parts[pe_id]['assigned_cb']
+            if pe_cb <= 0:
+                continue
+    
+            tiles_sequence = generate_tiling_sequence_for_pe(memory_limit_bytes, ra, ca, pe_cb, bytes_per_element, verbose=verbose)
+                
+            # Adjust tile_cb to reflect the offset in cb
+            for tile in tiles_sequence:
+                tile['start_row'] = 0
+                tile['start_col'] = offset
+                tile['start_depth'] = 0
+                tile['accelerator_id'] = pe_id
+                tile['pe_name'] = pe_name
+            offset += pe_cb  # Update offset for next PE
+    
+        elif split_dimension == 'ra':
+            pe_ra = assigned_parts[pe_id]['assigned_ra']
+            if pe_ra <= 0:
+                continue
+    
+            tiles_sequence = generate_tiling_sequence_for_pe(memory_limit_bytes, pe_ra, ca, cb, bytes_per_element, verbose=verbose)
+                
+            # Adjust tile_ra to reflect the offset in ra
+            for tile in tiles_sequence:
+                tile['start_row'] = offset
+                tile['start_col'] = 0
+                tile['start_depth'] = 0
+                tile['accelerator_id'] = pe_id
+                tile['pe_name'] = pe_name
+            offset += pe_ra  # Update offset for next PE
+    
+        pe_tiling_sequences[pe_id] = tiles_sequence
+        if len(tiles_sequence) > max_num_tiles:
+            max_num_tiles = len(tiles_sequence)
+    
+    # Step 3: Generate batches similar to the old function
+    batches = []
+    for i in range(max_num_tiles):
+        batch = []
+        for pe_id, tiles in pe_tiling_sequences.items():
+            if i < len(tiles):
+                batch.append(tiles[i])
+        batches.append(batch)
+    
+    if verbose:
+        print("\nGenerated Batches of Tiles:")
+        for batch_idx, batch in enumerate(batches, 1):
+            print(f"\nBatch {batch_idx}:")
+            for tile in batch:
+                pe_name = tile['pe_name']
+                print(f"  PE {pe_name} executes tile: A({tile['tile_ra']} x {tile['tile_ca']}) "
+                      f"B({tile['tile_ca']} x {tile['tile_cb']}) "
+                      f"C({tile['tile_ra']} x {tile['tile_cb']}) "
+                      f"at position ({tile['start_row']}, {tile['start_col']})")
+    
+    return batches
 
 
+# =================================================================================================
+# Unsecussful attempt to generate tiling sequence for multiple PEs with different memory constraints
+# =================================================================================================
+
+def generate_tiling_sequence_multiple_pes_dynamic_split(pe_constraints, ra, ca, cb, bytes_per_element=4, verbose=False):
+    # This is back-up code for working version
+    """
+    Generates tiling sequences for multiple PEs with different memory constraints,
+    by dynamically splitting the workload along either `ra` or `cb`.
+    """
+    # Determine which dimension to split based on size
+    split_dimension = 'cb' if cb > ra else 'ra'
+    if verbose:
+        print(f"Splitting along dimension: {split_dimension}\n")
+
+    # Step 1: Split the chosen dimension proportionally among PEs
+    total_memory = sum(pe['memory_limit_bytes'] for pe in pe_constraints)
+    assigned_parts = {}
+
+    if split_dimension == 'cb':
+        # Split along `cb`
+        total_assigned_cb = 0
+        for pe in pe_constraints:
+            fraction = pe['memory_limit_bytes'] / total_memory
+            assigned_columns = int(round(fraction * cb))
+            total_assigned_cb += assigned_columns
+            assigned_parts[pe['id']] = {'assigned_cb': assigned_columns}
+
+        # Adjust if total assigned columns do not sum up to `cb`
+        if total_assigned_cb != cb:
+            difference = cb - total_assigned_cb
+            # Adjust the first PE's assigned columns
+            first_pe_id = pe_constraints[0]['id']
+            assigned_parts[first_pe_id]['assigned_cb'] += difference
+
+    elif split_dimension == 'ra':
+        # Split along `ra`
+        total_assigned_ra = 0
+        for pe in pe_constraints:
+            fraction = pe['memory_limit_bytes'] / total_memory
+            assigned_rows = int(round(fraction * ra))
+            total_assigned_ra += assigned_rows
+            assigned_parts[pe['id']] = {'assigned_ra': assigned_rows}
+
+        # Adjust if total assigned rows do not sum up to `ra`
+        if total_assigned_ra != ra:
+            difference = ra - total_assigned_ra
+            # Adjust the first PE's assigned rows
+            first_pe_id = pe_constraints[0]['id']
+            assigned_parts[first_pe_id]['assigned_ra'] += difference
+
+    # Step 2: Generate tiling sequences for each PE
+    pe_tiling_sequences = {}
+    offset = 0  # Keep track of offset for each PE in the chosen dimension
+    for pe in pe_constraints:
+        pe_id = pe['id']
+        memory_limit_bytes = pe['memory_limit_bytes']
+
+        if split_dimension == 'cb':
+            pe_cb = assigned_parts[pe_id]['assigned_cb']
+            if pe_cb <= 0:
+                continue
+
+            if verbose:
+                print(f"Generating tiling sequence for PE {pe_id} with memory limit {memory_limit_bytes / 1024} KB and assigned columns {pe_cb}")
+
+            tiles_sequence = generate_tiling_sequence_for_pe(memory_limit_bytes, ra, ca, pe_cb, bytes_per_element, verbose=verbose)
+            
+            # Adjust tile_cb to reflect the offset in cb
+            for tile in tiles_sequence:
+                tile['cb_offset'] = offset  # Starting index in cb
+                tile['cb_range'] = (offset, offset + pe_cb)  # Range in cb
+            offset += pe_cb  # Update offset for next PE
+
+        elif split_dimension == 'ra':
+            pe_ra = assigned_parts[pe_id]['assigned_ra']
+            if pe_ra <= 0:
+                continue
+
+            if verbose:
+                print(f"Generating tiling sequence for PE {pe_id} with memory limit {memory_limit_bytes / 1024} KB and assigned rows {pe_ra}")
+
+            tiles_sequence = generate_tiling_sequence_for_pe(memory_limit_bytes, pe_ra, ca, cb, bytes_per_element, verbose=verbose)
+            
+            # Adjust tile_ra to reflect the offset in ra
+            for tile in tiles_sequence:
+                tile['ra_offset'] = offset  # Starting index in ra
+                tile['ra_range'] = (offset, offset + pe_ra)  # Range in ra
+            offset += pe_ra  # Update offset for next PE
+
+        pe_tiling_sequences[pe_id] = tiles_sequence
+
+    return pe_tiling_sequences
+
+def generate_tiling_sequence_multiple_pes_dynamic_split(pe_constraints, ra, ca, cb, bytes_per_element=4, verbose=False):
+    """
+    Generates tiling sequences for multiple PEs with different memory constraints,
+    by dynamically splitting the workload along either `ra` or `cb`.
+    """
+    # Determine which dimension to split based on size
+    split_dimension = 'cb' if cb > ra else 'ra'
+    if verbose:
+        print(f"Splitting along dimension: {split_dimension}\n")
+
+    # Step 1: Split the chosen dimension proportionally among PEs
+    total_memory = sum(pe['memory_limit_bytes'] for pe in pe_constraints)
+    assigned_parts = {}
+
+    if split_dimension == 'cb':
+        # Split along `cb`
+        total_assigned_cb = 0
+        for pe in pe_constraints:
+            fraction = pe['memory_limit_bytes'] / total_memory
+            assigned_columns = int(round(fraction * cb))
+            total_assigned_cb += assigned_columns
+            assigned_parts[pe['id']] = {'assigned_cb': assigned_columns}
+
+        # Adjust if total assigned columns do not sum up to `cb`
+        if total_assigned_cb != cb:
+            difference = cb - total_assigned_cb
+            # Adjust the first PE's assigned columns
+            first_pe_id = pe_constraints[0]['id']
+            assigned_parts[first_pe_id]['assigned_cb'] += difference
+
+    elif split_dimension == 'ra':
+        # Split along `ra`
+        total_assigned_ra = 0
+        for pe in pe_constraints:
+            fraction = pe['memory_limit_bytes'] / total_memory
+            assigned_rows = int(round(fraction * ra))
+            total_assigned_ra += assigned_rows
+            assigned_parts[pe['id']] = {'assigned_ra': assigned_rows}
+
+        # Adjust if total assigned rows do not sum up to `ra`
+        if total_assigned_ra != ra:
+            difference = ra - total_assigned_ra
+            # Adjust the first PE's assigned rows
+            first_pe_id = pe_constraints[0]['id']
+            assigned_parts[first_pe_id]['assigned_ra'] += difference
+
+    # Step 2: Generate tiling sequences for each PE
+    pe_tiling_sequences = {}
+    offset = 0  # Keep track of offset for each PE in the chosen dimension
+    for pe in pe_constraints:
+        pe_id = pe['id']
+        memory_limit_bytes = pe['memory_limit_bytes']
+
+        if split_dimension == 'cb':
+            pe_cb = assigned_parts[pe_id]['assigned_cb']
+            if pe_cb <= 0:
+                continue
+
+            if verbose:
+                print(f"Generating tiling sequence for PE {pe_id} with memory limit {memory_limit_bytes / 1024} KB and assigned columns {pe_cb}")
+
+            tiles_sequence = generate_tiling_sequence_for_pe(memory_limit_bytes, ra, ca, pe_cb, bytes_per_element, verbose=verbose)
+            
+            # Adjust tile_cb to reflect the offset in cb
+            for tile in tiles_sequence:
+                tile['cb_offset'] = offset  # Starting index in cb
+                tile['cb_range'] = (offset, offset + pe_cb)  # Range in cb
+            offset += pe_cb  # Update offset for next PE
+
+        elif split_dimension == 'ra':
+            pe_ra = assigned_parts[pe_id]['assigned_ra']
+            if pe_ra <= 0:
+                continue
+
+            if verbose:
+                print(f"Generating tiling sequence for PE {pe_id} with memory limit {memory_limit_bytes / 1024} KB and assigned rows {pe_ra}")
+
+            tiles_sequence = generate_tiling_sequence_for_pe(memory_limit_bytes, pe_ra, ca, cb, bytes_per_element, verbose=verbose)
+            
+            # Adjust tile_ra to reflect the offset in ra
+            for tile in tiles_sequence:
+                tile['ra_offset'] = offset  # Starting index in ra
+                tile['ra_range'] = (offset, offset + pe_ra)  # Range in ra
+            offset += pe_ra  # Update offset for next PE
+
+        pe_tiling_sequences[pe_id] = tiles_sequence
+
+    return pe_tiling_sequences
 
 def generate_tiling_sequence_parallel(
     ra, ca, cb,
@@ -381,387 +770,4 @@ def get_max_tile_sizes_when_i_want_seperately(ra, ca, cb, memory_limit_bytes, by
 
     return max_tile_ra, max_tile_cb
 
-
-
-
-
-
-def generate_tiling_sequence_multiple_pes_dynamic_split(pe_constraints, ra, ca, cb, bytes_per_element=4, verbose=False):
-    """
-    Generates tiling sequences for multiple PEs with different memory constraints,
-    by dynamically splitting the workload along either `ra` or `cb`.
-    """
-    # Determine which dimension to split based on size
-    split_dimension = 'cb' if cb > ra else 'ra'
-    if verbose:
-        print(f"Splitting along dimension: {split_dimension}\n")
-
-    # Step 1: Split the chosen dimension proportionally among PEs
-    total_memory = sum(pe['memory_limit_bytes'] for pe in pe_constraints)
-    assigned_parts = {}
-
-    if split_dimension == 'cb':
-        # Split along `cb`
-        total_assigned_cb = 0
-        for pe in pe_constraints:
-            fraction = pe['memory_limit_bytes'] / total_memory
-            assigned_columns = int(round(fraction * cb))
-            total_assigned_cb += assigned_columns
-            assigned_parts[pe['id']] = {'assigned_cb': assigned_columns}
-
-        # Adjust if total assigned columns do not sum up to `cb`
-        if total_assigned_cb != cb:
-            difference = cb - total_assigned_cb
-            # Adjust the first PE's assigned columns
-            first_pe_id = pe_constraints[0]['id']
-            assigned_parts[first_pe_id]['assigned_cb'] += difference
-
-    elif split_dimension == 'ra':
-        # Split along `ra`
-        total_assigned_ra = 0
-        for pe in pe_constraints:
-            fraction = pe['memory_limit_bytes'] / total_memory
-            assigned_rows = int(round(fraction * ra))
-            total_assigned_ra += assigned_rows
-            assigned_parts[pe['id']] = {'assigned_ra': assigned_rows}
-
-        # Adjust if total assigned rows do not sum up to `ra`
-        if total_assigned_ra != ra:
-            difference = ra - total_assigned_ra
-            # Adjust the first PE's assigned rows
-            first_pe_id = pe_constraints[0]['id']
-            assigned_parts[first_pe_id]['assigned_ra'] += difference
-
-    # Step 2: Generate tiling sequences for each PE
-    pe_tiling_sequences = {}
-    offset = 0  # Keep track of offset for each PE in the chosen dimension
-    for pe in pe_constraints:
-        pe_id = pe['id']
-        memory_limit_bytes = pe['memory_limit_bytes']
-
-        if split_dimension == 'cb':
-            pe_cb = assigned_parts[pe_id]['assigned_cb']
-            if pe_cb <= 0:
-                continue
-
-            if verbose:
-                print(f"Generating tiling sequence for PE {pe_id} with memory limit {memory_limit_bytes / 1024} KB and assigned columns {pe_cb}")
-
-            tiles_sequence = generate_tiling_sequence_for_pe(memory_limit_bytes, ra, ca, pe_cb, bytes_per_element, verbose=verbose)
-            
-            # Adjust tile_cb to reflect the offset in cb
-            for tile in tiles_sequence:
-                tile['cb_offset'] = offset  # Starting index in cb
-                tile['cb_range'] = (offset, offset + pe_cb)  # Range in cb
-            offset += pe_cb  # Update offset for next PE
-
-        elif split_dimension == 'ra':
-            pe_ra = assigned_parts[pe_id]['assigned_ra']
-            if pe_ra <= 0:
-                continue
-
-            if verbose:
-                print(f"Generating tiling sequence for PE {pe_id} with memory limit {memory_limit_bytes / 1024} KB and assigned rows {pe_ra}")
-
-            tiles_sequence = generate_tiling_sequence_for_pe(memory_limit_bytes, pe_ra, ca, cb, bytes_per_element, verbose=verbose)
-            
-            # Adjust tile_ra to reflect the offset in ra
-            for tile in tiles_sequence:
-                tile['ra_offset'] = offset  # Starting index in ra
-                tile['ra_range'] = (offset, offset + pe_ra)  # Range in ra
-            offset += pe_ra  # Update offset for next PE
-
-        pe_tiling_sequences[pe_id] = tiles_sequence
-
-    return pe_tiling_sequences
-
-
-
-def generate_tiling_sequence_for_pe(memory_limit_bytes, ra, ca, cb, bytes_per_element=4, verbose=False):
-    """
-    Generates a tiling sequence for a single PE with given memory constraints and assigned cb.
-
-    Example:
-    
-    memory_limit_bytes = 100 * 1024  # 32 KB
-    ra, ca, cb = 32, 1024, 32   # Example matmul dimensions
-    tiles = generate_tiling_sequence_for_pe(memory_limit_bytes, ra, ca, cb, verbose=False)
-    print("Generated Tiles Sequence:")
-    for idx, tile in enumerate(tiles, 1):
-        print(f"Tile {idx}: A({tile['tile_ra']} x {tile['tile_ca']}) B({tile['tile_ca']} x {tile['tile_cb']}) C({tile['tile_ra']} x {tile['tile_cb']})")
-    """
-    tiles_sequence = []
-
-    if verbose:
-        print("=== Generating Tiling Sequence ===")
-        print(f"Input Size: A({ra} x {ca}) B({ca} x {cb})")
-        print(f"Memory Limit: {memory_limit_bytes / 1024:.2f} KB\n")
-
-    remaining_ra = ra
-
-    while remaining_ra > 0:
-        # Determine the largest possible tile size for `tile_ra`
-        tile_ra = remaining_ra
-
-        while tile_ra > 0:
-            size_a = tile_ra * ca * bytes_per_element
-            size_c = tile_ra * cb * bytes_per_element
-            if size_a + size_c <= memory_limit_bytes:
-                break
-            tile_ra -= 1
-
-        remaining_ca = ca  # Assuming full ca is used
-
-        # Add the current tile to the sequence
-        tiles_sequence.append({
-            'tile_ra': tile_ra,
-            'tile_ca': ca,
-            'tile_cb': cb
-        })
-
-        if verbose:
-            size_a = tile_ra * ca * bytes_per_element
-            size_b = ca * cb * bytes_per_element
-            size_c = tile_ra * cb * bytes_per_element
-            total_memory = size_a + size_b + size_c
-            print(f"Tile Added: A({tile_ra} x {ca}) B({ca} x {cb}) C({tile_ra} x {cb})")
-            print(f"Memory Required: {total_memory / 1024:.2f} KB")
-            print(f"Remaining Rows (ra): {remaining_ra}\n")
-
-        # Move to the next set of rows
-        remaining_ra -= tile_ra
-
-    if verbose:
-        print("=== Tiling Sequence Generation Completed ===\n")
-        
-    return tiles_sequence
-
-def generate_tiling_sequence_multiple_pes_dynamic_split(pe_constraints, ra, ca, cb, bytes_per_element=4, verbose=False):
-    """
-    Generates tiling sequences for multiple PEs with different memory constraints,
-    by dynamically splitting the workload along either `ra` or `cb`.
-    """
-    # Determine which dimension to split based on size
-    split_dimension = 'cb' if cb > ra else 'ra'
-    if verbose:
-        print(f"Splitting along dimension: {split_dimension}\n")
-
-    # Step 1: Split the chosen dimension proportionally among PEs
-    total_memory = sum(pe['memory_limit_bytes'] for pe in pe_constraints)
-    assigned_parts = {}
-
-    if split_dimension == 'cb':
-        # Split along `cb`
-        total_assigned_cb = 0
-        for pe in pe_constraints:
-            fraction = pe['memory_limit_bytes'] / total_memory
-            assigned_columns = int(round(fraction * cb))
-            total_assigned_cb += assigned_columns
-            assigned_parts[pe['id']] = {'assigned_cb': assigned_columns}
-
-        # Adjust if total assigned columns do not sum up to `cb`
-        if total_assigned_cb != cb:
-            difference = cb - total_assigned_cb
-            # Adjust the first PE's assigned columns
-            first_pe_id = pe_constraints[0]['id']
-            assigned_parts[first_pe_id]['assigned_cb'] += difference
-
-    elif split_dimension == 'ra':
-        # Split along `ra`
-        total_assigned_ra = 0
-        for pe in pe_constraints:
-            fraction = pe['memory_limit_bytes'] / total_memory
-            assigned_rows = int(round(fraction * ra))
-            total_assigned_ra += assigned_rows
-            assigned_parts[pe['id']] = {'assigned_ra': assigned_rows}
-
-        # Adjust if total assigned rows do not sum up to `ra`
-        if total_assigned_ra != ra:
-            difference = ra - total_assigned_ra
-            # Adjust the first PE's assigned rows
-            first_pe_id = pe_constraints[0]['id']
-            assigned_parts[first_pe_id]['assigned_ra'] += difference
-
-    # Step 2: Generate tiling sequences for each PE
-    pe_tiling_sequences = {}
-    offset = 0  # Keep track of offset for each PE in the chosen dimension
-    for pe in pe_constraints:
-        pe_id = pe['id']
-        memory_limit_bytes = pe['memory_limit_bytes']
-
-        if split_dimension == 'cb':
-            pe_cb = assigned_parts[pe_id]['assigned_cb']
-            if pe_cb <= 0:
-                continue
-
-            if verbose:
-                print(f"Generating tiling sequence for PE {pe_id} with memory limit {memory_limit_bytes / 1024} KB and assigned columns {pe_cb}")
-
-            tiles_sequence = generate_tiling_sequence_for_pe(memory_limit_bytes, ra, ca, pe_cb, bytes_per_element, verbose=verbose)
-            
-            # Adjust tile_cb to reflect the offset in cb
-            for tile in tiles_sequence:
-                tile['cb_offset'] = offset  # Starting index in cb
-                tile['cb_range'] = (offset, offset + pe_cb)  # Range in cb
-            offset += pe_cb  # Update offset for next PE
-
-        elif split_dimension == 'ra':
-            pe_ra = assigned_parts[pe_id]['assigned_ra']
-            if pe_ra <= 0:
-                continue
-
-            if verbose:
-                print(f"Generating tiling sequence for PE {pe_id} with memory limit {memory_limit_bytes / 1024} KB and assigned rows {pe_ra}")
-
-            tiles_sequence = generate_tiling_sequence_for_pe(memory_limit_bytes, pe_ra, ca, cb, bytes_per_element, verbose=verbose)
-            
-            # Adjust tile_ra to reflect the offset in ra
-            for tile in tiles_sequence:
-                tile['ra_offset'] = offset  # Starting index in ra
-                tile['ra_range'] = (offset, offset + pe_ra)  # Range in ra
-            offset += pe_ra  # Update offset for next PE
-
-        pe_tiling_sequences[pe_id] = tiles_sequence
-
-    return pe_tiling_sequences
-
-
-def generate_tiling_sequence_multiple_pes(pe_configs, ra, ca, cb, bytes_per_element=4, verbose=False):
-    """
-    Generates tiling sequences for multiple PEs with different memory constraints,
-    by dynamically splitting the workload along either `ra` or `cb`.
-    
-    Returns:
-        List of batches, where each batch is a list of tiles assigned to PEs.
-
-    # Example usage with PEs having different memory constraints
-    pe_configs = [
-        {'id': 0, 'name': 'cgra', 'memory_limit_bytes': 100 * 1024},  # PE 0 with 100 KB
-        {'id': 1, 'name': 'carus', 'memory_limit_bytes': 20 * 1024},   # PE 1 with 20 KB
-    ]
-
-    ra, ca, cb = 32, 32, 1024  # Matmul dimensions
-    batches = generate_tiling_sequence_multiple_pes(pe_configs, ra, ca, cb, verbose=False)
-
-    # Printing the generated batches
-    for batch_idx, batch in enumerate(batches, 1):
-        print(f"\nBatch {batch_idx}:")
-        for tile in batch:
-            pe_name = tile['pe_name']
-            print(f"  PE {pe_name} executes tile: A({tile['tile_ra']} x {tile['tile_ca']}) "
-                f"B({tile['tile_ca']} x {tile['tile_cb']}) "
-                f"C({tile['tile_ra']} x {tile['tile_cb']}) "
-                f"at position ({tile['start_row']}, {tile['start_col']})")
-
-    """
-    # Determine which dimension to split based on size
-    split_dimension = 'cb' if cb > ra else 'ra'
-    if verbose:
-        print(f"Splitting along dimension: {split_dimension}\n")
-    
-    # Step 1: Split the chosen dimension proportionally among PEs
-    total_memory = sum(pe['memory_limit_bytes'] for pe in pe_configs)
-    assigned_parts = {}
-    
-    if split_dimension == 'cb':
-        # Split along `cb`
-        total_assigned_cb = 0
-        for pe in pe_configs:
-            fraction = pe['memory_limit_bytes'] / total_memory
-            assigned_columns = int(round(fraction * cb))
-            total_assigned_cb += assigned_columns
-            assigned_parts[pe['id']] = {'assigned_cb': assigned_columns, 'name': pe['name']}
-    
-        # Adjust if total assigned columns do not sum up to `cb`
-        if total_assigned_cb != cb:
-            difference = cb - total_assigned_cb
-            # Adjust the first PE's assigned columns
-            first_pe_id = pe_configs[0]['id']
-            assigned_parts[first_pe_id]['assigned_cb'] += difference
-    
-    elif split_dimension == 'ra':
-        # Split along `ra`
-        total_assigned_ra = 0
-        for pe in pe_configs:
-            fraction = pe['memory_limit_bytes'] / total_memory
-            assigned_rows = int(round(fraction * ra))
-            total_assigned_ra += assigned_rows
-            assigned_parts[pe['id']] = {'assigned_ra': assigned_rows, 'name': pe['name']}
-    
-        # Adjust if total assigned rows do not sum up to `ra`
-        if total_assigned_ra != ra:
-            difference = ra - total_assigned_ra
-            # Adjust the first PE's assigned rows
-            first_pe_id = pe_configs[0]['id']
-            assigned_parts[first_pe_id]['assigned_ra'] += difference
-    
-    # Step 2: Generate tiling sequences for each PE
-    pe_tiling_sequences = {}
-    offset = 0  # Keep track of offset for each PE in the chosen dimension
-    
-    max_num_tiles = 0  # To keep track of the maximum number of tiles among all PEs
-    
-    for pe in pe_configs:
-        pe_id = pe['id']
-        memory_limit_bytes = pe['memory_limit_bytes']
-        pe_name = assigned_parts[pe_id]['name']
-    
-        if split_dimension == 'cb':
-            pe_cb = assigned_parts[pe_id]['assigned_cb']
-            if pe_cb <= 0:
-                continue
-    
-            tiles_sequence = generate_tiling_sequence_for_pe(memory_limit_bytes, ra, ca, pe_cb, bytes_per_element, verbose=verbose)
-                
-            # Adjust tile_cb to reflect the offset in cb
-            for tile in tiles_sequence:
-                tile['start_row'] = 0
-                tile['start_col'] = offset
-                tile['start_depth'] = 0
-                tile['accelerator_id'] = pe_id
-                tile['pe_name'] = pe_name
-            offset += pe_cb  # Update offset for next PE
-    
-        elif split_dimension == 'ra':
-            pe_ra = assigned_parts[pe_id]['assigned_ra']
-            if pe_ra <= 0:
-                continue
-    
-            tiles_sequence = generate_tiling_sequence_for_pe(memory_limit_bytes, pe_ra, ca, cb, bytes_per_element, verbose=verbose)
-                
-            # Adjust tile_ra to reflect the offset in ra
-            for tile in tiles_sequence:
-                tile['start_row'] = offset
-                tile['start_col'] = 0
-                tile['start_depth'] = 0
-                tile['accelerator_id'] = pe_id
-                tile['pe_name'] = pe_name
-            offset += pe_ra  # Update offset for next PE
-    
-        pe_tiling_sequences[pe_id] = tiles_sequence
-        if len(tiles_sequence) > max_num_tiles:
-            max_num_tiles = len(tiles_sequence)
-    
-    # Step 3: Generate batches similar to the old function
-    batches = []
-    for i in range(max_num_tiles):
-        batch = []
-        for pe_id, tiles in pe_tiling_sequences.items():
-            if i < len(tiles):
-                batch.append(tiles[i])
-        batches.append(batch)
-    
-    if verbose:
-        print("\nGenerated Batches of Tiles:")
-        for batch_idx, batch in enumerate(batches, 1):
-            print(f"\nBatch {batch_idx}:")
-            for tile in batch:
-                pe_name = tile['pe_name']
-                print(f"  PE {pe_name} executes tile: A({tile['tile_ra']} x {tile['tile_ca']}) "
-                      f"B({tile['tile_ca']} x {tile['tile_cb']}) "
-                      f"C({tile['tile_ra']} x {tile['tile_cb']}) "
-                      f"at position ({tile['start_row']}, {tile['start_col']})")
-    
-    return batches
-
-
+# =================================================================================================

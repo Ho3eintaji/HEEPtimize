@@ -2818,10 +2818,27 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
                 print(f"    Total Energy: {energy_info['total_energy_nJ']:.4f} nJ")
                 print(f"    Execution Time: {energy_info['execution_time_ns']:.6f} ns")
         """
-        if not isinstance(PEs, list):
-            PEs = [PEs]
-        if not isinstance(operations, list):
-            operations = [operations]
+        # If only one PE is provided, fall back to predict_single_pe
+        if isinstance(PEs, str) or (isinstance(PEs, list) and len(PEs) == 1):
+            PE = PEs if isinstance(PEs, str) else PEs[0]
+            operation = operations if isinstance(operations, dict) else operations[0]
+
+            result_single_pe = self.predict_single_pe(
+                PE=PE,
+                row_a=operation['row_a'],
+                col_a=operation['col_a'],
+                col_b=operation['col_b'],
+                voltage=voltage,
+                frequency_MHz=frequency_MHz
+            )
+            # add all_frequencies_MHz to be match with the multi_pe_prediction
+            result_single_pe['all_frequencies_MHz'] = frequency_MHz
+            return result_single_pe
+        
+        # Ensure PEs and operations are lists of the same length
+        if not isinstance(PEs, list) or not isinstance(operations, list):
+            print("Error: PEs and operations must be lists.")
+            return None
         if len(PEs) != len(operations):
             print("Error: The number of PEs and operations must be the same.")
             return None
@@ -2884,7 +2901,7 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
                     dyn_power_mW = dyn_powers[domain]
                     static_power_mW = static_powers[domain]
 
-                    dyn_energy_nJ = dyn_power_mW * execution_time_ns  * 1e-3
+                    dyn_energy_nJ = dyn_power_mW * execution_time_ns * 1e-3
                     static_energy_nJ = static_power_mW * execution_time_ns * 1e-3
 
                     pe_dyn_energy_nJ += dyn_energy_nJ
