@@ -83,7 +83,7 @@ FIRMWARE			?= $(ROOT_DIR)/build/sw/app/main.hex
 FIRMWARE_FLASH 		?= $(ROOT_DIR)/build/sw/app-flash/main.hex
 VCD_MODE			?= 2 # QuestaSim-only - 0: no dumo, 1: dump always active, 2: dump triggered by GPIO 0
 BYPASS_FLL          ?= 1 # 0: FLL enabled, 1: FLL bypassed (TODO: make FLL work and set this to 0 by default)
-MAX_CYCLES			?= 10000000
+MAX_CYCLES			?= 100000000
 FUSESOC_FLAGS		?=
 FUSESOC_ARGS		?=
 

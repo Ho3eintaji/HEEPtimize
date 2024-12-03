@@ -247,12 +247,12 @@ void main()
 
   #ifdef PRINT_TIMING_DETAILS
     // information about application
-    printf("========================================\n");
-    printf("CGRA matrix multiplication\n");
-    printf("========================================\n");
+    // printf("========================================\n");
+    // printf("CGRA matrix multiplication\n");
+    // printf("========================================\n");
 
-    // printf matrix size
-    printf("Matrix size: %u x %u * %u x %u\n", ROWS_A, COLS_A, COLS_A, COLS_B);
+    // // printf matrix size
+    // printf("Matrix size: %u x %u * %u x %u\n", ROWS_A, COLS_A, COLS_A, COLS_B);
 
     // printf all timing details
     printf("CGRA init cycles: %u\n", cgra_init_cycles);

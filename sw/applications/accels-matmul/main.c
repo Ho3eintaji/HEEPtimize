@@ -1,3 +1,18 @@
+// #define CHECK_RESULTS
+#define VCD
+// #define PRINT_TIMING_DETAILS
+#define CGRA_COL_INPUT_SIZE 4
+
+#ifdef PRINT_TIMING_DETAILS
+    #define TIMER_ENABLED
+#endif
+
+/* Define which PEs to run */
+// #define RUN_CARUS
+// #define RUN_CAESAR
+// #define RUN_CGRA
+#define RUN_CPU
+
 // Copyright 2022 EPFL and Politecnico di Torino.
 // Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
@@ -28,14 +43,18 @@
 #include "ext_irq.h"
 #include "carus.h"
 #include "carus_matmul.h"
+#ifdef RUN_CARUS
+    #include "carus_data.h"
+#endif
 #include "caesar.h"
+#ifdef RUN_CAESAR
+    #include "caesar_commands.h"
+    #include "caesar_data.h"    
+#endif
 #include "timer_util.h"
 
 #include "data.h"
-#include "carus_data.h"
 
-#include "caesar_commands.h"
-#include "caesar_data.h"
 
 /****************************************************************************/
 /**                                                                        **/
@@ -43,20 +62,7 @@
 /**                                                                        **/
 /****************************************************************************/
 
-// #define CHECK_RESULTS
-#define VCD
-// #define PRINT_TIMING_DETAILS
-#define CGRA_COL_INPUT_SIZE 4
 
-#ifdef PRINT_TIMING_DETAILS
-    #define TIMER_ENABLED
-#endif
-
-/* Define which PEs to run */
-#define RUN_CARUS
-// #define RUN_CAESAR
-// #define RUN_CGRA
-// #define RUN_CPU
 
 /* VCD recording modes */
 #define VCD_MODE_NONE 0
@@ -96,9 +102,13 @@ static uint8_t              cgra_slot;
 // CGRA input and output buffers
 static int32_t cgra_input[CGRA_N_COLS][CGRA_COL_INPUT_SIZE]    __attribute__ ((aligned (4)));
 
-int32_t R_cgra[R_ROWS*R_COLS];
+#ifdef RUN_CGRA
+    int32_t R_cgra[R_ROWS*R_COLS];
+#endif
 
-data_t R_cpu[R_ROWS*R_COLS]; // Result computed by the CPU
+#ifdef RUN_CPU
+    data_t R_cpu[R_ROWS*R_COLS]; // Result computed by the CPU
+#endif
 
 /****************************************************************************/
 /**                                                                        **/
@@ -441,22 +451,30 @@ void main()
     for (unsigned int i = 0; i < R_ROWS; i++) {
         row_ptr = (data_t *) (CARUS0_START_ADDRESS + vregs[CARUS_MATMUL_R_VREG + i]);
         for (unsigned int j = 0; j < R_COLS; j++) {
+            #ifdef RUN_CARUS
             if (row_ptr[j] != R[i*R_COLS+j]) {
                 printf("NM-Carus|gold R[%u,%u]: %x %x\n", i, j, row_ptr[j], R[i*R_COLS+j]);
-                return 1;
+                return -1;
             }
+            #endif
+            #ifdef RUN_CGRA
             if (R_cgra[i*R_COLS+j] != R[i*R_COLS+j]) {
                 printf("CGRA|gold R[%u,%u]: %x %x\n", i, j, R_cgra[i*R_COLS+j], R[i*R_COLS+j]);
-                return 1;
+                return -1;
             }
+            #endif
+            #ifdef RUN_CPU
             if (R_cpu[i*R_COLS+j] != R[i*R_COLS+j]) {
                 printf("CPU|gold R[%u,%u]: %x %x\n", i, j, R_cpu[i*R_COLS+j], R[i*R_COLS+j]);
-                return 1;
+                return -1;
             }
+            #endif
+            #ifdef RUN_CAESAR
             if (R_caesar[i*R_COLS+j] != R[i*R_COLS+j]) {
                 printf("NM-Caesar|gold R[%u,%u]: %x %x\n", i, j, R_caesar[i*R_COLS+j], R[i*R_COLS+j]);
                 return -1;
             }
+            #endif
         }
     }
     printf("Results are correct\n");
@@ -467,6 +485,7 @@ void main()
     printf("Matrix size: %u x %u * %u x %u\n", A_ROWS, A_COLS, A_COLS, B_COLS);
     printf("----------------------------------------\n");
     // Then details of carus
+    #ifdef RUN_CARUS
     printf("NM-Carus\n");
     printf("----------------------------------------\n");
     printf("Initialization cycles: %u\n", carus_init_cycles);
@@ -475,7 +494,9 @@ void main()
     printf("Compute cycles: %u\n", carus_compute_cycles);
     printf("Total cycles: %u (load+mv+exe)\n", carus_cycles);
     printf("----------------------------------------\n");
+    #endif
     // Then details of caesar
+    #ifdef RUN_CAESAR
     printf("NM-Caesar\n");
     printf("----------------------------------------\n");
     printf("Initialization cycles: %u\n", caesar_init_cycles);
@@ -484,7 +505,9 @@ void main()
     printf("Compute cycles: %u\n", caesar_compute_cycles);
     printf("Total cycles: %u (load+mv+exe)\n", caesar_cycles);
     printf("----------------------------------------\n");
+    #endif
     // Then details of oe-cgra
+    #ifdef RUN_CGRA
     printf("OE-CGRA\n");
     printf("----------------------------------------\n");
     printf("Initialization cycles: %u\n", cgra_init_cycles);
@@ -493,14 +516,17 @@ void main()
     printf("Compute cycles: %u\n", cgra_compute_cycles);
     printf("Total cycles: %u (load+mv+exe)\n", cgra_cycles);
     printf("----------------------------------------\n");
+    #endif
     // Finally details of cpu
+    #ifdef RUN_CPU
     printf("CPU\n");
     printf("----------------------------------------\n");
     printf("Compute cycles: %u\n", cpu_cycles);
     printf("----------------------------------------\n"); 
+    #endif
 #endif
   
-  return EXIT_SUCCESS;
+  return 0;
 }
 
 void cpuMatMul(data_t *A, data_t *B, data_t *R_cpu, unsigned int a_rows, unsigned int a_cols, unsigned int b_cols)
