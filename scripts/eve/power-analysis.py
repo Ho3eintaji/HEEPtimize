@@ -29,6 +29,7 @@ Dependencies:
 """
 
 import os
+import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import argparse
@@ -41,6 +42,10 @@ from policies import FixedPEPolicyWMem, MaxPerformancePolicyWMem, OptimalMCKPEne
 from eve_emulator import EVE
 import TransformerWorkload
 
+WORKLOAD = 'Custom' # 'TSD' or 'ALBERT' or 'Custom'
+CGRA_SIZE_KB = 100
+TIME_MODEL_DEGREE = 2 # 1 or 2
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Matmul Simulation Data Analysis')
@@ -50,6 +55,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     output_dir = args.eve_dir + '/output'
+
+    # Redirect stdout to a file
+    # log_file = open(f'{output_dir}/output_ALBERT.log', "w")
+    log_file = open(f'{output_dir}/output_TEST3_{WORKLOAD}_CGRA_{CGRA_SIZE_KB}KB_TD_{TIME_MODEL_DEGREE}.log', "w")
+    sys.stdout = log_file
+
+    print(f"Workload: {WORKLOAD}")
 
     # clear pdfs inside output_dir
     pdf_files = glob.glob(f'{output_dir}/*.pdf')
@@ -63,10 +75,11 @@ if __name__ == '__main__':
     # sim_data.extract_data(root_dirs=[
     #     '/scrap/users/taji/private/matmul/cpu',
     #     '/scrap/users/taji/private/matmul/cgra',
+    #     '/scrap/users/taji/private/matmul/cgra_fake',
     #     '/scrap/users/taji/private/matmul/carus_32kb',
     #     '/scrap/users/taji/private/matmul/caesar_32kb'])
-    # sim_data.save_data(filename=f'{output_dir}/matmul_data_cpu_cgra_carus32_caesar32.pkl')
-    sim_data.load_data(filename=f'{output_dir}/matmul_data_cpu_cgra_carus32_caesar32.pkl')
+    # sim_data.save_data(filename=f'{output_dir}/matmul_data_cpu_cgra_carus32_caesar32_plusCgraAugmented.pkl')
+    sim_data.load_data(filename=f'{output_dir}/matmul_data_cpu_cgra_carus32_caesar32_plusCgraAugmented.pkl')
     
     # data analysis class
     data_analysis = MatmulDataAnalysis(simulation_data=sim_data, output_dir=output_dir)
@@ -77,7 +90,7 @@ if __name__ == '__main__':
         sim_data=sim_data,
         output_dir=output_dir,
         use_total_ops=True, #TODO: check and change
-        degree_time=2,
+        degree_time=TIME_MODEL_DEGREE,
         degree_dyn_power=2,
         degree_static_power=0,
         reference_frequency_MHz=100,
@@ -105,23 +118,32 @@ if __name__ == '__main__':
     # )
 
     # models.visualize_comparison_multiple_pes(
-    #         PEs=['cgra', 'carus', 'caesar', 'cpu'],
-    #         voltage=0.9,
+    #         PEs=['cgra', 'carus', 'caesar'],
+    #         voltage=0.5,
     #         frequency_MHz=100,
     #         sweep_param='col_b',          
-    #         sweep_range= (8,256,4),      #[8, 16, 32, 64],  
+    #         sweep_range= (8,16384,8*8*4),      #[8, 16, 32, 64],  
     #         fixed_params={'row_a': 8, 'col_a': 8}  
     #     )
 
 
 
     ######### Application Scenario #########
-    RandomWorkloadGenerator = random_workload_generator(ra_size=[16, 32], ca_size=[16, 32], cb_size=[256, 512, 1024, 2048])
-    seed, workload = RandomWorkloadGenerator.generate_workload(num_operations=10, seed=None)
-    print(f"Workload generated with seed: {seed}")
-
-    # workload_details = TransformerWorkload.calculate_tsd_operations(verbose=False)
-    # workload = TransformerWorkload.generate_workload_from_operations(workload_details['operations'])
+    if WORKLOAD == 'TSD':
+        # TSD workload
+        workload_details = TransformerWorkload.calculate_tsd_operations(verbose=False)
+        workload = TransformerWorkload.generate_workload_from_operations(workload_details['operations'])
+    elif WORKLOAD == 'ALBERT':
+        # ALBERT workload
+        workload_details = TransformerWorkload.calculate_albert_operations(verbose=False)
+        workload = TransformerWorkload.generate_workload_from_operations(workload_details['operations'])
+    else:
+        # Custom workload
+        RandomWorkloadGenerator = random_workload_generator(ra_size=[4, 8, 16, 32], ca_size=[8, 16, 32], cb_size=[256, 512, 1024, 2048])
+        # RandomWorkloadGenerator = random_workload_generator(ra_size=[512], ca_size=[128], cb_size=[768])
+        seed, workload = RandomWorkloadGenerator.generate_workload(num_operations=100, seed=None)
+        print(f"Workload generated with seed: {seed}")
+    
     
     # Optionally, save operations to a file or process further
     # For example, to save to a JSON file:
@@ -130,10 +152,19 @@ if __name__ == '__main__':
     #     json.dump(results['operations'], f, indent=4)
 
     # memory constraints
-    pe_memory_capacity_byte={'cpu': 100 * 1024,  'cgra': 100 * 1024, 'carus': 20 * 1024,  'caesar': 20 * 1024}
+    pe_memory_capacity_byte={'cpu': 100 * 1024,  'cgra': CGRA_SIZE_KB * 1024, 'carus': 20 * 1024,  'caesar': 20 * 1024}
 
     # Create the EVE emulator
-    time_budget_s =  1000 * 1e-3   # 1500 * 1e-6  # us
+    if WORKLOAD == 'TSD':
+        time_budget_s =  12 
+    elif WORKLOAD == 'ALBERT':
+        time_budget_s =  3
+    else:
+        time_budget_s =  1 * 1e-3   # 1500 * 1e-6  # us
+
+    # Print memory and time budget
+    print(f"Time budget: {time_budget_s} s")
+    print(f"PE memory capacities: {pe_memory_capacity_byte}")
 
     # emulator
     eve = EVE(models=models, workload=workload, time_budget_s=time_budget_s, pe_memory_capacity_byte=pe_memory_capacity_byte)
@@ -204,17 +235,18 @@ if __name__ == '__main__':
     # balanced_parallel_max_performance_policy = BalancedParallelMaxPerformancePolicy(available_PEs=['carus', 'cgra'], voltages=[0.5], verbose=True)
     # policies.append(balanced_parallel_max_performance_policy)
 
-    # ParallelTilingPolicy
-    for voltage in [0.5, 0.65]:
-        parallel_tiling_policy = ParallelTilingPolicy(available_PEs=['carus', 'cgra'], voltage=voltage, verbose=False)
-        policies.append(parallel_tiling_policy)
     
-    # FixedPEPolicy for each PE and voltage
     # for voltage in [0.5, 0.65, 0.8, 0.9]:
-    for voltage in [0.5, 0.65]:
-        for PE in ['cgra', 'carus', 'caesar']:
-            policy = FixedPEPolicyWMem(PE=PE, voltage=voltage, verbose=False)
+    for voltage in [0.5]:
+        # ParallelTilingPolicy
+        parallel_tiling_policy = ParallelTilingPolicy(available_PEs=['carus', 'cgra'], voltage=voltage, verbose=True)
+        policies.append(parallel_tiling_policy)
+        # FixedPEPolicy for each PE and voltage
+        for PE in ['cgra']:
+            policy = FixedPEPolicyWMem(PE=PE, voltage=voltage, verbose=True)
             policies.append(policy)
+    
+        
 
     ######### RUN POLICIES #########
     # TODO: uncomment below lines to run the policies
@@ -227,6 +259,8 @@ if __name__ == '__main__':
     print(result_basic_df)
 
     # results_full = eve.get_results()
-    # # print(results_full['OptimalMCKPEnergyPolicy']['total_energy_mJ'])
+    # print(results_full['OptimalMCKPEnergyPolicy']['total_energy_mJ'])
+
+    log_file.close()
 
     

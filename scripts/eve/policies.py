@@ -826,6 +826,10 @@ class FixedPEPolicyWMem(Policy):
         Returns:
             dict: A dictionary containing results (success, energy, timing, etc.)
         """
+        if self.verbose:
+            print(f"=====================================================")
+            print(f"Running FixedPEPolicyWMem on PE: {self.PE}, Voltage: {self.voltage:.2f}V")
+            print(f"=====================================================")
         memory_limit_bytes = pe_memory_capacity_byte.get(self.PE, None)
         if memory_limit_bytes is None:
             return {
@@ -839,6 +843,8 @@ class FixedPEPolicyWMem(Policy):
 
         for idx, operation in enumerate(workload):
             row_a, col_a, col_b = operation['row_a'], operation['col_a'], operation['col_b']
+            total_energy_mJ_op = 0
+            total_time_ms_op = 0
             
             # Generate tiling sequence using the memory capacity
             tiling_sequence = generate_tiling_sequence(
@@ -893,34 +899,25 @@ class FixedPEPolicyWMem(Policy):
                 })
 
                 if self.verbose:
-                    print(f"Operation {idx + 1} - Tile {tile_idx + 1} - Size: {tile_row_a}x{tile_col_a}x{tile_col_b}")
-                    print(f"Energy: {energy_mJ:.2f} mJ, Time: {execution_time_ms:.2f} ms")
-                    print()
-
+                    energy_uJ = energy_mJ * 1e3  # uJ
+                    execution_time_us = execution_time_ms * 1e3  # us
+                    print(f"  Operation {idx + 1} - Tile {tile_idx + 1} - Size: {tile_row_a}x{tile_col_a}x{tile_col_b} - Energy: {energy_uJ:.2f} uJ, Time: {execution_time_us:.2f} us")
+            
+                total_energy_mJ_op += energy_mJ
+                total_time_ms_op += execution_time_ms
+            if self.verbose:
+                print(f"Operation {idx + 1}: {row_a}x{col_a}x{col_b} - Total Energy: {(1e3*total_energy_mJ_op):.2f} uJ, Total Time: {(1e3*total_time_ms_op):.2f} us")
         
         if self.verbose:
             print(f"Total Energy: {total_energy_mJ:.2f} mJ, Total Time: {total_time_ms:.2f} ms")
 
         # Calculate averages
-        if total_time_ms > 0 and len(workload) > 0:
-            average_energy_mJ = total_energy_mJ / len(workload)
-            average_time_ms = total_time_ms / len(workload)
-            average_power_mW = (total_energy_mJ * 1e3) / total_time_ms  # mW
-        else:
-            return {
-                'success': False,
-                'message': 'Time budget could not be met or no valid operations found.'
-            }
-
-        # Check if we meet the time budget
-        if (total_time_ms * 1e-3) > time_budget_s:
-            return {
-                'success': False,
-                'message': 'Time budget could not be met with tiling and given memory limitations.'
-            }
+        average_energy_mJ = total_energy_mJ / len(workload)
+        average_time_ms = total_time_ms / len(workload)
+        average_power_mW = (total_energy_mJ * 1e3) / total_time_ms  # mW
 
         # Return the results in the expected format
-        return {
+        results = {
             'success': True,
             'total_energy_mJ': total_energy_mJ,
             'total_time_ms': total_time_ms,
@@ -929,12 +926,18 @@ class FixedPEPolicyWMem(Policy):
             'average_power_mW': average_power_mW,
             'detailed_results': detailed_results
         }
+        # Check if time budget is met
+        if total_time_ms / 1000 > time_budget_s:
+            results['success'] = False
+            results['message'] = 'Time budget could not be met with available configurations.'
+        return results
+    
 class MaxPerformancePolicyWMem(Policy):
     """
     Policy that selects the highest-performing configuration for each operation while considering memory limitations.
     """
 
-    def __init__(self, available_PEs, voltages):
+    def __init__(self, available_PEs, voltages, verbose=False):
         """
         Initializes the MaxPerformancePolicyWMem with the specified PEs and voltages.
 
@@ -945,6 +948,7 @@ class MaxPerformancePolicyWMem(Policy):
         super().__init__(name="MaxPerformancePolicyWMem")
         self.available_PEs = available_PEs
         self.voltages = voltages
+        self.verbose = verbose
 
     def run(self, models, workload, time_budget_s, pe_memory_capacity_byte):
         """
@@ -959,6 +963,11 @@ class MaxPerformancePolicyWMem(Policy):
         Returns:
             dict: Results of running the workload including total energy, time, and detailed results.
         """
+        if self.verbose:
+            print(f"=====================================================")
+            print(f"Running MaxPerformancePolicyWMem")
+            print(f"=====================================================")
+
         total_energy_mJ = 0
         total_time_ms = 0
         detailed_results = []
@@ -1078,6 +1087,11 @@ class OptimalMCKPEnergyPolicyWMem(Policy):
         Returns:
             dict: Results of running the workload including total energy, time, and detailed results.
         """
+        if self.verbose:
+            print(f"=====================================================")
+            print(f"Running OptimalMCKPEnergyPolicyWMem")
+            print(f"=====================================================")
+
         # Step 1: Generate possible configurations for each operation
         if self.verbose:
             print(f"Generating possible configurations for each of {len(workload)} operations...")
@@ -1324,26 +1338,57 @@ class ParallelTilingPolicy(Policy):
         Returns:
             dict: Results of executing the workload.
         """
+        if self.verbose:
+            print(f"=====================================================")
+            print(f"Running ParallelTilingPolicy at {self.voltage:.2f}V")
+            print(f"=====================================================")
+
         total_energy_mJ = 0
         total_time_ms = 0
         detailed_results = []
 
+        total_energy_mJ_op = 0
+        total_time_ms_op = 0
+
         # Create PE configs for tiling based on available PEs and memory capacities
+        CGRA_SHARE = None # 0.8 or None
         pe_configs = []
         for id_pe, pe_name in enumerate(self.available_PEs):
             memory_limit = pe_memory_capacity_byte.get(pe_name, None)
             if memory_limit is None:
                 print(f"Memory limit for {pe_name} not provided.")
                 continue
-            pe_configs.append({
-                'id': id_pe,
-                'name': pe_name,
-                'memory_limit_bytes': memory_limit
-            })
+            if CGRA_SHARE is None:
+                pe_configs.append({
+                    'id': id_pe,
+                    'name': pe_name,
+                    'memory_limit_bytes': memory_limit
+                })
+            else:
+                if pe_name == 'cgra':
+                    pe_configs.append({
+                        'id': id_pe,
+                        'name': pe_name,
+                        'memory_limit_bytes': memory_limit, 
+                        'assigned_fraction' : CGRA_SHARE
+                    })
+                else:
+                    pe_configs.append({
+                        'id': id_pe,
+                        'name': pe_name,
+                        'memory_limit_bytes': memory_limit,
+                        'assigned_fraction' : 1 - CGRA_SHARE
+                    })
 
         # Process each operation in the workload
         for idx, operation in enumerate(workload):
             ra, ca, cb = operation['row_a'], operation['col_a'], operation['col_b']
+
+            total_energy_mJ_op = 0
+            total_time_ms_op = 0
+
+            # if self.verbose:
+            #     print(f"Operation {idx + 1}: {ra}x{ca}x{cb}")
 
             # Generate tiling batches for the given operation
             tiling_batches = generate_tiling_sequence_multiple_pes(
@@ -1351,7 +1396,7 @@ class ParallelTilingPolicy(Policy):
                 ra=ra,
                 ca=ca,
                 cb=cb,
-                verbose=self.verbose
+                verbose=False
             )
 
             # Process each batch
@@ -1378,10 +1423,15 @@ class ParallelTilingPolicy(Policy):
                     )
                 else:
                     # Use multi PE prediction if multiple PEs are in the batch
-                    prediction = models.predict_multi_pe(
+                    prediction_unrealistic = models.predict_multi_pe(
                         PEs=PEs,
                         operations=sub_operations,
                         voltage=self.voltage
+                    )
+                    prediction = models.predict_multi_pe_realistic(
+                        PEs=PEs,
+                        operations=sub_operations,
+                        voltage=self.voltage  
                     )
 
                 if prediction is None:
@@ -1405,17 +1455,17 @@ class ParallelTilingPolicy(Policy):
                 })
 
                 if self.verbose:
-                    print(f"Operation {idx + 1}, Batch {batch_idx + 1}:")
-                    print(f"  PEs used: {PEs}")
-                    print(f"  Energy: {energy_mJ:.4f} mJ")
-                    print(f"  Execution Time: {execution_time_ms:.4f} ms")
+                    energy_uJ = energy_mJ * 1e3  # uJ
+                    execution_time_us = execution_time_ms * 1e3  # us
+                    print(f"  Operation {idx + 1} - Batch {batch_idx + 1} - PEs: {PEs} - Sizes: {sub_operations} - Energy: {energy_uJ:.2f} uJ, Time: {execution_time_us:.2f} us")
+                
+                total_energy_mJ_op += energy_mJ
+                total_time_ms_op += execution_time_ms
+            if self.verbose:
+                print(f"Operation {idx + 1}: {ra}x{ca}x{cb} - Total Energy: {(1e3*total_energy_mJ_op):.2f} uJ, Total Time: {(1e3*total_time_ms_op):.2f} us")
 
-        # Check if time budget is met
-        if total_time_ms / 1000 > time_budget_s:
-            return {
-                'success': False,
-                'message': 'Time budget could not be met with available configurations.'
-            }
+        if self.verbose:
+            print(f"Total Energy: {total_energy_mJ:.2f} mJ, Total Time: {total_time_ms:.2f} ms")
 
         # Calculate average metrics
         average_energy_mJ = total_energy_mJ / len(workload)
@@ -1432,6 +1482,12 @@ class ParallelTilingPolicy(Policy):
             'average_power_mW': average_power_mW,
             'detailed_results': detailed_results
         }
+
+        # Check if time budget is met
+        if total_time_ms / 1000 > time_budget_s:
+            results['success'] = False
+            results['message'] = 'Time budget could not be met with available configurations.'
+
         return results
 
 

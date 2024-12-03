@@ -110,24 +110,23 @@ class EVE:
         """
         results_list = []
         for policy_name, result in self.results.items():
-            if result.get('success', False):
-                results_list.append({
-                    'Policy': policy_name,
-                    'Total Energy (mJ)': result['total_energy_mJ'],
-                    'Total Time (ms)': result['total_time_ms'],
-                    'Average Energy per Operation (mJ)': result['average_energy_mJ'],
-                    'Average Time per Operation (ms)': result['average_time_ms'],
-                    'Average Power Consumption (mW)': result['average_power_mW']
-                })
-            else:
-                results_list.append({
-                    'Policy': policy_name,
-                    'Total Energy (mJ)': None,
-                    'Total Time (ms)': None,
-                    'Average Energy per Operation (mJ)': None,
-                    'Average Time per Operation (ms)': None,
-                    'Average Power Consumption (mW)': None
-                })
+            # if result.get('success', False):
+            results_list.append({
+                'Policy': policy_name,
+                'success': result['success'],
+                'Total Energy (mJ)': result.get('total_energy_mJ', None),
+                'Total Time (ms)': result.get('total_time_ms', None),
+                'Average Power (mW)': result.get('average_power_mW', None)
+            })
+            # else:
+            #     results_list.append({
+            #         'Policy': policy_name,
+            #         'Total Energy (mJ)': None,
+            #         'Total Time (ms)': None,
+            #         'Average Energy per Operation (mJ)': None,
+            #         'Average Time per Operation (ms)': None,
+            #         'Average Power Consumption (mW)': None
+            #     })
         df = pd.DataFrame(results_list)
         return df
 

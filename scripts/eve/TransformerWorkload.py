@@ -6,18 +6,18 @@ import json
 def calculate_tsd_operations(
     T=12,                     # Duration of EEG signal in seconds
     F_sampling=256,           # Sampling frequency in Hz
-    C=2000,                     # Number of EEG channels
-    S=10,                      # Number of splits
-    Num_bands=500,              # Number of frequency bands in STFT
-    d_fft=1280,                # Dimensionality of STFT output per band
-    d_m=128*128,                   # Embedding dimension
-    Num_encoders=30,           # Number of encoder blocks
-    Num_heads=100,              # Number of attention heads
-    d_q=128,                    # Dimension of Q vectors
-    d_k=128,                    # Dimension of K vectors
-    d_v=128,                    # Dimension of V vectors
-    d_ff=2048,                   # Dimension in FFN
-    Num_classes=10,            # Number of output classes
+    C=20,                     # Number of EEG channels
+    S=15,                      # Number of splits in time (it has overlapping windows)
+    Num_bands=4,              # Number of frequency bands in STFT
+    d_fft=100,                # Dimensionality of STFT output per band
+    d_m=16,                   # Embedding dimension
+    Num_encoders=4,           # Number of encoder blocks
+    Num_heads=4,              # Number of attention heads
+    d_q=4,                    # Dimension of Q vectors
+    d_k=4,                    # Dimension of K vectors
+    d_v=4,                    # Dimension of V vectors
+    d_ff=4,                   # Dimension in FFN
+    Num_classes=2,            # Number of output classes
     verbose=True              # Control verbosity of the function
 ):
     # Initialize a list to store operations
@@ -945,8 +945,8 @@ def calculate_albert_operations(
 
 # Example usage
 if __name__ == "__main__":
-    # results = calculate_tsd_operations(verbose=True)
-    results = calculate_albert_operations(verbose=True)
+    results = calculate_tsd_operations(verbose=True)
+    # results = calculate_albert_operations(verbose=True)
     
     # Optionally, save operations to a file or process further
     # For example, to save to a JSON file:

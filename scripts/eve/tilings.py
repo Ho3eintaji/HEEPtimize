@@ -162,6 +162,7 @@ def generate_tiling_sequence_multiple_pes(pe_configs, ra, ca, cb, bytes_per_elem
             - 'id': Unique identifier for the PE.
             - 'name': Name of the PE.
             - 'memory_limit_bytes': Memory limit of the PE in bytes.
+            - 'assigned_fraction' (optional): The assigned fraction for splitting.
         ra (int): Number of rows in matrix A.
         ca (int): Number of columns in matrix A (also rows in matrix B).
         cb (int): Number of columns in matrix B.
@@ -171,40 +172,42 @@ def generate_tiling_sequence_multiple_pes(pe_configs, ra, ca, cb, bytes_per_elem
     Returns:
         List of batches, where each batch is a list of tiles assigned to PEs.
 
-    # Example usage with PEs having different memory constraints
-    pe_configs = [
-        {'id': 0, 'name': 'cgra', 'memory_limit_bytes': 100 * 1024},  # PE 0 with 100 KB
-        {'id': 1, 'name': 'carus', 'memory_limit_bytes': 20 * 1024},   # PE 1 with 20 KB
-    ]
+    Example usage:
+        pe_configs = [
+            {'id': 0, 'name': 'cgra', 'memory_limit_bytes': 100 * 1024, 'assigned_fraction': 0.6},  # PE 0 with 60% workload
+            {'id': 1, 'name': 'carus', 'memory_limit_bytes': 20 * 1024},   # PE 1 with default workload split based on memory
+        ]
 
-    ra, ca, cb = 32, 32, 1024  # Matmul dimensions
-    batches = generate_tiling_sequence_multiple_pes(pe_configs, ra, ca, cb, verbose=False)
+        ra, ca, cb = 32, 32, 1024  # Matmul dimensions
+        batches = generate_tiling_sequence_multiple_pes(pe_configs, ra, ca, cb, verbose=False)
 
-    # Printing the generated batches
-    for batch_idx, batch in enumerate(batches, 1):
-        print(f"\nBatch {batch_idx}:")
-        for tile in batch:
-            pe_name = tile['pe_name']
-            print(f"  PE {pe_name} executes tile: A({tile['tile_ra']} x {tile['tile_ca']}) "
-                f"B({tile['tile_ca']} x {tile['tile_cb']}) "
-                f"C({tile['tile_ra']} x {tile['tile_cb']}) "
-                f"at position ({tile['start_row']}, {tile['start_col']})")
-
+        # Printing the generated batches
+        for batch_idx, batch in enumerate(batches, 1):
+            print(f"\nBatch {batch_idx}:")
+            for tile in batch:
+                pe_name = tile['pe_name']
+                print(f"  PE {pe_name} executes tile: A({tile['tile_ra']} x {tile['tile_ca']}) "
+                    f"B({tile['tile_ca']} x {tile['tile_cb']}) "
+                    f"C({tile['tile_ra']} x {tile['tile_cb']}) "
+                    f"at position ({tile['start_row']}, {tile['start_col']})")
     """
     # Determine which dimension to split based on size
     split_dimension = 'cb' if cb > ra else 'ra'
     if verbose:
         print(f"Splitting along dimension: {split_dimension}\n")
-    
+
     # Step 1: Split the chosen dimension proportionally among PEs
     total_memory = sum(pe['memory_limit_bytes'] for pe in pe_configs)
     assigned_parts = {}
-    
+
     if split_dimension == 'cb':
         # Split along `cb`
         total_assigned_cb = 0
         for pe in pe_configs:
-            fraction = pe['memory_limit_bytes'] / total_memory
+            if 'assigned_fraction' in pe:
+                fraction = pe['assigned_fraction']
+            else:
+                fraction = pe['memory_limit_bytes'] / total_memory
             assigned_columns = int(round(fraction * cb))
             total_assigned_cb += assigned_columns
             assigned_parts[pe['id']] = {'assigned_cb': assigned_columns, 'name': pe['name']}
@@ -220,7 +223,10 @@ def generate_tiling_sequence_multiple_pes(pe_configs, ra, ca, cb, bytes_per_elem
         # Split along `ra`
         total_assigned_ra = 0
         for pe in pe_configs:
-            fraction = pe['memory_limit_bytes'] / total_memory
+            if 'assigned_fraction' in pe:
+                fraction = pe['assigned_fraction']
+            else:
+                fraction = pe['memory_limit_bytes'] / total_memory
             assigned_rows = int(round(fraction * ra))
             total_assigned_ra += assigned_rows
             assigned_parts[pe['id']] = {'assigned_ra': assigned_rows, 'name': pe['name']}
@@ -300,6 +306,7 @@ def generate_tiling_sequence_multiple_pes(pe_configs, ra, ca, cb, bytes_per_elem
                       f"at position ({tile['start_row']}, {tile['start_col']})")
     
     return batches
+
 
 
 # =================================================================================================
