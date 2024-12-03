@@ -2973,6 +2973,193 @@ class MatmulPowerModelMultiPE(MatmulPowerModel):
 
         return result
     
+    def predict_multi_pe_realistic(self, PEs, operations, voltage, frequency_MHz=None):
+        """
+        Predicts execution time and energy consumption when multiple PEs are used simultaneously (realistically).
+
+        Args:
+            PEs (list): List of PEs to use.
+            operations (list): List of operation parameters (dicts with 'row_a', 'col_a', 'col_b').
+            voltage (list): Voltage level.
+            frequency_MHz (float, optional): Frequency in MHz. If not provided, uses max frequency.
+
+        Returns:
+            dict: Predicted total energy consumption, max execution time, and detailed information.
+        """
+        # If only one PE is provided, fall back to predict_single_pe
+        if isinstance(PEs, str) or (isinstance(PEs, list) and len(PEs) == 1):
+            PE = PEs if isinstance(PEs, str) else PEs[0]
+            operation = operations if isinstance(operations, dict) else operations[0]
+
+            result_single_pe = self.predict_single_pe(
+                PE=PE,
+                row_a=operation['row_a'],
+                col_a=operation['col_a'],
+                col_b=operation['col_b'],
+                voltage=voltage,
+                frequency_MHz=frequency_MHz
+            )
+            # add all_frequencies_MHz to be match with the multi_pe_prediction
+            result_single_pe['all_frequencies_MHz'] = frequency_MHz
+            return result_single_pe
+        
+        # Ensure PEs and operations are lists of the same length
+        if not isinstance(PEs, list) or not isinstance(operations, list):
+            print("Error: PEs and operations must be lists.")
+            return None
+        if len(PEs) != len(operations):
+            print("Error: The number of PEs and operations must be the same.")
+            return None
+
+        per_pe_results = {}
+        execution_times_ns = []
+
+        # Loop over PEs and operations
+        for PE, op in zip(PEs, operations):
+            result = self.predict_single_pe(
+                PE=PE,
+                row_a=op['row_a'],
+                col_a=op['col_a'],
+                col_b=op['col_b'],
+                voltage=voltage,
+                frequency_MHz=frequency_MHz
+            )
+            if result is None:
+                continue
+
+            execution_times_ns.append(result['execution_time_ns'])
+            per_pe_results[PE] = result  # Store the entire result for compatibility
+
+        if not per_pe_results:
+            print("No valid predictions were made.")
+            return None
+
+        max_execution_time_ns = max(execution_times_ns)
+        min_execution_time_ns = min(execution_times_ns)
+
+        # Now calculate energies
+        # Get the PE-specific domains relevant to the included PEs
+        pe_specific_domains = set()
+        for PE in PEs:
+            domains = self.get_default_domains_for_PE(PE)
+            # Only include the PE-specific domains
+            pe_specific_domains.update([domain for domain in domains if domain.startswith('pow_') and domain != 'pow_sys' and domain != 'pow_cpu' and domain != 'pow_mem'])
+
+        shared_domains = ['pow_sys', 'pow_cpu', 'pow_mem']
+
+        total_energy_nJ = 0.0
+        total_dyn_energy_nJ = 0.0
+        total_static_energy_nJ = 0.0
+        detailed_energy = {
+            'pe_specific': {},
+            'shared': {}
+        }
+
+        # Calculate PE-specific energies for the concurrent stage
+        for PE, result in per_pe_results.items():
+            dyn_powers = result['domain_dyn_powers_mW']
+            static_powers = result['domain_static_powers_mW']
+
+            pe_dyn_energy_nJ = 0.0
+            pe_static_energy_nJ = 0.0
+
+            for domain in pe_specific_domains:
+                if domain in dyn_powers:
+                    dyn_power_mW = dyn_powers[domain]
+                    static_power_mW = static_powers[domain]
+
+                    # Energy for concurrent stage
+                    dyn_energy_nJ = dyn_power_mW * min_execution_time_ns * 1e-3
+                    static_energy_nJ = static_power_mW * min_execution_time_ns * 1e-3
+
+                    pe_dyn_energy_nJ += dyn_energy_nJ
+                    pe_static_energy_nJ += static_energy_nJ
+
+                    # Store detailed energies per domain
+                    if PE not in detailed_energy['pe_specific']:
+                        detailed_energy['pe_specific'][PE] = {}
+                    detailed_energy['pe_specific'][PE][domain] = {
+                        'dyn_energy_nJ': dyn_energy_nJ,
+                        'static_energy_nJ': static_energy_nJ,
+                        'dyn_power_mW': dyn_power_mW,
+                        'static_power_mW': static_power_mW,
+                        'total_energy_nJ': dyn_energy_nJ + static_energy_nJ,
+                        'execution_time_ns': min_execution_time_ns
+                    }
+
+            # Sum PE-specific energies into total_energy_nJ for concurrent stage
+            total_energy_nJ += pe_dyn_energy_nJ + pe_static_energy_nJ
+            total_dyn_energy_nJ += pe_dyn_energy_nJ
+            total_static_energy_nJ += pe_static_energy_nJ
+
+        # Calculate shared domain energies for concurrent stage
+        for domain in shared_domains:
+            # For each shared domain, find the max power among included PEs
+            max_dyn_power_mW = max(
+                result['domain_dyn_powers_mW'].get(domain, 0.0) for result in per_pe_results.values()
+            )
+            max_static_power_mW = max(
+                result['domain_static_powers_mW'].get(domain, 0.0) for result in per_pe_results.values()
+            )
+
+            # Skip the domain if both powers are zero (i.e., none of the included PEs use this domain)
+            if max_dyn_power_mW == 0.0 and max_static_power_mW == 0.0:
+                continue
+
+            # Calculate energies using min execution time (concurrent stage)
+            dyn_energy_nJ = max_dyn_power_mW * min_execution_time_ns * 1e-3
+            static_energy_nJ = max_static_power_mW * min_execution_time_ns * 1e-3
+
+            # Sum shared domain energies into total_energy_nJ
+            total_energy_nJ += dyn_energy_nJ + static_energy_nJ
+            total_dyn_energy_nJ += dyn_energy_nJ
+            total_static_energy_nJ += static_energy_nJ
+
+            # Store detailed energies per domain
+            detailed_energy['shared'][domain] = {
+                'dyn_energy_nJ': dyn_energy_nJ,
+                'static_energy_nJ': static_energy_nJ,
+                'dyn_power_mW': max_dyn_power_mW,
+                'static_power_mW': max_static_power_mW,
+                'total_energy_nJ': dyn_energy_nJ + static_energy_nJ,
+                'execution_time_ns': min_execution_time_ns
+            }
+
+        # Calculate energy for the remaining stage (only the PE that takes longer)
+        for PE, result in per_pe_results.items():
+            if result['execution_time_ns'] == max_execution_time_ns:
+                remaining_time_ns = max_execution_time_ns - min_execution_time_ns
+                total_dyn_power = result['dyn_power_mW']
+                total_static_power = result['static_power_mW']
+                total_power_mW = result['total_power_mW']
+
+                total_energy_nJ += total_power_mW * remaining_time_ns * 1e-3
+                total_dyn_energy_nJ += total_dyn_power * remaining_time_ns * 1e-3
+                total_static_energy_nJ += total_static_power * remaining_time_ns * 1e-3
+
+
+
+                # # Sum PE-specific energies into total_energy_nJ for remaining stage
+                # total_energy_nJ += pe_dyn_energy_nJ + pe_static_energy_nJ
+                # total_dyn_energy_nJ += pe_dyn_energy_nJ
+                # total_static_energy_nJ += pe_static_energy_nJ
+
+        # Prepare result
+        result = {
+            'PE': PEs,
+            'total_energy_nJ': total_energy_nJ,
+            'total_dyn_energy_nJ': total_dyn_energy_nJ,
+            'total_static_energy_nJ': total_static_energy_nJ,
+            'execution_time_ns': max_execution_time_ns,
+            'total_power_mW': total_energy_nJ / max_execution_time_ns * 1e3,
+            'all_execution_times_ns': {PE: pe_data['execution_time_ns'] for PE, pe_data in per_pe_results.items()},
+            'all_frequencies_MHz': {PE: pe_data['frequency_MHz'] for PE, pe_data in per_pe_results.items()},
+            'per_pe_results': per_pe_results,  # Include detailed per-PE results
+            'detailed_energy': detailed_energy
+        }
+
+        return result
+    
     def evaluate_model_domain_based(self, PEs=None, voltages=None):
         """
         Evaluates the domain-separated models by calculating R² scores and Mean Squared Error (MSE)
