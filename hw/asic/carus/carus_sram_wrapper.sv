@@ -37,8 +37,7 @@ module carus_sram_wrapper #(
 
     sram_wrapper #(
         .NumWords (NUM_WORDS),  // Number of Words in data array
-        .DataWidth(DATA_WIDTH),  // Data signal width
-        .Compiler (2) // Compiler used (0 default) S1DU, (1) R1PU, (2) R1PL, (3) S1DU and R1PU, (4) S1DU and R1PL
+        .DataWidth(DATA_WIDTH)  // Data signal width
     ) carus_mem_i (
         .clk_i,
         .rst_ni,

@@ -22,7 +22,7 @@ puts "------------------------------------------------------------------"
 
 set MEMORIES_DIR ../../../hw/asic/std-cells-memories/compiled_memories
 # Find all .db files recursively
-set DB_MEM [find_files $MEMORIES_DIR "*116cpp_SSG_0P590V_0P720V_0P000V_0P000V_125C.db"] 
+set DB_MEM [find_files $MEMORIES_DIR "*116cpp_SSG_0P810V_0P810V_0P000V_0P000V_125C.db"] 
 
 # Check if any files were found
 if {[llength $DB_MEM] == 0} {

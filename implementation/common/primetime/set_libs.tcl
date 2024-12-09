@@ -22,58 +22,25 @@ set lib_std(wc)         $design(FLOW_ROOT)/hw/asic/std-cells/GF22FDX_SC8T_104CPP
 
 # Memory libraries
 set lib_mem(tt_0p50_25) ""
-# lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_128x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram128x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-# lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_256x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram256x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-# lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_512x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram512x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-# lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_1024x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram1024x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-# lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_2048x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram2048x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-# lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_4096x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram4096x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-# lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_8192x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram8192x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-# lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_16384x32_LPP_M8_TT_0_650_0_800_25/model/timing/db/sram16384x32m8_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
+lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_128x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram128x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
+lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_256x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram256x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
+lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_512x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram512x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
+lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_1024x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram1024x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
+lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_2048x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram2048x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
+lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_4096x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram4096x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
+lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_8192x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram8192x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
+lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_16384x32_LPP_M8_TT_0_650_0_800_25/model/timing/db/sram16384x32m8_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
 
-lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/S1DU_MemViews_6T_128x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/S1DU_sram128x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/S1DU_MemViews_6T_256x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/S1DU_sram256x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/S1DU_MemViews_6T_512x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/S1DU_sram512x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/S1DU_MemViews_6T_1024x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/S1DU_sram1024x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/S1DU_MemViews_6T_2048x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/S1DU_sram2048x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/S1DU_MemViews_6T_4096x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/S1DU_sram4096x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/S1DU_MemViews_6T_8192x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/S1DU_sram8192x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/S1DU_MemViews_6T_16384x32_LPP_M8_TT_0_650_0_800_25/model/timing/db/S1DU_sram16384x32m8_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/R1PU_MemViews_6T_128x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/R1PU_sram128x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/R1PU_MemViews_6T_256x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/R1PU_sram256x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/R1PU_MemViews_6T_512x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/R1PU_sram512x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/R1PU_MemViews_6T_1024x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/R1PU_sram1024x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/R1PL_MemViews_6T_128x32_LPP_M4_TT_0_500_0_650_25/model/timing/db/R1PL_sram128x32m4_116cpp_TT_0P500V_0P650V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/R1PL_MemViews_6T_256x32_LPP_M4_TT_0_500_0_650_25/model/timing/db/R1PL_sram256x32m4_116cpp_TT_0P500V_0P650V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/R1PL_MemViews_6T_512x32_LPP_M4_TT_0_500_0_650_25/model/timing/db/R1PL_sram512x32m4_116cpp_TT_0P500V_0P650V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p50_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/R1PL_MemViews_6T_1024x32_LPP_M4_TT_0_500_0_650_25/model/timing/db/R1PL_sram1024x32m4_116cpp_TT_0P500V_0P650V_0P000V_0P000V_025C.db
 
 set lib_mem(tt_0p65_25) ""
-# lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_128x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram128x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-# lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_256x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram256x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-# lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_512x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram512x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-# lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_1024x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram1024x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-# lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_2048x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram2048x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-# lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_4096x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram4096x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-# lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_8192x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram8192x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-# lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_16384x32_LPP_M8_TT_0_650_0_800_25/model/timing/db/sram16384x32m8_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-
-lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/S1DU_MemViews_6T_128x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/S1DU_sram128x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/S1DU_MemViews_6T_256x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/S1DU_sram256x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/S1DU_MemViews_6T_512x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/S1DU_sram512x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/S1DU_MemViews_6T_1024x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/S1DU_sram1024x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/S1DU_MemViews_6T_2048x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/S1DU_sram2048x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/S1DU_MemViews_6T_4096x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/S1DU_sram4096x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/S1DU_MemViews_6T_8192x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/S1DU_sram8192x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/S1DU_MemViews_6T_16384x32_LPP_M8_TT_0_650_0_800_25/model/timing/db/S1DU_sram16384x32m8_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/R1PU_MemViews_6T_128x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/R1PU_sram128x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/R1PU_MemViews_6T_256x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/R1PU_sram256x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/R1PU_MemViews_6T_512x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/R1PU_sram512x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/R1PU_MemViews_6T_1024x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/R1PU_sram1024x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/R1PL_MemViews_6T_128x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/R1PL_sram128x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/R1PL_MemViews_6T_256x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/R1PL_sram256x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/R1PL_MemViews_6T_512x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/R1PL_sram512x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
-lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/compiled_memories/R1PL_MemViews_6T_1024x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/R1PL_sram1024x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
+lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_128x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram128x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
+lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_256x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram256x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
+lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_512x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram512x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
+lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_1024x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram1024x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
+lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_2048x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram2048x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
+lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_4096x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram4096x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
+lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_8192x32_LPP_M4_TT_0_650_0_800_25/model/timing/db/sram8192x32m4_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
+lappend lib_mem(tt_0p65_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_16384x32_LPP_M8_TT_0_650_0_800_25/model/timing/db/sram16384x32m8_116cpp_TT_0P650V_0P800V_0P000V_0P000V_025C.db
 
 set lib_mem(tt_0p80_25) ""
 lappend lib_mem(tt_0p80_25) $design(FLOW_ROOT)/hw/asic/std-cells-memories/memories/MemViews_6T_128x32_LPP_M4_TT_0_800_0_800_25/model/timing/db/sram128x32m4_116cpp_TT_0P800V_0P800V_0P000V_0P000V_025C.db
