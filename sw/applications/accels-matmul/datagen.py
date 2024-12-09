@@ -145,7 +145,7 @@ def main():
     header_gen.add_input_matrix('A', A)
     header_gen.add_input_matrix('B', B)
     header_gen.add_output_matrix('R', R)
-    # header_gen.add_attribute('section(".xheep_data_interleaved")')
+    header_gen.add_attribute('section(".xheep_data_interleaved")')
     header_gen.write_header(out_dir, data_header)
     print('- generated header file in \'' + out_dir + '/' + data_header + '\'.')
 

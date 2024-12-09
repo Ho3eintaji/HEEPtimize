@@ -1,6 +1,6 @@
-// #define CHECK_RESULTS
+#define CHECK_RESULTS
 #define VCD
-// #define PRINT_TIMING_DETAILS
+#define PRINT_TIMING_DETAILS
 #define CGRA_COL_INPUT_SIZE 4
 
 #ifdef PRINT_TIMING_DETAILS
@@ -8,9 +8,9 @@
 #endif
 
 /* Define which PEs to run */
-// #define RUN_CARUS
-// #define RUN_CAESAR
-// #define RUN_CGRA
+#define RUN_CARUS
+#define RUN_CAESAR
+#define RUN_CGRA
 #define RUN_CPU
 
 // Copyright 2022 EPFL and Politecnico di Torino.
@@ -103,11 +103,11 @@ static uint8_t              cgra_slot;
 static int32_t cgra_input[CGRA_N_COLS][CGRA_COL_INPUT_SIZE]    __attribute__ ((aligned (4)));
 
 #ifdef RUN_CGRA
-    int32_t R_cgra[R_ROWS*R_COLS];
+    int32_t R_cgra[R_ROWS*R_COLS] __attribute__((section(".xheep_data_interleaved"))); 
 #endif
 
 #ifdef RUN_CPU
-    data_t R_cpu[R_ROWS*R_COLS]; // Result computed by the CPU
+    data_t R_cpu[R_ROWS*R_COLS] __attribute__((section(".xheep_data_interleaved")));
 #endif
 
 /****************************************************************************/

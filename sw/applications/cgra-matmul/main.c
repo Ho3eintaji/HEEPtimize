@@ -105,10 +105,10 @@ static uint8_t              cgra_slot;
 static int32_t cgra_input[CGRA_N_COLS][CGRA_COL_INPUT_SIZE]    __attribute__ ((aligned (4)));
 
 // Input and output matrixes
-int32_t matrixA[ROWS_A*COLS_A];
-int32_t matrixB[ROWS_B*COLS_B];
-int32_t matrixC[ROWS_C*COLS_C];
-int32_t outSW[ROWS_C*COLS_C];
+int32_t matrixA[ROWS_A*COLS_A]  __attribute__((section(".xheep_data_interleaved")));
+int32_t matrixB[ROWS_B*COLS_B]  __attribute__((section(".xheep_data_interleaved")));
+int32_t matrixC[ROWS_C*COLS_C]  __attribute__((section(".xheep_data_interleaved")));
+int32_t outSW[ROWS_C*COLS_C]  __attribute__((section(".xheep_data_interleaved")));
 
 #define data_t int32_t // element data type
 
