@@ -34,10 +34,10 @@ extern int8_t* bn[12];
 
 
 // Debug flags
-#define DEBUG
+// #define DEBUG
 #define PRINT_OVERFLOW
 #define BATCH_OPTIMIZED
-#define CNT_CYCLES
+// #define CNT_CYCLES
 #define RUN
 
 #endif //EPILEPSYGAN_GAN_H
