@@ -8,31 +8,29 @@
 // Description: OBI wrapper for nm-caesar top-level module
 
 module nm_caesar_wrapper #(
-  // Mask a command if received in a cycle where imc_i toggles. When this is
-  // not asserted, the system must ensure that the imc_i signal is stable TWO
-  // cycles before the first command is issued. Enabling this creates a
-  // combinational path between the imc_i input signal and the bus_gnt_o
-  // output signal.
-  parameter int unsigned REQ_PROXY = 32'd0,  // defined as int for FuseSoC compatibility,
-  parameter MEM_NUM_WORDS = 32'd4096,  // 32kB
-  parameter MEM_DATA_WIDTH = 32'd32,  // 32 bits
-  localparam int unsigned MEM_ACTUAL_AddrWidth_FOR_EACH_BANK = (MEM_NUM_WORDS > 32'd1) ? unsigned'($clog2(
-      MEM_NUM_WORDS
-  )) : 32'd1
+    // Mask a command if received in a cycle where imc_i toggles. When this is
+    // not asserted, the system must ensure that the imc_i signal is stable TWO
+    // cycles before the first command is issued. Enabling this creates a
+    // combinational path between the imc_i input signal and the bus_gnt_o
+    // output signal.
+    parameter int unsigned REQ_PROXY = 32'd0,  // defined as int for FuseSoC compatibility,
+    parameter MEM_NUM_WORDS = 32'd4096,  // 32kB
+    parameter MEM_DATA_WIDTH = 32'd32,  // 32 bits
+    localparam int unsigned MEM_ACTUAL_AddrWidth_FOR_EACH_BANK = (MEM_NUM_WORDS > 32'd1) ? unsigned'($clog2(MEM_NUM_WORDS)) : 32'd1
 ) (
-  // Clock and reset
-  input logic clk_i,
-  input logic rst_ni,
+    // Clock and reset
+    input logic clk_i,
+    input logic rst_ni,
 
-  // Memory retentive mode
-  input logic set_retentive_ni,
+    // Memory retentive mode
+    input logic set_retentive_ni,
 
-  // Operating mode
-  input logic imc_i,
+    // Operating mode
+    input logic imc_i,
 
-  // OBI bus interface
-  input  obi_pkg::obi_req_t  bus_req_i,
-  output obi_pkg::obi_resp_t bus_rsp_o
+    // OBI bus interface
+    input  obi_pkg::obi_req_t  bus_req_i,
+    output obi_pkg::obi_resp_t bus_rsp_o
 );
   // INTERNAL SIGNALS
   // ----------------
@@ -106,20 +104,20 @@ module nm_caesar_wrapper #(
   // NM-CAESAR
   // ---------
   caesar_top #(
-    .MEM_NUM_WORDS (MEM_NUM_WORDS),
-    .MEM_DATA_WIDTH(MEM_DATA_WIDTH)
+      .MEM_NUM_WORDS (MEM_NUM_WORDS),
+      .MEM_DATA_WIDTH(MEM_DATA_WIDTH)
   ) u_caesar_top (
-    .clk_i           (clk_i),
-    .rst_ni          (rst_ni),
-    .set_retentive_ni(set_retentive_ni),
-    .imc_i           (imc_i),
-    .cs_i            (mem_cs),
-    .we_i            (bus_req_i.we),
-    .be_i            (bus_req_i.be),
-    .addr_i          (mem_addr),
-    .wdata_i         (bus_req_i.wdata),
-    .ready_o         (mem_ready),
-    .rdata_o         (bus_rdata)
+      .clk_i           (clk_i),
+      .rst_ni          (rst_ni),
+      .set_retentive_ni(set_retentive_ni),
+      .imc_i           (imc_i),
+      .cs_i            (mem_cs),
+      .we_i            (bus_req_i.we),
+      .be_i            (bus_req_i.be),
+      .addr_i          (mem_addr),
+      .wdata_i         (bus_req_i.wdata),
+      .ready_o         (mem_ready),
+      .rdata_o         (bus_rdata)
   );
 
   // --------------

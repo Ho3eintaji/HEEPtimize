@@ -35,21 +35,21 @@ module carus_sram_wrapper #(
   assign write_en = req_i & we_i;
   assign read_en  = req_i & (~we_i);
 
-    sram_wrapper #(
-        .NumWords (NUM_WORDS),  // Number of Words in data array
-        .DataWidth(DATA_WIDTH)  // Data signal width
-    ) carus_mem_i (
-        .clk_i,
-        .rst_ni,
-        // input ports
-        .req_i,
-        .we_i,
-        .addr_i,
-        .wdata_i,
-        .be_i,
-        .set_retentive_ni,
-        // output ports
-        .rdata_o
-    );
+  sram_wrapper #(
+      .NumWords (NUM_WORDS),  // Number of Words in data array
+      .DataWidth(DATA_WIDTH)  // Data signal width
+  ) carus_mem_i (
+      .clk_i,
+      .rst_ni,
+      // input ports
+      .req_i,
+      .we_i,
+      .addr_i,
+      .wdata_i,
+      .be_i,
+      .set_retentive_ni,
+      // output ports
+      .rdata_o
+  );
 
 endmodule

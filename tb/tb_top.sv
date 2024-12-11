@@ -13,6 +13,10 @@ module tb_top;
 `ifndef SYNTHESIS
   `include "nmc_tb_util.svh"
 `endif
+  import srec_pkg::*;
+  import jtag_pkg::*;
+  import riscv_pkg::*;
+
   // PARAMETERS
   parameter string VCD_BASENAME = "waves-";
   parameter string VCD_DIR = "logs/";
@@ -37,6 +41,11 @@ module tb_top;
 
   // NM-Caesar last writeback cycles
   localparam int unsigned CaesarLatency = 5;
+
+  // exit
+  localparam int EXIT_SUCCESS = 0;
+  localparam int EXIT_FAIL = 1;
+  localparam int EXIT_ERROR = -1;
 
   // INTERNAL SIGNALS
   // ----------------
@@ -84,6 +93,8 @@ module tb_top;
     CARUS_CFG_BOOT_PC
   } carus_cfg_field_t;
 
+  event rst_event;
+
   // VCD dump
   typedef enum logic [1:0] {
     IDLE,
@@ -101,6 +112,34 @@ module tb_top;
   bit   vcd_cnt_en;
   string vcd_filename_d, vcd_filename_q;
   int unsigned vcd_cnt;
+
+  // JTAG signals
+  logic s_tck = 1'b0;
+  logic s_trstn = 1'b0;
+  logic s_tms = 1'b0;
+  logic s_tdi = 1'b0;
+  logic s_tdo;
+
+  wire jtag_tck;
+  wire jtag_trst_n;
+  wire jtag_tms;
+  wire jtag_tdi;
+  wire jtag_tdo;
+
+
+  int entry_point;
+  int rd_cnt;
+  int num_stim;
+  // array for the stimulus vectors
+  logic [95:0] stimuli[$];
+  logic [255:0][31:0] jtag_data;
+
+  jtag_pkg::debug_mode_if_t debug_mode_if = new;
+
+  // modelsim exit code, will be overwritten when successfull
+  int exit_value_jtag = EXIT_ERROR;
+  int exit_valid_jtag = 0;
+
 
   // ----------------
   // TB CONFIGURATION
@@ -157,8 +196,7 @@ module tb_top;
 
 `ifndef RTL_SIMULATION
     if (boot_mode == BOOT_MODE_FORCE) begin
-      $fatal(
-          "ERR! Cannot run boot_mode force when not in RTL simulation. Use boot_mode flash instead.");
+      $fatal("ERR! Cannot run boot_mode force when not in RTL simulation. Use boot_mode flash instead.");
     end
 `endif  //RTL_SIMULATION
 
@@ -190,8 +228,10 @@ module tb_top;
   // LOAD FIRMWARE
   // -------------
   initial begin : load_firmware
+    automatic srec_pkg::srec_record_t records[$];
+
     // Wait end of reset
-    wait (sys_rst_n);
+    @(rst_event);
     @(posedge sys_clk);
 
     // Load firmware
@@ -199,7 +239,78 @@ module tb_top;
       // Boot from JTAG
       // --------------
       BOOT_MODE_JTAG: begin
+        // Adapted from HEEPocrates
+
+        // Wait for the actual reset that is synchronized through 4 flip-flops (i.e., delayed by 4 cycles) to be deasserted
+        // Wait 4+1 cycles to be safe before starting jtag transactions
+        #(5 * REF_CLK_PERIOD);
+
         if (verbose) $display("[%t] starting JTAG...", $time);
+
+        jtag_pkg::jtag_get_idcode(s_tck, s_tms, s_trstn, s_tdi, s_tdo);
+        #5us;
+
+        // Read in the stimuli vectors
+        //
+        // 1. *.srec Srecords is a standardized format to represent binary data
+        // in ascii text format. Notably, it also encodes also the entry point
+        // so we don't have to supply it manully with +ENTRY_POINT. GNU objcopy
+        // (part of binutils) can easily convert and elf file to this format.
+        $display("[TESTBENCH] %t - Loading Srecord from %s", $realtime, firmware_file_opt);
+        srec_read(firmware_file_opt, records);
+        srec_records_to_stimuli(records, stimuli, entry_point);
+
+        $display("[TESTBENCH] %t - Init dmi access", $realtime);
+        debug_mode_if.init_dmi_access(s_tck, s_tms, s_trstn, s_tdi);
+        $display("[TESTBENCH] %t - Set dm access active", $realtime);
+        debug_mode_if.set_dmactive(1'b1, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
+
+        $display("[TESTBENCH] %t - Loading memory via JTAG", $realtime);
+        debug_mode_if.load_memory(num_stim, stimuli, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
+
+        // configure for debug module dmi access again
+        debug_mode_if.init_dmi_access(s_tck, s_tms, s_trstn, s_tdi);
+        // enable sb access for subsequent read/writeMem calls
+        debug_mode_if.set_sbreadonaddr(1'b1, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
+
+        // From here on starts the actual jtag booting
+        $display("[TESTBENCH] %t - Setting boot enable in ROM", $realtime);
+
+        // SoC Controller boot exit loop value
+        debug_mode_if.writeMem(core_v_mini_mcu_pkg::SOC_CTRL_START_ADDRESS + 32'hC, 32'd1, s_tck,
+                               s_tms, s_trstn, s_tdi, s_tdo);
+
+        #500us;
+
+        // wait for end of computation signal
+        $display("[TESTBENCH] %t - Waiting for end of computation", $realtime);
+
+        rd_cnt = 0;
+        jtag_data[0] = 0;
+        while (jtag_data[0][0] == 0) begin
+          // every 10th loop iteration, clear the debug module's SBA unit CSR to make
+          // sure there's no error blocking our reads. Sometimes a TCDM read
+          // request issued by the debug module takes longer than it takes
+          // for the read request to the debug module to arrive and it
+          // stores an error in the SBCS register. By clearing it
+          // periodically we make sure the test can terminate.
+          if (rd_cnt % 10 == 0) begin
+            debug_mode_if.clear_sbcserrors(s_tck, s_tms, s_trstn, s_tdi, s_tdo);
+          end
+          // SoC Controller exit_valid address
+          debug_mode_if.readMem(core_v_mini_mcu_pkg::SOC_CTRL_START_ADDRESS, jtag_data[0], s_tck,
+                                s_tms, s_trstn, s_tdi, s_tdo);
+          rd_cnt++;
+          #50us;
+        end
+
+        // SoC Controller exit_value address
+        debug_mode_if.readMem(core_v_mini_mcu_pkg::SOC_CTRL_START_ADDRESS + 32'h4, jtag_data[0],
+                              s_tck, s_tms, s_trstn, s_tdi, s_tdo);
+
+        exit_value_jtag = jtag_data[0][31:0];
+        exit_valid_jtag = 1;
+
       end
       // Boot from SPI flash
       // -------------------
@@ -218,7 +329,6 @@ module tb_top;
         $display("[%t] firmware loaded", $time);
 `endif  //RTL_SIMULATION
       end
-
       default: begin
         $fatal("ERR! Invalid boot mode: %d", boot_mode);
       end
@@ -330,6 +440,11 @@ module tb_top;
     end
   end
   initial begin : rst_gen
+    tb_rst_n = 1'b1;
+
+    // Wait a few cycles
+    repeat (ResetWaitCycles) @(posedge ref_clk_w);
+
     tb_rst_n = 1'b0;
 
     // Wait a few cycles
@@ -338,6 +453,9 @@ module tb_top;
     // Release reset
     #RESET_DEL tb_rst_n = 1'b1;
     $display("[%t] Reset released", $time);
+
+    #RESET_DEL -> rst_event;
+
   end
 
   // System clock and reset
@@ -408,7 +526,7 @@ module tb_top;
 
   // Exit monitor
   always_ff @(posedge sys_clk or negedge sys_rst_n) begin : exit_monitor
-    if (exit_valid) begin
+    if (exit_valid && (boot_mode == BOOT_MODE_FLASH || boot_mode == BOOT_MODE_FORCE)) begin
       if (exit_value == 0) begin
         $display("[%t] TEST SUCCEEDED", $time);
       end else begin
@@ -429,6 +547,19 @@ module tb_top;
       end else begin
         $fatal(2, "[%t] TEST FAILED with value: %0d", $time, exit_value);
       end
+    end else if (exit_valid_jtag && (boot_mode == BOOT_MODE_JTAG)) begin
+      if (exit_value_jtag == 0) begin
+        $display("[%t] TEST SUCCEEDED", $time);
+      end else begin
+        $display("[%t] TEST FAILED", $time);
+      end
+      $display("[%t] - return value: %0d", $time, $signed(exit_value_jtag));
+      $dumpoff;
+      if (exit_value_jtag == 0) begin
+        $finish;
+      end else begin
+        $fatal(2, "[%t] TEST FAILED with value: %0d", $time, exit_value_jtag);
+      end
     end
   end
 
@@ -443,16 +574,27 @@ module tb_top;
   assign ref_clk_w       = (bypass_fll) ? sim_clk : ref_clk;
   assign tb_rst_nw       = tb_rst_n;
 
+  assign jtag_tck             = s_tck;
+  assign jtag_trst_n          = s_trstn;
+  assign jtag_tms             = s_tms;
+  assign jtag_tdi             = s_tdi;
+  assign s_tdo                = jtag_tdo;
+
   // Instantiate TB system
   tb_system #(
-    .CLK_FREQ(ClkFrequencykHz)
+      .CLK_FREQ(ClkFrequencykHz)
   ) u_tb_system (
-    .ref_clk_i           (ref_clk_w),
-    .rst_ni              (tb_rst_nw),
-    .boot_select_i       (boot_select),
-    .execute_from_flash_i(exec_from_flash),
-    .bypass_fll_i        (bypass_fll),
-    .exit_valid_o        (exit_valid),
-    .exit_value_o        (exit_value)
+      .ref_clk_i           (ref_clk_w),
+      .rst_ni              (tb_rst_nw),
+      .boot_select_i       (boot_select),
+      .execute_from_flash_i(exec_from_flash),
+      .bypass_fll_i        (bypass_fll),
+      .exit_valid_o        (exit_valid),
+      .exit_value_o        (exit_value),
+      .jtag_tck_i          (jtag_tck),
+      .jtag_trst_ni        (jtag_trst_n),
+      .jtag_tms_i          (jtag_tms),
+      .jtag_tdi_i          (jtag_tdi),
+      .jtag_tdo_o          (jtag_tdo)
   );
 endmodule

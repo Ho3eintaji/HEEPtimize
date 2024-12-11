@@ -10,13 +10,13 @@
 // NOTE: Based on the same cell from HEEPocrates (https://eslgit.epfl.ch/heep/HEEPpocrates)
 
 module pad_cell_inout #(
-  parameter int unsigned PAD_ATTR = 16
+    parameter int unsigned PAD_ATTR = 16
 ) (
-  input logic pad_in_i, // pad input value
-  input logic pad_oe_i, // pad output enable
-  output logic pad_out_o, // pad output value
-  input logic pad_io, // pad value
-  input logic [PAD_ATTR-1:0] pad_attributes_i // pad attributes
+    input logic pad_in_i,  // pad input value
+    input logic pad_oe_i,  // pad output enable
+    output logic pad_out_o,  // pad output value
+    input logic pad_io,  // pad value
+    input logic [PAD_ATTR-1:0] pad_attributes_i  // pad attributes
 );
   // INTERNAL SIGNALS
   logic pad;

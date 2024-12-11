@@ -24,7 +24,12 @@ filesets:
     - ip/heepatia-peripherals/heepatia_peripherals.sv
     - ip/heepatia-peripherals/nm_carus_wrapper.sv
     - ip/heepatia-peripherals/nm_caesar_wrapper.sv
+    - ip/heepatia-peripherals/cv32e40px_xif_wrapper.sv
     file_type: systemVerilogSource
+
+  rtl-im2col:
+    depend:
+    - example:ip:im2col_spc
 
   rtl-vendor:
     depend:
@@ -59,6 +64,7 @@ targets:
     filesets:
     - rtl
     - "!target_format ? (rtl-vendor)"
+    - "!target_lint ? (rtl-im2col)"
     - tool_verilator ? (rtl-sim)
     - tool_verilator ? (verilator-waivers)
     - tool_modelsim ? (rtl-asic)

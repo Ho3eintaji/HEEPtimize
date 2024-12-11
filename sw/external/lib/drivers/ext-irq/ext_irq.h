@@ -13,9 +13,6 @@
 /* ---- EXPORTED VARIABLES ---- */
 /********************************/
 
-// NM-Carus interrupt flag
-extern volatile int8_t carus_irq_flag;
-extern volatile uint32_t carus_irq_idx;
 
 /********************************/
 /* ---- EXPORTED FUNCTIONS ---- */
@@ -26,10 +23,3 @@ extern volatile uint32_t carus_irq_idx;
  * @return 0 if successful, -1 otherwise.
  */
 int ext_irq_init(void);
-
-/**
- * @brief Serve external interrupt requests.
- * @param id Interrupt ID.
- * @note This function overrides the weak definition in rv_plic.h.
- */
-void handler_irq_ext(uint32_t id);

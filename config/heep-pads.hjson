@@ -8,7 +8,7 @@
 // The pads contains the list of all the pads available in the design.
 // Each pad is defined by its name and can have the following attributes:
 //    num: <number> (mandatory) - the number of pads of this type
-//    type: <input|output|inout> (mandatory) - the type of the pad
+//    type: <input|output|inout|supply> (mandatory) - the type of the pad
 //    num_offset: <number> (optional) - the offset to the first pad of this type (default 0)
 //    mapping: <top|right|bottom|left> (optional) - the mapping of the pad in the design. Useful for ASICs (default top)
 //    active: <low|high> (optional) - the active level of the pad (default high)
@@ -16,136 +16,28 @@
 //    mux: <dict> (optional) - the muxing options for the pad
 //    skip_declaration: <True|False> (optional) - skip the declaration of the pad in the top level (default False)
 //    keep_internal: <True|False> (optional) - keep the pad internal to the design (default False)
+//    layout_attributes: (optional) - collection of attributes related to the physical (ASIC) layout of the pads
+//        index: (mandatory) index of the pad on its side of the I/O ring
+//        orient: (optional) <R0|R90|R180|R270|MX|MX90|MY|MY90> - orientation of the pad
+//        cell: (mandatory for type "supply") <valid name of cell in the desired tech. library> - specific cell to use if not a default pad cell (ex. for VDD/VSS pads)
+//        offset: (optional) <float> - offset from edge (in um)
+//        skip: (optional) <float> - distance from neighboring pad (in um)
 // 
 // Add this field at the same level of pads (not inside) if you want to define PADs attributes
 //    attributes: {
 //        bits: 7:0
 //    },
+// Info: The order in which the pads are listed will be the order in which the IOs are arranged in the layout of the circuit (clockwise starting in the lower left corner)
 
 {
     attributes: {
         bits: 7:0
+        resval: 0x6C
     },
 
     pads: {
-        rst: {
-            num: 1,
-            active: low,
-            driven_manually: True
-            type: input
-        },
-        boot_select: {
-            num: 1,
-            type: input
-        },
-        execute_from_flash: {
-            num: 1,
-            type: input
-        },
-        jtag_tck: {
-            num: 1,
-            type: input
-        },
-        jtag_tms: {
-            num: 1,
-            type: input
-        },
-        jtag_trst: {
-            num: 1,
-            active: low,
-            type: input
-        },
-        jtag_tdi: {
-            num: 1,
-            type: input
-        },
-        jtag_tdo: {
-            num: 1,
-            type: output
-        },
-        uart_rx: {
-            num: 1,
-            type: input
-        },
-        uart_tx: {
-            num: 1,
-            type: output
-        },
-        exit_valid: {
-            num: 1,
-            type: output
-        },
-        gpio: {
-            num: 31,
-            num_offset: 0, #first gpio is gpio0
-            type: inout
-        },
-        spi_flash_sck: {
-            num: 1,
-            type: inout
-        },
-        spi_flash_cs_0: {
-            num: 1, #carefull, the x-heep uses the CS from the spi pkg, change it
-            type: inout
-        },
-        spi_flash_cs_1: {
-            num: 1,
-            type: inout
-            mux: {
-                spi_flash_cs_1: {
-                    type: inout
-                },
-                gpio_31: {
-                    type: inout
-                },
-            }
-        },
-        spi_flash_sd: {
-            num: 4,
-            type: inout
-        },
-        spi_sck: {
-            num: 1,
-            type: inout
-        },
-        spi_cs: {
-            num: 2,
-            type: inout
-        },
-        spi_sd: {
-            num: 4,
-            type: inout
-        },
 
-        pdm2pcm_pdm: {
-            num: 1,
-            type: bypass_inout
-        },
-        pdm2pcm_clk: {
-            num: 1,
-            type: bypass_inout
-        },
-
-        i2s_sck: {
-            num: 1,
-            type: inout
-        },
-        i2s_ws: {
-            num: 1,
-            type: inout
-        },
-        i2s_sd: {
-            num: 1,
-            type: inout
-        },
-        spi2_cs_0: {
-            num: 1,
-            type: bypass_inout
-        },
-        spi2_cs_1: {
-            num: 1,
-            type: bypass_inout
-        },
+        #not in RTL but need to be defined, define them at the top or else the mcu-gen comma elimination script fails
         spi2_sck: {
             num: 1,
             type: bypass_inout
@@ -158,6 +50,14 @@
             num: 1,
             type: bypass_inout
         },
+        spi2_cs_0: {
+            num: 1,
+            type: bypass_inout
+        },
+        spi2_cs_1: {
+            num: 1,
+            type: bypass_inout
+        },
         spi2_sd_2: {
             num: 1,
             type: bypass_inout
@@ -166,13 +66,634 @@
             num: 1,
             type: bypass_inout
         },
-        i2c_scl: {
+        pdm2pcm_pdm: {
             num: 1,
             type: bypass_inout
+        },
+        pdm2pcm_clk: {
+            num: 1,
+            type: bypass_inout 
+        },
+        gpio: {
+            num_offset: 18
+            num: 14,
+            type: bypass_inout
+        },
+
+
+
+        # LEFT PADS
+
+       SUPPLY_IO_0: {
+            num: 1,
+            type: supply
+            driven_manually: True
+            mapping: left
+            layout_attributes: {
+                index: 0
+                orient: mx90
+                skip: 39.721
+                cell: PVDD2CDGM_H
+            }
+        },
+        exit_valid: {
+            num: 1,
+            type: output
+            mapping: left
+            layout_attributes: {
+                index: 1
+                skip: 51.209
+            }
+        },
+        boot_select: {
+            num: 1,
+            type: input
+            mapping: left
+            layout_attributes: {
+                index: 2
+                skip: 37.403
+            }
+        },
+        CLK_SLOW: {
+            num: 1,
+            type: input
+            driven_manually: True
+            mapping: left
+            layout_attributes: {
+                index: 3
+                skip: 37.403
+            }
+        },
+        i2c_scl: {
+            num: 1,
+            type: inout
+            mapping: left
+            mux: {
+                i2c_scl: {
+                    type: inout
+                },
+                gpio_7: {
+                    type: inout
+                },
+            }
+            layout_attributes: {
+                index: 4
+                skip: 37.403
+            }
         },
         i2c_sda: {
             num: 1,
-            type: bypass_inout
+            type: inout
+            mapping: left
+            layout_attributes: {
+                index: 5
+                skip: 37.403
+            }
         },
+        rst: {
+            num: 1,
+            active: low,
+            driven_manually: True
+            type: input
+            mapping: left
+            layout_attributes: {
+                index: 6
+                skip: 37.403
+            }
+        },
+        SUPPLY_CORE_0: {
+            num: 1,
+            type: supply
+            driven_manually: True
+            mapping: left
+            layout_attributes: {
+                index: 7
+                orient: mx90
+                cell: PVDD1CDGM_H
+                skip: 56.129
+            }
+        },
+        ref_clk: {
+            num: 1,
+            type: input
+            driven_manually: True
+            mapping: left
+            layout_attributes: {
+                index: 8
+                skip: 56.129
+            }
+        },
+        gpio_0: {
+            num: 1,
+            type: inout
+            mapping: left
+            layout_attributes: {
+                index: 9
+                skip: 37.403
+            }
+        },
+        gpio_1: {
+            num: 1,
+            type: inout
+            mapping: left
+            layout_attributes: {
+                index: 10
+                skip: 37.403
+            }
+        },
+        gpio_2: {
+            num: 1,
+            type: inout
+            mapping: left
+            layout_attributes: {
+                index: 11
+                skip: 37.403
+            }
+        },
+        gpio_3: {
+            num: 1,
+            type: inout
+            mapping: left
+            layout_attributes: {
+                index: 12
+                skip: 37.403
+            }
+        },
+        i2s_sck: {
+            num: 1,
+            type: inout
+            mapping: left
+            layout_attributes: {
+                index: 13
+                skip: 37.403
+            }
+        },
+        i2s_ws: {
+            num: 1,
+            type: inout
+            mapping: left
+            mux: {
+                i2s_ws: {
+                    type: inout
+                },
+                gpio_8: {
+                    type: inout
+                },
+            }
+            layout_attributes: {
+                index: 14
+                skip: 37.403
+            }
+        },
+        i2s_sd: {
+            num: 1,
+            type: inout
+            mapping: left
+            mux: {
+                i2s_sd: {
+                    type: inout
+                },
+                gpio_9: {
+                    type: inout
+                },
+            }
+            layout_attributes: {
+                index: 15
+                skip: 37.403
+            }
+        },
+        SUPPLY_IO_1: {
+            num: 1,
+            type: supply
+            driven_manually: True
+            mapping: left
+            layout_attributes: {
+                index: 16
+                orient: mx90
+                cell: PVDD2CDGM_H
+                skip: 51.209
+            }
+        },
+
+        # TOP PADS
+
+        SUPPLY_CORE_1: {
+            num: 1,
+            type: supply
+            driven_manually: True
+            mapping: top
+            layout_attributes: {
+                index: 0
+                orient: mx
+                skip: 45.07
+                cell: PVDD1CDGM_H
+            }
+        },
+        exit_value: {
+            num: 1,
+            type: output
+            driven_manually: True
+            mapping: top
+            layout_attributes: {
+                index: 1
+                skip: 56.558
+            }
+        },
+        SUPPLY_CGRA_0: {
+            num: 1,
+            type: supply
+            driven_manually: True
+            mapping: top
+            layout_attributes: {
+                index: 2
+                orient: mx
+                cell: PVDD1CDGM_H
+                skip: 56.558
+            }
+        },
+        gpio_4: {
+            num: 1,
+            type: inout
+            mapping: top
+            layout_attributes: {
+                index: 3
+                skip: 56.558
+            }
+        },
+        gpio_5: {
+            num: 1,
+            type: inout
+            mapping: top
+            layout_attributes: {
+                index: 4
+                skip: 37.689
+            }
+        },
+        uart_rx: {
+            num: 1,
+            type: input
+            mapping: top
+            layout_attributes: {
+                index: 5
+                skip: 37.689
+            }
+        },
+        uart_tx: {
+            num: 1,
+            type: output
+            mapping: top
+            layout_attributes: {
+                index: 6
+                skip: 37.689
+            }
+        },
+        jtag_tdo: {
+            num: 1,
+            type: output
+            mapping: top
+            layout_attributes: {
+                index: 7
+                skip: 37.689
+            }
+        },
+        SUPPLY_IO_2: {
+            num: 1,
+            type: supply
+            driven_manually: True
+            mapping: top
+            layout_attributes: {
+                index: 8
+                cell: PVDD2CDGM_H
+                skip: 51.638
+            }
+        },
+        jtag_tck: {
+            num: 1,
+            type: input
+            mapping: top
+            layout_attributes: {
+                index: 9
+                skip: 51.638
+            }
+        },
+        jtag_tdi: {
+            num: 1,
+            type: input
+            mapping: top
+            layout_attributes: {
+                index: 10
+                skip: 37.689
+            }
+        },
+        jtag_tms: {
+            num: 1,
+            type: input
+            mapping: top
+            layout_attributes: {
+                index: 11
+                skip: 37.689
+            }
+        },
+        jtag_trst: {
+            num: 1,
+            active: low,
+            type: input
+            mapping: top
+            layout_attributes: {
+                index: 12
+                skip: 37.689
+            }
+        },
+        gpio_6: {
+            num: 1,
+            type: inout
+            mapping: top
+            layout_attributes: {
+                index: 13
+                skip: 37.689
+            }
+        },
+        SUPPLY_CORE_2: {
+            num: 1,
+            type: supply
+            driven_manually: True
+            mapping: top
+            layout_attributes: {
+                index: 14
+                orient: mx
+                cell: PVDD1CDGM_H
+                skip: 56.558
+            }
+        },
+
+        # RIGHT PADS
+        SUPPLY_IO_3: {
+            num: 1,
+            type: supply
+            driven_manually: True
+            mapping: right
+            layout_attributes: {
+                index: 0
+                orient: my90
+                skip: 64.578
+                cell: PVDD2CDGM_H
+            }
+        },
+        spi_sd_2: {
+            num: 1,
+            type: inout
+            mapping: right
+            mux: {
+                spi_sd_2: {
+                    type: inout
+                },
+                gpio_10: {
+                    type: inout
+                },
+            }
+            layout_attributes: {
+                index: 1
+                skip: 76.066
+            }
+        },
+        spi_sd_3: {
+            num: 1,
+            type: inout
+            mapping: right
+            mux: {
+                spi_sd_3: {
+                    type: inout
+                },
+                gpio_11: {
+                    type: inout
+                },
+            }
+            layout_attributes: {
+                index: 2
+                skip: 53.974
+            }
+        },
+        spi_cs_1: {
+            num: 1,
+            type: inout
+            mapping: right
+            mux: {
+                spi_cs_1: {
+                    type: inout
+                },
+                gpio_12: {
+                    type: inout
+                },
+            }
+            layout_attributes: {
+                index: 3
+                skip: 53.974
+            }
+        },
+        spi_cs_0: {
+            num: 1,
+            type: inout
+            mapping: right
+            mux: {
+                spi_cs_0: {
+                    type: inout
+                },
+                gpio_13: {
+                    type: inout
+                },
+            }
+            layout_attributes: {
+                index: 4
+                skip: 53.974
+            }
+        },
+        spi_sd_0: {
+            num: 1,
+            type: inout
+            mapping: right
+            mux: {
+                spi_sd_0: {
+                    type: inout
+                },
+                gpio_14: {
+                    type: inout
+                },
+            }
+            layout_attributes: {
+                index: 5
+                skip: 53.974
+            }
+        },
+        spi_sd_1: {
+            num: 1,
+            type: inout
+            mapping: right
+            mux: {
+                spi_sd_1: {
+                    type: inout
+                },
+                gpio_15: {
+                    type: inout
+                },
+            }
+            layout_attributes: {
+                index: 6
+                skip: 53.974
+            }
+        },
+        spi_sck: {
+            num: 1,
+            type: inout
+            mapping: right
+            layout_attributes: {
+                index: 7
+                skip: 53.974
+            }
+        },
+        SUPPLY_CORE_3: {
+            num: 1,
+            type: supply
+            driven_manually: True
+            mapping: right
+            layout_attributes: {
+                index: 8
+                orient: my90
+                cell: PVDD1CDGM_H
+                skip: 80.986
+            }
+        },
+        bypass_fll: {
+            num: 1,
+            type: input
+            driven_manually: True
+            mapping: right
+            layout_attributes: {
+                index: 9
+                skip: 80.986
+            }
+        },
+        fll_clk_div: {
+            num: 1,
+            type: output
+            driven_manually: True
+            mapping: right
+            layout_attributes: {
+                index: 10
+                skip: 53.974
+            }
+        },
+        execute_from_flash: {
+            num: 1,
+            type: input
+            mapping: right
+            layout_attributes: {
+                index: 11
+                skip: 53.974
+            }
+        },
+        SUPPLY_CGRA_1: {
+            num: 1,
+            type: supply
+            driven_manually: True
+            mapping: right
+            layout_attributes: {
+                index: 12
+                orient: my90
+                cell: PVDD1CDGM_H
+                skip: 80.986
+            }
+        },
+
+        # BOTTOM PADS
+        SUPPLY_CGRA_2: {
+            num: 1,
+            type: supply
+            driven_manually: True
+            mapping: bottom
+            layout_attributes: {
+                index: 0
+                orient: my
+                skip: 90.529
+                cell: PVDD1CDGM_H
+            }
+        },
+        SUPPLY_IO_4: {
+            num: 1,
+            type: supply
+            driven_manually: True
+            mapping: bottom
+            layout_attributes: {
+                index: 1
+                skip: 131.118
+                cell: PVDD2CDGM_H
+            }
+        },
+        spi_flash_cs_0: {
+            num: 1, #careful, the x-heep uses the CS from the spi pkg, change it
+            type: inout
+            mapping: bottom
+            mux: {
+                spi_flash_cs_0: {
+                    type: inout
+                },
+                gpio_16: {
+                    type: inout
+                },
+            }
+            layout_attributes: {
+                index: 2
+                skip: 97.097
+            }
+        },
+        spi_flash_sck: {
+            num: 1,
+            type: inout
+            mapping: bottom
+            layout_attributes: {
+                index: 3
+                skip: 67.995
+            }
+        },
+        spi_flash_sd: {
+            num: 4,
+            type: inout
+            mapping: bottom
+            layout_attributes: {
+                index: 4
+                skip: 67.995
+            }
+        },
+        SUPPLY_CORE_4: {
+            num: 1,
+            type: supply
+            driven_manually: True
+            mapping: bottom
+            layout_attributes: {
+                index: 9
+                orient: my
+                skip: 102.017
+                cell: PVDD1CDGM_H
+            }
+        },
+        spi_flash_cs_1: {
+            num: 1,
+            type: inout
+            mapping: bottom
+            mux: {
+                spi_flash_cs_1: {
+                    type: inout
+                },
+                gpio_17: {
+                    type: inout
+                },
+            }
+            layout_attributes: {
+                index: 8
+                skip: 67.995
+            }
+        },
+
+        # INFO: Make sure the last pad is not a "supply" type or the mcu-gen comma elimination script fails
+        
     }
 }

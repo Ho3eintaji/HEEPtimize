@@ -26,11 +26,16 @@ FUSESOC := $(shell which fusesoc)
 PYTHON  := $(shell which python)
 endif
 
-FORMAT ?= true
+FORMAT ?= false
 
 # NMC slaves number
 CARUS_NUM			?= 1
 CAESAR_NUM			?= 1
+
+# # CARUS configuration
+
+# CARUS_SIZE			?= 0x00008000
+# CARUS_NUM_BANKS     ?= 4
 
 # X-HEEP configuration
 XHEEP_DIR			:= $(ROOT_DIR)/hw/vendor/x-heep
@@ -42,25 +47,35 @@ PAD_CFG_FPGA	    ?= $(ROOT_DIR)/config/heep-pads-fpga.hjson
 EXT_PAD_CFG			?= $(ROOT_DIR)/config/heepatia-pads.hjson
 EXTERNAL_DOMAINS	:= 3 # NM-Carus + OECGRA + NM-Caesar //todo: not sure
 MCU_GEN_OPTS		:= \
+	--memorybanks $(MEMORY_BANKS) \
+	--memorybanks_il $(MEMORY_BANKS_IL) \
+	--bus $(BUS) \
 	--config $(X_HEEP_CFG) \
 	--cfg_peripherals $(MCU_CFG_PERIPHERALS) \
 	--pads_cfg $(PAD_CFG) \
 	--external_domains $(EXTERNAL_DOMAINS)
 MCU_GEN_OPTS_FPGA	:= \
+	--memorybanks $(MEMORY_BANKS) \
+	--memorybanks_il $(MEMORY_BANKS_IL) \
+	--bus $(BUS) \
 	--config $(X_HEEP_CFG_FPGA) \
 	--cfg_peripherals $(MCU_CFG_PERIPHERALS) \
 	--pads_cfg $(PAD_CFG_FPGA) \
 	--external_domains $(EXTERNAL_DOMAINS)
 HEEPATIA_TOP_TPL		:= $(ROOT_DIR)/hw/ip/heepatia_top.sv.tpl
 PAD_RING_TPL			:= $(ROOT_DIR)/hw/ip/pad-ring/pad_ring.sv.tpl
+# PAD_IO_TPL              := $(ROOT_DIR)/implementation/pnr/inputs/heepatia.io.tpl
 MCU_GEN_LOCK			:= $(BUILD_DIR)/.mcu-gen.lock
 
 # heepatia configuration
 HEEPATIA_GEN_CFG	:= config/heepatia-cfg.hjson
 HEEPATIA_GEN_OPTS	:= \
-	--cfg $(HEEPATIA_GEN_CFG) \
+	--cfg $(HEEPATIA_GEN_CFG)\
 	--carus_num $(CARUS_NUM) \
 	--caesar_num $(CAESAR_NUM) 
+# --carus_num $(CARUS_NUM) \
+# --carus_size $(CARUS_SIZE) \
+# --carus_num_banks $(CARUS_NUM_BANKS)
 HEEPATIA_GEN_TPL  := \
 	hw/ip/heepatia-ctrl/data/heepatia_ctrl.hjson.tpl \
 	hw/ip/packages/heepatia_pkg.sv.tpl \
@@ -79,8 +94,11 @@ DPI_CINC			:= -I$(dir $(shell which verilator))../share/verilator/include/vltstd
 # Simulation configuration
 LOG_LEVEL			?= LOG_NORMAL
 BOOT_MODE			?= force # jtag: wait for JTAG (DPI module), flash: boot from flash, force: load firmware into SRAM
-FIRMWARE			?= $(ROOT_DIR)/build/sw/app/main.hex
-FIRMWARE_FLASH 		?= $(ROOT_DIR)/build/sw/app-flash/main.hex
+ifeq ($(BOOT_MODE), jtag)
+	FIRMWARE		?= $(ROOT_DIR)/build/sw/app/main.hex.srec
+else
+	FIRMWARE		?= $(ROOT_DIR)/build/sw/app/main.hex
+endif
 VCD_MODE			?= 2 # QuestaSim-only - 0: no dumo, 1: dump always active, 2: dump triggered by GPIO 0
 BYPASS_FLL          ?= 1 # 0: FLL enabled, 1: FLL bypassed (TODO: make FLL work and set this to 0 by default)
 MAX_CYCLES			?= 100000000
@@ -91,10 +109,8 @@ FUSESOC_ARGS		?=
 FLASHWRITE_FILE		?= $(FIRMWARE)
 
 # QuestaSim
-FLL_FOLDER_PATH := $(ROOT_DIR)/hw/asic/fll/rtl
-# ACCESSIBLE := $(shell if [ -d "$(FLL_FOLDER_PATH)" ] && [ -r "$(FLL_FOLDER_PATH)" ]; then echo true; else echo false; fi)
 FUSESOC_BUILD_DIR			= $(shell find $(BUILD_DIR) -type d -name 'epfl_heepatia_heepatia_*' 2>/dev/null | sort | head -n 1)
-QUESTA_SIM_DIR=$(FUSESOC_BUILD_DIR)/sim-modelsim
+QUESTA_SIM_DIR				= $(FUSESOC_BUILD_DIR)/sim-modelsim
 QUESTA_SIM_RTL_GF22_DIR	= $(FUSESOC_BUILD_DIR)/sim_rtl_gf22-modelsim
 QUESTA_SIM_POSTSYNTH_DIR 	= $(FUSESOC_BUILD_DIR)/sim_postsynthesis-modelsim
 QUESTA_SIM_POSTLAYOUT_DIR 	= $(FUSESOC_BUILD_DIR)/sim_postlayout-modelsim
@@ -108,25 +124,24 @@ SIM_VCD 			?= $(BUILD_DIR)/sim-common/questa-waves.fst
 # for carus-matmul.
 APP_MAKE 			:= $(wildcard sw/applications/$(PROJECT)/*akefile)
 
-TOOLCHAIN ?= GCC # OHW
+TOOLCHAIN ?= OHW #also GCC
 
 # Custom preprocessor definitions
 CDEFS				?=
 
 # Software build configuration
 SW_DIR		:= sw
-# LINK_FOLDER := $(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")/sw/linker
+LINK_FOLDER := $(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")/sw/linker
+
+# Testing flags
+# Optional TEST_FLAGS options are '--compile-only'
+TEST_FLAGS=
 
 # Dummy target to force software rebuild
 PARAMS = $(PROJECT)
 
-# # Get the path of this Makefile to pass to the Makefile help generator
-# MKFILE_PATH = $(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")
-# export FILE_FOR_HELP = $(MKFILE_PATH)/makefile
-# export XHEEP_DIR
-
-
 # Benchmarking configuration
+PWR_VCD ?= $(QUESTA_SIM_POSTSYNTH_DIR)/logs/waves-0.vcd
 THR_TESTS ?= scripts/performance-analysis/throughput-tests.txt
 PWR_TESTS ?= scripts/performance-analysis/power-tests.txt
 
@@ -138,12 +153,6 @@ CAESAR_PL_SDF := $(ROOT_DIR)/hw/vendor/nm-caesar-backend-opt/implementation/pnr/
 # HEEPATIA_PL_NET := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heepatia_pg.v
 # HEEPATIA_PL_SDF := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heepatia.sdf
 
-
-# ==============================================================================
-# EVE analysis
-# ==============================================================================
-
-
 # ==============================================================================
 # Power analysis
 # ==============================================================================
@@ -153,81 +162,70 @@ HEEPATIA_PL_NET := $(SYNTH_DIR)/netlist.v
 HEEPATIA_PL_SDF := $(SYNTH_DIR)/netlist.sdf  # NOT REQUIRED
 PWR_VCD ?= $(QUESTA_SIM_POSTSYNTH_DIR)/logs/waves-0.vcd  # private/simcommons/log_carus-matmul_2ns/waves-0.vcd
 PWR_ANALYSIS_MODE ?= tt_0p80_25 # tt_0p50_25, tt_0p65_25, tt_0p80_25, tt_0p90_25, wc
-
-# # Using post synthesis files
-# ifeq ($(PWR_TYPE),postlayout)
-#     HEEPATIA_PL_NET := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heepatia_pg.v
-# 	HEEPATIA_PL_SDF := $(ROOT_DIR)/build/innovus_latest/artefacts/export/heepatia.sdf
-# else ifeq ($(PWR_TYPE),postsynth)
-# 	HEEPATIA_PL_NET := $(SYNTH_DIR)/report/netlist.v
-# 	HEEPATIA_PL_SDF := $(SYNTH_DIR)/report/netlist.sdf
-# else
-#     $(error "Unknown PWR_TYPE specified. Use 'postlayout' or 'postsynth'.")
-# endif
-
-
-# # Conditional check to set PWR_VCD based on PWR_TYPE
-# ifeq ($(PWR_TYPE),postlayout)
-#     PWR_VCD ?= $(QUESTA_SIM_POSTLAYOUT_DIR)/logs/waves-0.vcd
-# else ifeq ($(PWR_TYPE),postsynth)
-#     # PWR_VCD ?= $(QUESTA_SIM_POSTSYNTH_DIR)/logs/waves-0.vcd 
-# 	PWR_VCD ?= private/simcommons/log_carus-matmul_2ns/waves-0.vcd
-# else
-#     $(error "Unknown SIM_TYPE specified. Use 'postlayout' or 'postsynth'.")
-# endif
-
-# #for power analysis
 # HEEPATIA_PL_NET_PA := $(ROOT_DIR)/implementation/power_analysis/heepatia_pg_power_analysis.v
 # HEEPATIA_PL_SDF_PA := $(ROOT_DIR)/implementation/power_analysis/heepatia.sdf
 # HEEPATIA_PL_SDF_PATCHED_PA := $(ROOT_DIR)/implementation/power_analysis/heepatia.patched.sdf
 
-# ==============================================================================
+# ----- BUILD RULES ----- #
 
 
-# Dependent variables
-# -------------------
-ifeq ($(BOOT_MODE),flash)
-	FIRMWARE		:= $(FIRMWARE_FLASH)
+# Get the path of this Makefile to pass to the Makefile help generator
+MKFILE_PATH = $(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")
+export FILE_FOR_HELP = $(MKFILE_PATH)/makefile
+export XHEEP_DIR
+
+
+## Print the Makefile help
+## @param WHICH=xheep,all,<none> Which Makefile help to print. Leaving blank (<none>) prints only HEEPatia's.
+help:
+ifndef WHICH
+	${XHEEP_DIR}/util/MakefileHelp
+else ifeq ($(filter $(WHICH),xheep x-heep),)
+	${XHEEP_DIR}/util/MakefileHelp
+	$(MAKE) -C $(XHEEP_DIR) help
+else
+	$(MAKE) -C $(XHEEP_DIR) help
 endif
 
 ## @section Conda
 .PHONY: conda
 conda: 
 	conda env create -f environment.yml
+# conda: environment.yml
+# 	conda env create -f environment.yml
 
+# environment.yml: python-requirements.txt
+# 	util/python-requirements2conda.sh
 
-###########################
-# ----- BUILD RULES ----- #
-###########################
 
 # Default alias
 # -------------
 .PHONY: all
 all: heepatia-gen
 
-# X-HEEP MCU system
-# -----------------
-# Build X-HEEP's core-v-mini-mcu
+## @section RTL & SW generation
+
+## X-HEEP MCU system
 .PHONY: mcu-gen
 mcu-gen: $(MCU_GEN_LOCK)
 ifeq ($(TARGET), asic)
-$(MCU_GEN_LOCK): $(MCU_CFG) $(PAD_CFG) $(EXT_PAD_CFG) | $(BUILD_DIR)/
+$(MCU_GEN_LOCK): $(MCU_CFG) $(PAD_CFG) | $(BUILD_DIR)/
 	@echo "### Building X-HEEP MCU..."
-	$(MAKE) -f $(XHEEP_MAKE) mcu-gen
+	$(MAKE) -f $(XHEEP_MAKE) mcu-gen LINK_FOLDER=$(LINK_FOLDER)
 	touch $@
 	$(RM) -f $(HEEPATIA_GEN_LOCK)
 	@echo "### DONE! X-HEEP MCU generated successfully"
 else ifeq ($(TARGET), pynq-z2)
-$(MCU_GEN_LOCK): $(PAD_CFG) $(EXT_PAD_CFG) | $(BUILD_DIR)/
+$(MCU_GEN_LOCK): $(PAD_CFG) | $(BUILD_DIR)/
 	@echo "### Building X-HEEP MCU for PYNQ-Z2..."
-	$(MAKE) -f $(XHEEP_MAKE) mcu-gen X_HEEP_CFG=$(X_HEEP_CFG_FPGA) MCU_CFG_PERIPHERALS=$(MCU_CFG_PERIPHERALS)
+	$(MAKE) -f $(XHEEP_MAKE) mcu-gen LINK_FOLDER=$(LINK_FOLDER) X_HEEP_CFG=$(X_HEEP_CFG_FPGA) MCU_CFG_PERIPHERALS=$(MCU_CFG_PERIPHERALS)
 	touch $@
 	$(RM) -f $(HEEPATIA_GEN_LOCK)
 	@echo "### DONE! X-HEEP MCU generated successfully"
 else ifeq ($(TARGET), zcu104)
-$(MCU_GEN_LOCK): $(PAD_CFG) $(EXT_PAD_CFG) | $(BUILD_DIR)/
+$(MCU_GEN_LOCK): $(PAD_CFG) | $(BUILD_DIR)/
 	@echo "### Building X-HEEP MCU for zcu104..."
-	$(MAKE) -f $(XHEEP_MAKE) mcu-gen X_HEEP_CFG=$(X_HEEP_CFG_FPGA) MCU_CFG_PERIPHERALS=$(MCU_CFG_PERIPHERALS)
+	$(MAKE) -f $(XHEEP_MAKE) mcu-gen LINK_FOLDER=$(LINK_FOLDER) X_HEEP_CFG=$(X_HEEP_CFG_FPGA) MCU_CFG_PERIPHERALS=$(MCU_CFG_PERIPHERALS)
 	touch $@
 	$(RM) -f $(HEEPATIA_GEN_LOCK)
 	@echo "### DONE! X-HEEP MCU generated successfully"
@@ -286,8 +284,8 @@ heepatia-gen-force:
 	rm -rf build/.mcu-gen.lock build/.heepatia-gen.lock;
 	$(MAKE) heepatia-gen
 
-# Generate heepatia files
-# @param TARGET=asic(default),pynq-z2,zcu104
+## Generate HEEPatia files
+## @param TARGET=asic(default),pynq-z2,zcu104
 .PHONY: heepatia-gen
 heepatia-gen: $(HEEPATIA_GEN_LOCK)
 $(HEEPATIA_GEN_LOCK): $(HEEPATIA_GEN_CFG) $(HEEPATIA_GEN_TPL) $(HEEPATIA_TOP_TPL) $(PAD_RING_TPL) $(MCU_GEN_LOCK) $(ROOT_DIR)/tb/tb_util.svh.tpl
@@ -295,44 +293,38 @@ ifeq ($(TARGET), asic)
 	@echo "### Generating heepatia top and pad rings for ASIC..."
 	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
 		--outdir $(ROOT_DIR)/hw/ip/ \
-		--external_pads $(EXT_PAD_CFG) \
 		--tpl-sv $(HEEPATIA_TOP_TPL)
 	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
 		--outdir $(ROOT_DIR)/hw/ip/pad-ring/ \
-		--external_pads $(EXT_PAD_CFG) \
 		--tpl-sv $(PAD_RING_TPL)
 	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
 		--outdir $(ROOT_DIR)/tb/ \
-		--external_pads $(EXT_PAD_CFG) \
 		--tpl-sv $(ROOT_DIR)/tb/tb_util.svh.tpl
+	# python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
+	# 	--outdir $(ROOT_DIR)/implementation/pnr/inputs/ \
+	# 	--tpl-sv $(PAD_IO_TPL)
 	@echo "### Generating heepatia files..."
 else ifeq ($(TARGET), pynq-z2)
 	@echo "### Generating heepatia top and padrings for PYNQ-Z2..."
 	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS_FPGA) \
 		--outdir $(ROOT_DIR)/hw/ip/ \
-		--external_pads $(EXT_PAD_CFG) \
 		--tpl-sv $(HEEPATIA_TOP_TPL)
 	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS_FPGA) \
 		--outdir $(ROOT_DIR)/hw/ip/pad-ring/ \
-		--external_pads $(EXT_PAD_CFG) \
 		--tpl-sv $(PAD_RING_TPL)
 	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS_FPGA) \
 		--outdir $(ROOT_DIR)/tb/ \
-		--external_pads $(EXT_PAD_CFG) \
 		--tpl-sv $(ROOT_DIR)/tb/tb_util.svh.tpl
 else ifeq ($(TARGET), zcu104)
 	@echo "### Generating heepatia top and padrings for zcu104..."
 	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS_FPGA) \
 		--outdir $(ROOT_DIR)/hw/ip/ \
-		--external_pads $(EXT_PAD_CFG) \
 		--tpl-sv $(HEEPATIA_TOP_TPL)
 	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS_FPGA) \
 		--outdir $(ROOT_DIR)/hw/ip/pad-ring/ \
-		--external_pads $(EXT_PAD_CFG) \
 		--tpl-sv $(PAD_RING_TPL)
 	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS_FPGA) \
 		--outdir $(ROOT_DIR)/tb/ \
-		--external_pads $(EXT_PAD_CFG) \
 		--tpl-sv $(ROOT_DIR)/tb/tb_util.svh.tpl
 else
 	$(error ### ERROR: Unsupported target implementation: $(TARGET))
@@ -355,35 +347,42 @@ endif
 	python3 util/heepatia-gen.py $(HEEPATIA_GEN_OPTS) \
 		--outdir sw/external/lib/drivers/carus/ \
 		--tpl-c sw/external/lib/drivers/carus/carus.h.tpl
-	fusesoc run --no-export --target format epfl:heepatia:heepatia
-	# fusesoc run --no-export --target lint epfl:heepatia:heepatia
+	# python3 util/heepatia-gen.py $(HEEPATIA_GEN_OPTS) \
+	# 	--outdir sw/external/lib/drivers/carus \
+	# 	--tpl-c sw/external/lib/drivers/carus/carus.c.tpl
+ifeq ($(FORMAT), true)
+	util/format-verible
+	$(FUSESOC) run --no-export --target lint epfl:heepatia:heepatia
+endif
 	@echo "### DONE! heepatia files generated successfully"
 	touch $@
 
-# Verible format
-.PHONY: format
-format: $(HEEPATIA_GEN_LOCK)
-	@echo "### Formatting heepatia RTL files..."
-	fusesoc run --no-export --target format epfl:heepatia:heepatia
+# # Verible format
+# .PHONY: format
+# format: $(HEEPATIA_GEN_LOCK)
+# 	@echo "### Formatting heepatia RTL files..."
+# 	fusesoc run --no-export --target format epfl:heepatia:heepatia
 
-# Static analysis
-.PHONY: lint
-lint: $(HEEPATIA_GEN_LOCK)
-	@echo "### Checking heepatia syntax and code style..."
-	fusesoc run --no-export --target lint epfl:heepatia:heepatia
+# # Static analysis
+# .PHONY: lint
+# lint: $(HEEPATIA_GEN_LOCK)
+# 	@echo "### Checking heepatia syntax and code style..."
+# 	fusesoc run --no-export --target lint epfl:heepatia:heepatia
 
-# Verilator RTL simulation
-# ------------------------
-# Build simulation model (do not launch simulation)
+## @section Simulation
+
+## @subsection Verilator RTL simulation
+
+## Build simulation model (do not launch simulation)
 .PHONY: verilator-build
 verilator-build: $(HEEPATIA_GEN_LOCK)
-	fusesoc run --no-export --target sim --tool verilator --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
+	$(FUSESOC) run --no-export --target sim --tool verilator --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		$(FUSESOC_ARGS)
 
-# Build simulation model and launch simulation
+## Build simulation model and launch simulation
 .PHONY: verilator-sim
-verilator-sim: | verilator-build .verilator-check-params
-	fusesoc run --no-export --target sim --tool verilator --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
+verilator-sim: | check-firmware verilator-build .verilator-check-params
+	$(FUSESOC) run --no-export --target sim --tool verilator --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		--log_level=$(LOG_LEVEL) \
 		--firmware=$(FIRMWARE) \
 		--boot_mode=$(BOOT_MODE) \
@@ -391,10 +390,10 @@ verilator-sim: | verilator-build .verilator-check-params
 		$(FUSESOC_ARGS)
 	cat $(BUILD_DIR)/sim-common/uart.log
 
-# Launch simulation
+## Launch simulation
 .PHONY: verilator-run
-verilator-run: | .verilator-check-params
-	fusesoc run --no-export --target sim --tool verilator --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
+verilator-run: | check-firmware .verilator-check-params
+	$(FUSESOC) run --no-export --target sim --tool verilator --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		--log_level=$(LOG_LEVEL) \
 		--firmware=$(FIRMWARE) \
 		--boot_mode=$(BOOT_MODE) \
@@ -402,10 +401,10 @@ verilator-run: | .verilator-check-params
 		$(FUSESOC_ARGS)
 	cat $(BUILD_DIR)/sim-common/uart.log
 
-# Launch simulation without waveform dumping
+## Launch simulation without waveform dumping
 .PHONY: verilator-opt
-verilator-opt: | .verilator-check-params
-	fusesoc run --no-export --target sim --tool verilator --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
+verilator-opt: | check-firmware .verilator-check-params
+	$(FUSESOC) run --no-export --target sim --tool verilator --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		--log_level=$(LOG_LEVEL) \
 		--firmware=$(FIRMWARE) \
 		--boot_mode=$(BOOT_MODE) \
@@ -414,33 +413,24 @@ verilator-opt: | .verilator-check-params
 		$(FUSESOC_ARGS)
 	cat $(BUILD_DIR)/sim-common/uart.log
 
-# Open dumped waveform with GTKWave
+## Open dumped waveform with GTKWave
 .PHONY: verilator-waves
 verilator-waves: $(BUILD_DIR)/sim-common/waves.fst | .check-gtkwave
 	gtkwave -a tb/misc/verilator-waves.gtkw $<
 
-# QuestaSim RTL simulation
-# ------------------------
-# Build simulation model
+## @subsection QuestaSim RTL simulation
+
+## Build simulation model
 .PHONY: questasim-build
-questasim-build: set-tb-sysclk $(HEEPATIA_GEN_LOCK) $(DPI_LIBS)
-# ifeq ($(ACCESSIBLE), true)
-	@echo "### Building simulation model with FLL..."
+questasim-build: $(HEEPATIA_GEN_LOCK) $(DPI_LIBS)
 	$(FUSESOC) run --no-export --target sim --tool modelsim --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		$(FUSESOC_ARGS)
 	cd $(QUESTA_SIM_DIR) ; make opt
-# else
-# 	@echo "### Building simulation model with FLL behavioural model..."
-# 	$(FUSESOC) run --no-export --target sim-nofll --tool modelsim --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
-# 		$(FUSESOC_ARGS)
-# 	cd $(QUESTA_SIM_DIR) ; make opt
-# endif
 
-# Build simulation model and launch simulation
+## Build simulation model and launch simulation
 .PHONY: questasim-sim
-questasim-sim: | questasim-build $(QUESTA_SIM_DIR)/logs/
-# ifeq ($(ACCESSIBLE), true)
-	fusesoc run --no-export --target sim --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
+questasim-sim: | check-firmware questasim-build $(QUESTA_SIM_DIR)/logs/
+	$(FUSESOC) run --no-export --target sim --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		--firmware=$(FIRMWARE) \
 		--bypass_fll_opt=$(BYPASS_FLL) \
 		--boot_mode=$(BOOT_MODE) \
@@ -448,22 +438,11 @@ questasim-sim: | questasim-build $(QUESTA_SIM_DIR)/logs/
 		--max_cycles=$(MAX_CYCLES) \
 		$(FUSESOC_ARGS)
 	cat $(BUILD_DIR)/sim-common/uart.log
-# else
-# 	fusesoc run --no-export --target sim-nofll --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
-# 		--firmware=$(FIRMWARE) \
-# 		--bypass_fll_opt=$(BYPASS_FLL) \
-# 		--boot_mode=$(BOOT_MODE) \
-# 		--vcd_mode=$(VCD_MODE) \
-# 		--max_cycles=$(MAX_CYCLES) \
-# 		$(FUSESOC_ARGS)
-# 	cat $(BUILD_DIR)/sim-common/uart.log
-# endif
 
-# Launch simulation
+## Launch simulation
 .PHONY: questasim-run
-questasim-run: | $(QUESTA_SIM_DIR)/logs/
-# ifeq ($(ACCESSIBLE), true)
-	fusesoc run --no-export --target sim --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
+questasim-run: | check-firmware $(QUESTA_SIM_DIR)/logs/
+	$(FUSESOC) run --no-export --target sim --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		--firmware=$(FIRMWARE) \
 		--bypass_fll_opt=$(BYPASS_FLL) \
 		--boot_mode=$(BOOT_MODE) \
@@ -471,27 +450,13 @@ questasim-run: | $(QUESTA_SIM_DIR)/logs/
 		--max_cycles=$(MAX_CYCLES) \
 		$(FUSESOC_ARGS)
 	cat $(BUILD_DIR)/sim-common/uart.log
-	$(MAKE) extract-vcd-timing
-	$(MAKE) read-tb-sysclk
-	@cp $(BUILD_DIR)/sim-common/clk_ns.txt $(QUESTA_SIM_DIR)/logs/
-# else
-# 	fusesoc run --no-export --target sim-nofll --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
-# 		--firmware=$(FIRMWARE) \
-# 		--bypass_fll_opt=$(BYPASS_FLL) \
-# 		--boot_mode=$(BOOT_MODE) \
-# 		--vcd_mode=$(VCD_MODE) \
-# 		--max_cycles=$(MAX_CYCLES) \
-# 		$(FUSESOC_ARGS)
-# 	cat $(BUILD_DIR)/sim-common/uart.log
-# endif
-	
 
-# Launch simulation in GUI mode
+## Launch simulation in GUI mode
 .PHONY: questasim-gui
-questasim-gui: | questasim-build $(QUESTA_SIM_DIR)/logs/
-	$(MAKE) -C $(QUESTA_SIM_DIR) run-gui RUN_OPT=1 PLUSARGS="firmware=$(FIRMWARE) bypass_fll_opt=$(BYPASS_FLL) boot_mode=$(BOOT_MODE) vcd_mode=$(VCD_MODE) max_cycles=$(MAX_CYCLES)"
+questasim-gui: | check-firmware $(QUESTA_SIM_DIR)/logs/
+	$(MAKE) -C $(QUESTA_SIM_DIR) run-gui RUN_OPT=1 PLUSARGS="firmware=$(FIRMWARE) bypass_fll_opt=$(BYPASS_FLL) boot_mode=$(BOOT_MODE) vcd_mode=$(VCD_MODE)"
 
-# Open dumped waveforms in GTKWave
+## Open dumped waveforms in GTKWave
 .PHONY: questasim-waves
 questasim-waves: $(SIM_VCD) | .check-gtkwave
 	gtkwave -a tb/misc/questasim-waves.gtkw $<
@@ -500,16 +465,15 @@ $(BUILD_DIR)/sim-common/questa-waves.fst: $(BUILD_DIR)/sim-common/waves.vcd | .c
 	@echo "### Converting $< to FST..."
 	vcd2fst $< $@
 
-# DPI libraries for QuestaSim
+## DPI libraries for QuestaSim
 .PHONY: tb-dpi
 tb-dpi: $(DPI_LIBS)
 $(BUILD_DIR)/sw/sim/uartdpi.so: hw/vendor/x-heep/hw/vendor/lowrisc_opentitan/hw/dv/dpi/uartdpi/uartdpi.c | $(BUILD_DIR)/sw/sim/
 	$(CC) -shared -Bsymbolic -fPIC -o $@ $< -lutil
 
-# Post-sysnthesis and post-layout simulations
-# -------------------------------------------
+## @section Post-synthesis and post-layout simulations
 
-# QuestaSim RTL + gf22 netlist of black boxes simulation
+## @subsection QuestaSim RTL + tsmc16 netlist of black boxes simulation
 
 ## Build simulation model
 .PHONY: questasim-gf22-build
@@ -538,40 +502,43 @@ questasim-gf22-gui: | $(QUESTA_SIM_RTL_GF22_DIR)/logs/
 
 # Questasim PostSynth Simulation (with no timing)
 .PHONY: questasim-postsynth-build
-questasim-postsynth-build: set-tb-sysclk $(HEEPATIA_GEN_LOCK) $(DPI_LIBS)
-	fusesoc run --no-export --target sim_postsynthesis --tool modelsim --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
+questasim-postsynth-build: set-tb-sysclk $(DPI_LIBS)
+	$(FUSESOC) run --no-export --target sim_postsynthesis --tool modelsim --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		$(FUSESOC_ARGS);
 	cd $(QUESTA_SIM_POSTSYNTH_DIR) ; make opt | tee fusesoc_questasim_postsynthesis.log
 
+## Questasim Postsynth run
 .PHONY: questasim-postsynth-run
-questasim-postsynth-run:
-	fusesoc run --no-export --target sim_postsynthesis --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
+questasim-postsynth-run: | check-firmware $(QUESTA_SIM_POSTSYNTH_DIR)/logs/
+	$(FUSESOC) run --no-export --target sim_postsynthesis --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		--firmware=$(FIRMWARE) \
 		--bypass_fll_opt=$(BYPASS_FLL) \
 		--boot_mode=$(BOOT_MODE) \
 		--vcd_mode=$(VCD_MODE) \
-		--max_cycles=$(MAX_CYCLES) \
 		$(FUSESOC_ARGS)
 	cat $(BUILD_DIR)/sim-common/uart.log
 	$(MAKE) extract-vcd-timing
 	$(MAKE) read-tb-sysclk
 	@cp $(BUILD_DIR)/sim-common/clk_ns.txt $(QUESTA_SIM_POSTSYNTH_DIR)/logs/
 
-# Launch simulation in GUI mode
+## Launch simulation in GUI mode
 .PHONY: questasim-postsynth-gui
-questasim-postsynth-gui:
+questasim-postsynth-gui: | check-firmware $(QUESTA_SIM_POSTSYNTH_DIR)/logs/
 	$(MAKE) -C $(QUESTA_SIM_POSTSYNTH_DIR) run-gui RUN_OPT=1 PLUSARGS="firmware=$(FIRMWARE) bypass_fll_opt=$(BYPASS_FLL) boot_mode=$(BOOT_MODE) vcd_mode=$(VCD_MODE) max_cycles=$(MAX_CYCLES)"
 
-# Questasim PostLayout Simulation (with no timing)
+## @subsection QuestaSim PostLayout simulation
+
+## Questasim PostLayout Simulation (with no timing)
 .PHONY: questasim-postlayout-build
 questasim-postlayout-build: $(HEEPATIA_GEN_LOCK) $(DPI_LIBS)
-	fusesoc run --no-export --target sim_postlayout --tool modelsim --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
+	$(FUSESOC) run --no-export --target sim_postlayout --tool modelsim --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		$(FUSESOC_ARGS);
 	cd $(QUESTA_SIM_POSTLAYOUT_DIR) ; make opt | tee fusesoc_questasim_postslayout.log
 
+## Questasim post-layout run
 .PHONY: questasim-postlayout-run
-questasim-postlayout-run:
-	fusesoc run --no-export --target sim_postlayout --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
+questasim-postlayout-run: check-firmware
+	$(FUSESOC) run --no-export --target sim_postlayout --tool modelsim --run $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		--firmware=$(FIRMWARE) \
 		--bypass_fll_opt=$(BYPASS_FLL) \
 		--boot_mode=$(BOOT_MODE) \
@@ -580,42 +547,53 @@ questasim-postlayout-run:
 		$(FUSESOC_ARGS)
 	cat $(BUILD_DIR)/sim-common/uart.log
 
-# Launch simulation in GUI mode
+## Launch simulation in GUI mode
 .PHONY: questasim-postlayout-gui
-questasim-postlayout-gui:
+questasim-postlayout-gui: check-firmware
 	$(MAKE) -C $(QUESTA_SIM_POSTLAYOUT_DIR) run-gui RUN_OPT=1 PLUSARGS="firmware=$(FIRMWARE) bypass_fll_opt=$(BYPASS_FLL) boot_mode=$(BOOT_MODE) vcd_mode=$(VCD_MODE) max_cycles=$(MAX_CYCLES)"
 
 
-# Synthesis
-# ---------
-# HEEperator synthesis with Synopsys DC Shell
+## @section Synthesis
+
+## HEEperator synthesis with Synopsys DC Shell
 .PHONY: synthesis
 synthesis: $(HEEPATIA_GEN_LOCK)
-	fusesoc run --no-export --target asic_synthesis --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
+	$(FUSESOC) run --no-export --target asic_synthesis --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		$(FUSESOC_ARGS) 2>&1 | tee fusesoc_synthesis.log
 
-implementation/pnr/inputs/heepocrates.io:
-	pushd implementation/pnr/inputs/ ; ./create_io_file_from_spreadsheet.py; popd;
+## @section Place and Route
 
-# Place & Route
-# -------------
+## PnR debug
 .PHONY: pnr_debug
-pnr_debug: implementation/pnr/inputs/heepocrates.io
+pnr_debug: 
 	pushd implementation/pnr/ ; ./run_pnr_flow.csh debug; popd;
 
+## PnR only
 .PHONY: pnr
-pnr: implementation/pnr/inputs/heepocrates.io
+pnr: 
 	pushd implementation/pnr/ ; ./run_pnr_flow.csh; popd;
 
+# Launch Innovus GUI
+.PHONY: launch-ivs
+launch-ivs: .check-innovus
+	innovus -common_ui -execute "gui_show"
+# Check tools
+.PHONY: .check-innovus
+.check-innovus:
+	@if [ `which innovus &> /dev/null` ]; then \
+	printf -- "### ERROR: 'innovus' is not in PATH.\n" >&2; \
+	exit 1; fi
 
-# FPGA-implementation
-# -------------------
-.PHONY: fpga
+## @section FPGA implementation
+
+## Synthesis for FPGA
+.PHONY: vivado-fpga-synth
 vivado-fpga-synth:
 	@echo "### Running FPGA implementation..."
-	fusesoc run --no-export --target $(TARGET) --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia $(FUSESOC_ARGS)
+	$(FUSESOC) run --no-export --target $(TARGET) --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia $(FUSESOC_ARGS)
 
-.PHONY: prog-fpga
+## Program the FPGA using Vivado
+.PHONY: vivado-fpga-pgm
 vivado-fpga-pgm:
 	@echo "### Programming the FPGA..."
 	$(MAKE) -C $(FUSESOC_BUILD_DIR)/$(TARGET)-vivado pgm
@@ -642,11 +620,9 @@ eve_power_analysis:
 	--root_dir=$(ROOT_DIR) \
 	--eve_dir=$(EVE_DIR) 
 
-# ==============================================================================`
+## @section Benchmarks
 
-# Benchmarks
-# ----------
-# Launch benchmark simulations on Verilator and generate CSV throughput report
+## Launch benchmark simulations on Verilator and generate CSV throughput report
 .PHONY: benchmark-throughput
 benchmark-throughput: build/performance-analysis/throughput.csv
 build/performance-analysis/throughput.csv: $(THR_TESTS) | build/performance-analysis/
@@ -654,7 +630,7 @@ build/performance-analysis/throughput.csv: $(THR_TESTS) | build/performance-anal
 	python3 scripts/performance-analysis/throughput-analysis.py \
 		$(THR_TESTS) $@
 
-# Launch benchmark simulations on post-layout netlist and generate CSV power report
+## Launch benchmark simulations on post-layout netlist and generate CSV power report
 .PHONY: benchmark-power
 benchmark-power: build/performance-analysis/power.csv
 build/performance-analysis/power.csv: $(PWR_TESTS) | build/performance-analysis/
@@ -663,24 +639,24 @@ build/performance-analysis/power.csv: $(PWR_TESTS) | build/performance-analysis/
 		$(PWR_TESTS) \
 		build/sim-common $@
 
-# Generate throughput benchmark chart
+## Generate throughput benchmark chart
 .PHONY: charts
 charts: build/performance-analysis/power.csv build/performance-analysis/throughput.csv
 	@echo "### Generating charts..."
 	python3 scripts/performance-analysis/benchmark-charts.py $^ build/performance-analysis
 
-# Power analysis
-# --------------
-# .PHONY: patch-files-power-analysis
-# patch-files-power-analysis: $(BUILD_DIR)/.patch-files-power-analysis.lock
-# # TODO: is below correct?
-# # $(BUILD_DIR)/.patch-files-power-analysis.lock: $(HEEPATIA_PL_NET) $(HEEPATIA_PL_SDF).gz 
-# $(BUILD_DIR)/.patch-files-power-analysis.lock: $(HEEPATIA_PL_NET) $(HEEPATIA_PL_SDF)
-# #   the LIB and LEF of the FLL are wrong as the VDDA power pin is missing, thus deleting it so that power analysis can be done
-# 	cp $(HEEPATIA_PL_NET) $(HEEPATIA_PL_NET_PA)
-# # sed -i '/.VDDA(VDD)/d' $(HEEPATIA_PL_NET_PA)
-# 	touch $(BUILD_DIR)/.patch-files-power-analysis.lock
+## @section Power Analysis
 
+## PAth files
+.PHONY: patch-files-power-analysis
+patch-files-power-analysis: $(BUILD_DIR)/.patch-files-power-analysis.lock
+$(BUILD_DIR)/.patch-files-power-analysis.lock: $(HEEPATIA_PL_NET) $(HEEPATIA_PL_SDF).gz
+#   the LIB and LEF of the FLL are wrong as the VDDA power pin is missing, thus deleting it so that power analysis can be done
+	cp $(HEEPATIA_PL_NET) $(HEEPATIA_PL_NET_PA)
+	sed -i '/.VDDA(VDD)/d' $(HEEPATIA_PL_NET_PA)
+	touch $(BUILD_DIR)/.patch-files-power-analysis.lock
+
+## Perform power analysis
 .PHONY: power-analysis
 power-analysis:
 # power-analysis: $(BUILD_DIR)/.patch-files-power-analysis.lock $(PWR_VCD)
@@ -688,42 +664,49 @@ power-analysis:
 	rm -rf implementation/power_analysis/reports/*
 	pushd implementation/power_analysis/; ./run_pwr_flow.sh $(PWR_VCD) $(HEEPATIA_PL_NET) $(HEEPATIA_PL_SDF) heepatia_top $(PWR_ANALYSIS_MODE); popd;
 
-# Software
-# --------
-# heepatia applications
-# .PHONY: app
-# app: $(HEEPATIA_GEN_LOCK) | carus-sw $(BUILD_DIR)/sw/app/
-# ifneq ($(APP_MAKE),)
-# 	$(MAKE) -C $(dir $(APP_MAKE))
-# endif
-# 	@echo "### Building application for SRAM execution with GCC compiler..."
-# 	CDEFS=$(CDEFS) $(MAKE) -f $(XHEEP_MAKE) $(MAKECMDGOALS)
-# 	find sw/build/ -maxdepth 1 -type f -name "main.*" -exec cp '{}' $(BUILD_DIR)/sw/app/ \;
+## @section Software
 
+## HEEPatia applications
+## @param TOOLCHAIN=OHW(default),GCC,POS
 .PHONY: app
-app: $(HEEPATIA_GEN_LOCK) | carus-sw $(BUILD_DIR)/sw/app/ $(BUILD_DIR)/sw/app-flash/
+app: $(HEEPATIA_GEN_LOCK) | carus-sw $(BUILD_DIR)/sw/app/
 ifneq ($(APP_MAKE),)
 	$(MAKE) -C $(dir $(APP_MAKE))
 endif
-	@echo "### Building application for SRAM execution..."
-	CDEFS=$(CDEFS) $(MAKE) -f $(XHEEP_MAKE) $(MAKECMDGOALS)
+ifeq ($(TOOLCHAIN), OHW)
+	@echo "### Building application with OHW compiler..."
+	CDEFS=$(CDEFS) $(MAKE) -f $(XHEEP_MAKE) $(MAKECMDGOALS) LINK_FOLDER=$(LINK_FOLDER) COMPILER_PREFIX=riscv32-corev- ARCH=rv32imfc_zicsr_zifencei_xcvhwlp_xcvmem_xcvmac_xcvbi_xcvalu_xcvsimd_xcvbitmanip
 	find sw/build/ -maxdepth 1 -type f -name "main.*" -exec cp '{}' $(BUILD_DIR)/sw/app/ \;
-	@echo "### Building application for flash load..."
-	CDEFS=$(CDEFS) $(MAKE) -f $(XHEEP_MAKE) LINKER=flash_load $(MAKECMDGOALS)
-	find sw/build/ -maxdepth 1 -type f -name "main.*" -exec cp '{}' $(BUILD_DIR)/sw/app-flash/ \;
+else ifeq ($(TOOLCHAIN), POS)
+	@echo "### Building application for SRAM execution with Clang+GCC posit compiler..."
+	CDEFS=$(CDEFS) $(MAKE) -f $(XHEEP_MAKE) $(MAKECMDGOALS) LINK_FOLDER=$(LINK_FOLDER) COMPILER=clang ARCH=rv32gcxposit1 RISCV=/shares/eslfiler1/common/esl/HEEPatia/compilers/rv32gcxposit
+	find sw/build/ -maxdepth 1 -type f -name "main.*" -exec cp '{}' $(BUILD_DIR)/sw/app/ \;
+else
+	@echo "### Building application for SRAM execution with GCC compiler..."
+	CDEFS=$(CDEFS) $(MAKE) -f $(XHEEP_MAKE) $(MAKECMDGOALS) LINK_FOLDER=$(LINK_FOLDER) ARCH=rv32imc
+	find sw/build/ -maxdepth 1 -type f -name "main.*" -exec cp '{}' $(BUILD_DIR)/sw/app/ \;
+endif
 
-# NM-Carus kernels and startup code
+## NM-Carus kernels and startup code
 .PHONY: carus-sw
 carus-sw:
 	$(MAKE) -C $(SW_DIR) carus
 
-# Dummy target to force software rebuild
+## Dummy target to force software rebuild
 $(PARAMS):
 	@echo "### Rebuilding software..."
 
-# Utilities
-# ---------
-# Update vendored IPs
+## @section Utilities
+
+## Check if the firmware is compiled
+.PHONY: .check-firmware
+check-firmware:
+	@if [ ! -f $(FIRMWARE) ]; then \
+		echo "\033[31mError: FIRMWARE has not been compiled! Simulation won't work!\033[0m"; \
+		exit 1; \
+	fi
+
+## Update vendored IPs
 .PHONY: vendor-update
 vendor-update:
 	@echo "### Updating vendored IPs..."
@@ -731,21 +714,21 @@ vendor-update:
 	$(MAKE) clean-lock
 	$(MAKE) heepatia-gen
 
-# Check if fusesoc is available
+## Check if fusesoc is available
 .PHONY: .check-fusesoc
 .check-fusesoc:
 	@if [ ! `which fusesoc` ]; then \
 	printf -- "### ERROR: 'fusesoc' is not in PATH. Is the correct conda environment active?\n" >&2; \
 	exit 1; fi
 
-# Check if GTKWave is available
+## Check if GTKWave is available
 .PHONY: .check-gtkwave
 .check-gtkwave:
 	@if [ ! `which gtkwave` ]; then \
 	printf -- "### ERROR: 'gtkwave' is not in PATH. Is the correct conda environment active?\n" >&2; \
 	exit 1; fi
 
-# Check simulation parameters
+## Check simulation parameters
 .PHONY: .verilator-check-params
 .verilator-check-params:
 	@if [ "$(BOOT_MODE)" = "flash" ]; then \
@@ -753,17 +736,21 @@ vendor-update:
 		exit 1; \
 	fi
 
-# # Run PHEE-Coprosit tests
-# .PHONY: test
-# test:
-# 	$(RM) test/*.log
-# 	./test/test_all.sh
+## Run HEEPatia tests
+.PHONY: test
+test: heepatia-gen-force
+	$(RM) test/*.log
+	python test/test_apps.py $(TEST_FLAGS) 2>&1 | tee test/test_apps.log
+	@echo "You can also find the output in test/test_apps.log"
 
-# Create directories
+## Create directories
 %/:
 	mkdir -p $@
 
-# Clean build directory
+
+## @section Cleaning
+
+## Clean build directory
 .PHONY: clean clean-lock
 clean:
 	$(RM) $(HEEPATIA_GEN_LOCK)
@@ -782,21 +769,40 @@ clean:
 clean-lock:
 	$(RM) $(BUILD_DIR)/.*.lock
 
-# Print variables
+
+## @section Format and Variables
+
+## Verible format
+.PHONY: format
+format: $(HEEPATIA_GEN_LOCK)
+	@echo "### Formatting heepatia RTL files..."
+	util/format-verible
+
+.PHONY: lint
+	@echo "### Linting heepatia RTL files..."
+	$(FUSESOC) run --no-export --target lint epfl:heepatia:heepatia
+
+
+## Static analysis
+.PHONY: lint
+lint: $(HEEPATIA_GEN_LOCK)
+	@echo "### Checking heepatia syntax and code style..."
+	$(FUSESOC) run --no-export --target lint epfl:heepatia:heepatia
+
+## Print variables
 .PHONY: .print
 .print:
 	@echo "APP_MAKE: $(APP_MAKE)"
 	@echo "KERNEL_PARAMS: $(KERNEL_PARAMS)"
 	@echo "FUSESOC_ARGS: $(FUSESOC_ARGS)"
 
-####################################
+
 # ----- INCLUDE X-HEEP RULES ----- #
-####################################
 export X_HEEP_CFG
 export MCU_CFG_PERIPHERALS
 export PAD_CFG
-export EXT_PAD_CFG
 export EXTERNAL_DOMAINS
+export FLASHWRITE_FILE
 export HEEP_DIR = $(ROOT_DIR)/hw/vendor/x-heep
 XHEEP_MAKE 		= $(HEEP_DIR)/external.mk
 include $(XHEEP_MAKE)

@@ -62,8 +62,7 @@ package jtag_pkg;
     s_trstn = 1'b1;
   endtask
 
-  task automatic jtag_softreset(ref logic s_tck, ref logic s_tms, ref logic s_trstn,
-                                ref logic s_tdi);
+  task automatic jtag_softreset(ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi);
     s_tms   = 1'b1;
     s_trstn = 1'b1;
     s_tdi   = 1'b0;
@@ -89,8 +88,7 @@ package jtag_pkg;
       jtag_clock(1, s_tck);
     endtask
 
-    task update_and_goto_shift(ref logic s_tck, ref logic s_tms, ref logic s_trstn,
-                               ref logic s_tdi);
+    task update_and_goto_shift(ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi);
       s_trstn = 1'b1;
       // from SHIFT_DR to RUN_TEST : tms sequence 110
       s_tms   = 1'b1;
@@ -123,8 +121,7 @@ package jtag_pkg;
       jtag_clock(2, s_tck);
     endtask
 
-    task jtag_goto_UPDATE_DR_FROM_SHIFT_DR(ref logic s_tck, ref logic s_tms, ref logic s_trstn,
-                                           ref logic s_tdi);
+    task jtag_goto_UPDATE_DR_FROM_SHIFT_DR(ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi);
       //$display("I am at jtag_goto_UPDATE_DR_FROM_SHIFT_DR (%t)",$realtime);
       s_trstn = 1'b1;
       s_tdi   = 1'b1;
@@ -137,9 +134,8 @@ package jtag_pkg;
       jtag_clock(50, s_tck);
     endtask
 
-    task jtag_goto_CAPTURE_DR_FROM_UPDATE_DR_GETDATA(
-        output logic [DMI_SIZE-1:0] dataout, ref logic s_tck, ref logic s_tms, ref logic s_trstn,
-        ref logic s_tdi, ref logic s_tdo);
+    task jtag_goto_CAPTURE_DR_FROM_UPDATE_DR_GETDATA(output logic [DMI_SIZE-1:0] dataout, ref logic s_tck, ref logic s_tms, ref logic s_trstn,
+                                                     ref logic s_tdi, ref logic s_tdo);
       //$display("I am at jtag_goto_CAPTURE_DR_FROM_UPDATE_DR_GETDATA (%t)",$realtime);
       s_trstn = 1'b1;
       s_tdi   = 1'b1;
@@ -168,9 +164,8 @@ package jtag_pkg;
 
     endtask
 
-    task jtag_goto_CAPTURE_DR_FROM_SHIFT_DR_GETDATA(
-        output logic [DMI_SIZE-1:0] dataout, ref logic s_tck, ref logic s_tms, ref logic s_trstn,
-        ref logic s_tdi, ref logic s_tdo);
+    task jtag_goto_CAPTURE_DR_FROM_SHIFT_DR_GETDATA(output logic [DMI_SIZE-1:0] dataout, ref logic s_tck, ref logic s_tms, ref logic s_trstn,
+                                                    ref logic s_tdi, ref logic s_tdo);
       //$display("I am at jtag_goto_CAPTURE_DR_FROM_SHIFT_DR_GETDATA (%t)",$realtime);
       s_trstn = 1'b1;
       s_tdi   = 1'b1;
@@ -202,10 +197,8 @@ package jtag_pkg;
       end
     endtask
 
-    task jtag_shift_NBITS_SHIFT_DR(input int unsigned numbits, input logic [size-1:0] datain,
-                                   output logic [size-1:0] dataout, ref logic s_tck,
-                                   ref logic s_tms, ref logic s_trstn, ref logic s_tdi,
-                                   ref logic s_tdo);
+    task jtag_shift_NBITS_SHIFT_DR(input int unsigned numbits, input logic [size-1:0] datain, output logic [size-1:0] dataout, ref logic s_tck,
+                                   ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
       s_trstn = 1'b1;
       s_tms   = 1'b0;
       for (int i = 0; i < numbits; i = i + 1) begin
@@ -216,9 +209,8 @@ package jtag_pkg;
       end
     endtask
 
-    task shift_nbits_noex(input int unsigned numbits, input logic [size-1:0] datain,
-                          output logic [size-1:0] dataout, ref logic s_tck, ref logic s_tms,
-                          ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task shift_nbits_noex(input int unsigned numbits, input logic [size-1:0] datain, output logic [size-1:0] dataout, ref logic s_tck,
+                          ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
       s_trstn = 1'b1;
       s_tms   = 1'b0;
       for (int i = 0; i < numbits; i = i + 1) begin
@@ -232,8 +224,7 @@ package jtag_pkg;
       this.jtag_goto_SHIFT_DR(s_tck, s_tms, s_trstn, s_tdi);
     endtask
 
-    task shift_nbits(input int unsigned numbits, input logic [size-1:0] datain,
-                     output logic [size-1:0] dataout, ref logic s_tck, ref logic s_tms,
+    task shift_nbits(input int unsigned numbits, input logic [size-1:0] datain, output logic [size-1:0] dataout, ref logic s_tck, ref logic s_tms,
                      ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
       this.jtag_shift_NBITS_SHIFT_DR(numbits, datain, dataout, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
     endtask
@@ -244,8 +235,8 @@ package jtag_pkg;
       this.idle(s_tck, s_tms, s_trstn, s_tdi);
     endtask
 
-    task shift(input logic [size-1:0] datain, output logic [size-1:0] dataout, ref logic s_tck,
-               ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task shift(input logic [size-1:0] datain, output logic [size-1:0] dataout, ref logic s_tck, ref logic s_tms, ref logic s_trstn,
+               ref logic s_tdi, ref logic s_tdo);
       this.jtag_goto_SHIFT_DR(s_tck, s_tms, s_trstn, s_tdi);
       this.jtag_shift_NBITS_SHIFT_DR(size, datain, dataout, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
       this.idle(s_tck, s_tms, s_trstn, s_tdi);
@@ -253,8 +244,7 @@ package jtag_pkg;
 
   endclass
 
-  task automatic jtag_get_idcode(ref logic s_tck, ref logic s_tms, ref logic s_trstn,
-                                 ref logic s_tdi, ref logic s_tdo);
+  task automatic jtag_get_idcode(ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
     automatic
     JTAG_reg #(
         .size (JTAG_IDCODE_WIDTH),
@@ -284,8 +274,8 @@ package jtag_pkg;
       $display("[TIF ] %t - Init", $realtime);
     endtask
 
-    task set_confreg(input logic [8:0] confreg, output logic [8:0] dataout, ref logic s_tck,
-                     ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task set_confreg(input logic [8:0] confreg, output logic [8:0] dataout, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi,
+                     ref logic s_tdo);
       logic [8+1:0] confreg_int, dataout_int;  //extra bit for bypass
       JTAG_reg #(
           .size (256),
@@ -295,15 +285,14 @@ package jtag_pkg;
       confreg_int = {1'b0, confreg};
 
       jtag_soc_dbg.start_shift(s_tck, s_tms, s_trstn, s_tdi);
-      jtag_soc_dbg.shift_nbits(9 + 1, confreg_int, dataout_int, s_tck, s_tms, s_trstn, s_tdi,
-                               s_tdo);
+      jtag_soc_dbg.shift_nbits(9 + 1, confreg_int, dataout_int, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
       jtag_soc_dbg.idle(s_tck, s_tms, s_trstn, s_tdi);
       dataout = dataout_int[8:0];
       $display("[TIF ] %t - Setting confreg to value %X.", $realtime, confreg);
     endtask
 
-    task get_confreg(input logic [8:0] confreg, output bit [8:0] rec, ref logic s_tck,
-                     ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task get_confreg(input logic [8:0] confreg, output bit [8:0] rec, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi,
+                     ref logic s_tdo);
       logic [8+1:0] dataout;  //extra bit for bypass
       JTAG_reg #(
           .size (256),
@@ -341,8 +330,7 @@ package jtag_pkg;
     endtask
 
 
-    task dump_dm_info(ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi,
-                      ref logic s_tdo);
+    task dump_dm_info(ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
       typedef struct packed {
         logic [31:18] zero1;
@@ -369,8 +357,8 @@ package jtag_pkg;
                              idle         %x \n\
                              dmistat      %x \n\
                              abits        %x \n\
-                             version      %x \n", $realtime, dtmcs, dtmcs.dmihardreset,
-               dtmcs.dmireset, dtmcs.idle, dtmcs.dmistat, dtmcs.abits, dtmcs.version);
+                             version      %x \n", $realtime, dtmcs, dtmcs.dmihardreset, dtmcs.dmireset, dtmcs.idle, dtmcs.dmistat,
+               dtmcs.abits, dtmcs.version);
 
       this.init_dmi_access(s_tck, s_tms, s_trstn, s_tdi);
 
@@ -385,15 +373,13 @@ package jtag_pkg;
                  allhalted    %x\n\
                  anyhalted    %x\n\
                  version      %x\n\
-              ", $realtime, dmstatus.impebreak,
-               dmstatus.allhavereset, dmstatus.anyhavereset, dmstatus.allrunning,
-               dmstatus.anyrunning, dmstatus.allhalted, dmstatus.anyhalted, dmstatus.version);
+              ", $realtime, dmstatus.impebreak, dmstatus.allhavereset, dmstatus.anyhavereset,
+               dmstatus.allrunning, dmstatus.anyrunning, dmstatus.allhalted, dmstatus.anyhalted, dmstatus.version);
 
     endtask
 
 
-    task set_haltreq(input logic haltreq, ref logic s_tck, ref logic s_tms, ref logic s_trstn,
-                     ref logic s_tdi, ref logic s_tdo);
+    task set_haltreq(input logic haltreq, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
       logic           [ 1:0] dm_op;
       logic           [ 6:0] dm_addr;
@@ -420,8 +406,7 @@ package jtag_pkg;
 
     endtask
 
-    task set_resumereq(input logic resumereq, ref logic s_tck, ref logic s_tms, ref logic s_trstn,
-                       ref logic s_tdi, ref logic s_tdo);
+    task set_resumereq(input logic resumereq, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
       logic           [ 1:0] dm_op;
       logic           [ 6:0] dm_addr;
@@ -439,8 +424,7 @@ package jtag_pkg;
     endtask
 
 
-    task halt_harts(ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi,
-                    ref logic s_tdo);
+    task halt_harts(ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
       dm::dmcontrol_t dmcontrol;
       dm::dmstatus_t  dmstatus;
@@ -465,8 +449,7 @@ package jtag_pkg;
     endtask
 
 
-    task resume_harts(ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi,
-                      ref logic s_tdo);
+    task resume_harts(ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
       dm::dmcontrol_t dmcontrol;
       dm::dmstatus_t  dmstatus;
@@ -490,8 +473,7 @@ package jtag_pkg;
 
     endtask
 
-    task block_until_any_halt(ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi,
-                              ref logic s_tdo);
+    task block_until_any_halt(ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
       dm::dmstatus_t dmstatus;
 
@@ -501,8 +483,7 @@ package jtag_pkg;
 
     endtask
 
-    task writeArg(input logic arg, input logic [31:0] val, ref logic s_tck, ref logic s_tms,
-                  ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task writeArg(input logic arg, input logic [31:0] val, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
 
       logic [ 1:0] dm_op;
@@ -517,8 +498,8 @@ package jtag_pkg;
                    {dm_addr, dm_data, dm_op}, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
     endtask
 
-    task writePrgramBuff(input logic [2:0] arg, input logic [31:0] val, ref logic s_tck,
-                         ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task writePrgramBuff(input logic [2:0] arg, input logic [31:0] val, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi,
+                         ref logic s_tdo);
 
 
       logic [ 1:0] dm_op;
@@ -535,8 +516,7 @@ package jtag_pkg;
     endtask
 
     // wait for abstract command to finish, no error checking
-    task wait_command(input logic [31:0] command, ref logic s_tck, ref logic s_tms,
-                      ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task wait_command(input logic [31:0] command, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
       dm::abstractcs_t abstractcs;
 
@@ -565,8 +545,7 @@ package jtag_pkg;
     endtask
 
 
-    task set_command(input logic [31:0] command, ref logic s_tck, ref logic s_tms,
-                     ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task set_command(input logic [31:0] command, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
 
       logic [ 1:0] dm_op;
@@ -582,8 +561,7 @@ package jtag_pkg;
 
     endtask
 
-    task read_dtmcs(output logic [31:0] dtmcs, ref logic s_tck, ref logic s_tms, ref logic s_trstn,
-                    ref logic s_tdi, ref logic s_tdo);
+    task read_dtmcs(output logic [31:0] dtmcs, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
       logic [31+1:0] dataout;
       JTAG_reg #(
           .size (32),
@@ -595,8 +573,7 @@ package jtag_pkg;
       dtmcs = dataout[32:1];
     endtask
 
-    task write_dtmcs(input logic [31:0] dtmcs, ref logic s_tck, ref logic s_tms, ref logic s_trstn,
-                     ref logic s_tdi, ref logic s_tdo);
+    task write_dtmcs(input logic [31:0] dtmcs, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
       logic [31+1:0] dataout;
       JTAG_reg #(
           .size (32),
@@ -609,8 +586,7 @@ package jtag_pkg;
     endtask
 
 
-    task test_read_sbcs(ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi,
-                        ref logic s_tdo);
+    task test_read_sbcs(ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
       dm::sbcs_t sbcs;
 
@@ -626,9 +602,8 @@ package jtag_pkg;
                  sberror         %x\n\
                  sbasize         %x\n\
                  sbaccess32      %x\
-              ", $realtime,
-               sbcs.sbbusy, sbcs.sbreadonaddr, sbcs.sbaccess, sbcs.sbautoincrement,
-               sbcs.sbreadondata, sbcs.sberror, sbcs.sbasize, sbcs.sbaccess32);
+              ", $realtime, sbcs.sbbusy, sbcs.sbreadonaddr, sbcs.sbaccess,
+               sbcs.sbautoincrement, sbcs.sbreadondata, sbcs.sberror, sbcs.sbasize, sbcs.sbaccess32);
 
       assert (sbcs.sbbusy == 1'b0)
       else $error("sb is busy even though we are idling");
@@ -646,8 +621,7 @@ package jtag_pkg;
     endtask
 
 
-    task clear_sbcserrors(ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi,
-                          ref logic s_tdo);
+    task clear_sbcserrors(ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
       // writing to the error flags has "clear bit" behavior:
       // if they are 1 and we write a 0, they will stay 1
@@ -662,16 +636,13 @@ package jtag_pkg;
       end
     endtask
 
-    task test_read_abstractcs(ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi,
-                              ref logic s_tdo);
+    task test_read_abstractcs(ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
       dm::abstractcs_t abstractcs;
 
       read_debug_reg(dm::AbstractCS, abstractcs, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
-      $display(
-          "[TESTBENCH] %t - Abstractcs is %x (progbufsize %x, busy %x, cmderr %x, datacount %x)",
-          $realtime, abstractcs, abstractcs.progbufsize, abstractcs.busy, abstractcs.cmderr,
-          abstractcs.datacount);
+      $display("[TESTBENCH] %t - Abstractcs is %x (progbufsize %x, busy %x, cmderr %x, datacount %x)", $realtime, abstractcs, abstractcs.progbufsize,
+               abstractcs.busy, abstractcs.cmderr, abstractcs.datacount);
 
       assert (abstractcs.progbufsize == 5'h8)
       else $error("progbufsize is not 8 (might be ok)");
@@ -680,20 +651,17 @@ package jtag_pkg;
 
     endtask
 
-    task set_dmi(input logic [1:0] op_i, input logic [6:0] address_i, input logic [31:0] data_i,
-                 output logic [DMI_SIZE-1:0] data_o, ref logic s_tck, ref logic s_tms,
-                 ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task set_dmi(input logic [1:0] op_i, input logic [6:0] address_i, input logic [31:0] data_i, output logic [DMI_SIZE-1:0] data_o,
+                 ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
       logic [DMI_SIZE-1:0] buffer;
       JTAG_reg #(
           .size (DMI_SIZE),
           .instr(JTAG_SOC_DMIACCESS)
       ) jtag_soc_dbg = new;
       jtag_soc_dbg.start_shift(s_tck, s_tms, s_trstn, s_tdi);
-      jtag_soc_dbg.shift_nbits(DMI_SIZE, {address_i, data_i, op_i}, buffer, s_tck, s_tms, s_trstn,
-                               s_tdi, s_tdo);
+      jtag_soc_dbg.shift_nbits(DMI_SIZE, {address_i, data_i, op_i}, buffer, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
       jtag_soc_dbg.jtag_goto_UPDATE_DR_FROM_SHIFT_DR(s_tck, s_tms, s_trstn, s_tdi);
-      jtag_soc_dbg.jtag_goto_CAPTURE_DR_FROM_UPDATE_DR_GETDATA(buffer, s_tck, s_tms, s_trstn, s_tdi,
-                                                               s_tdo);
+      jtag_soc_dbg.jtag_goto_CAPTURE_DR_FROM_UPDATE_DR_GETDATA(buffer, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
 
       data_o[1:0]   = buffer[1:0];
       data_o[40:34] = buffer[40:34];
@@ -702,8 +670,7 @@ package jtag_pkg;
 
     endtask
 
-    task dmi_reset(ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi,
-                   ref logic s_tdo);
+    task dmi_reset(ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
       logic [31:0] buffer;
       init_dtmcs(s_tck, s_tms, s_trstn, s_tdi);
 
@@ -714,23 +681,20 @@ package jtag_pkg;
       this.write_dtmcs(buffer, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
     endtask
 
-    task set_dmactive(input logic dmactive, ref logic s_tck, ref logic s_tms, ref logic s_trstn,
-                      ref logic s_tdi, ref logic s_tdo);
+    task set_dmactive(input logic dmactive, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
       logic [ 1:0] dm_op;
       logic [31:0] dm_data;
       logic [ 6:0] dm_addr;
 
-      this.set_dmi(
-          2'b10,  //Write
-          7'h10,  //DMControl
-          {1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 10'b0, 10'b0, 2'b0, 1'b0, 1'b0, 1'b0, dmactive}, {
-          dm_addr, dm_data, dm_op}, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
+      this.set_dmi(2'b10,  //Write
+                   7'h10,  //DMControl
+                   {1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 10'b0, 10'b0, 2'b0, 1'b0, 1'b0, 1'b0, dmactive}, {dm_addr, dm_data, dm_op}, s_tck, s_tms,
+                   s_trstn, s_tdi, s_tdo);
 
     endtask
 
-    task set_hartsel(input logic [19:0] hartsel, ref logic s_tck, ref logic s_tms,
-                     ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task set_hartsel(input logic [19:0] hartsel, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
       dm::dmcontrol_t dmcontrol;
 
@@ -744,8 +708,7 @@ package jtag_pkg;
     endtask
 
 
-    task set_sbreadonaddr(input logic sbreadonaddr, ref logic s_tck, ref logic s_tms,
-                          ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task set_sbreadonaddr(input logic sbreadonaddr, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
       dm::sbcs_t sbcs;
 
@@ -757,8 +720,7 @@ package jtag_pkg;
 
     endtask
 
-    task set_sbautoincrement(input logic sbautoincrement, ref logic s_tck, ref logic s_tms,
-                             ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task set_sbautoincrement(input logic sbautoincrement, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
       dm::sbcs_t sbcs;
 
@@ -772,8 +734,8 @@ package jtag_pkg;
     endtask
 
     // access (read) debug module register according to riscv-debug p. 71
-    task read_debug_reg(input logic [6:0] dmi_addr_i, output logic [31:0] data_o, ref logic s_tck,
-                        ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task read_debug_reg(input logic [6:0] dmi_addr_i, output logic [31:0] data_o, ref logic s_tck, ref logic s_tms, ref logic s_trstn,
+                        ref logic s_tdi, ref logic s_tdo);
 
       logic [ 1:0] dmi_op;
       logic [31:0] dmi_data;
@@ -801,9 +763,8 @@ package jtag_pkg;
     endtask
 
     // access (write) debug module register according to riscv-debug p. 71
-    task write_debug_reg(input logic [6:0] dmi_addr_i, input logic [31:0] dmi_data_i,
-                         ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi,
-                         ref logic s_tdo);
+    task write_debug_reg(input logic [6:0] dmi_addr_i, input logic [31:0] dmi_data_i, ref logic s_tck, ref logic s_tms, ref logic s_trstn,
+                         ref logic s_tdi, ref logic s_tdo);
 
       logic           [ 1:0] dmi_op;
       logic           [31:0] dmi_data;
@@ -841,8 +802,7 @@ package jtag_pkg;
       // TODO: widen wait between Capture-DR and Update-DR when failing
       do begin
         this.set_dmi(2'b10,  //write
-                     dmi_addr_i, dmi_data_i, {dmi_addr, dmi_data, dmi_op}, s_tck, s_tms, s_trstn,
-                     s_tdi, s_tdo);
+                     dmi_addr_i, dmi_data_i, {dmi_addr, dmi_data, dmi_op}, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
         if (dmi_op == 2'h2) begin
           $display("[TESTBENCH] %t - dmi previous operation failed, not handled", $realtime);
           dmi_op = 2'h0;  // TODO: for now we just force completion
@@ -860,9 +820,8 @@ package jtag_pkg;
 
 
     // access (read) csr, gpr by means of abstract command
-    task read_reg_abstract_cmd(input logic [15:0] regno_i, output logic [31:0] data_o,
-                               ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi,
-                               ref logic s_tdo);
+    task read_reg_abstract_cmd(input logic [15:0] regno_i, output logic [31:0] data_o, ref logic s_tck, ref logic s_tms, ref logic s_trstn,
+                               ref logic s_tdi, ref logic s_tdo);
 
       logic [ 1:0] dmi_op;
       logic [31:0] dmi_data;
@@ -880,8 +839,7 @@ package jtag_pkg;
 
 
     // access (write) csr, gpr by means of abstract command
-    task write_reg_abstract_cmd(input logic [15:0] regno_i, input logic [31:0] data_i,
-                                ref logic s_tck, ref logic s_tms, ref logic s_trstn,
+    task write_reg_abstract_cmd(input logic [15:0] regno_i, input logic [31:0] data_i, ref logic s_tck, ref logic s_tms, ref logic s_trstn,
                                 ref logic s_tdi, ref logic s_tdo);
 
       logic [ 1:0] dmi_op;
@@ -901,8 +859,7 @@ package jtag_pkg;
     // Before starting an abstract command, haltreq=resumereq=ackhavereset=0
     // must be ensured, which is what this task asserts (see debug spec p.11).
     // We use this to catch programming mistakes, not to test functionality
-    task assert_rdy_for_abstract_cmd(ref logic s_tck, ref logic s_tms, ref logic s_trstn,
-                                     ref logic s_tdi, ref logic s_tdo);
+    task assert_rdy_for_abstract_cmd(ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
       dm::dmcontrol_t dmcontrol;
       this.read_debug_reg(dm::DMControl, dmcontrol, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
@@ -917,8 +874,8 @@ package jtag_pkg;
     endtask
 
     // access csr, gpr by means of program buffer
-    task read_reg_prog_buff(input logic [15:0] regno_i, output logic [31:0] data_o, ref logic s_tck,
-                            ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task read_reg_prog_buff(input logic [15:0] regno_i, output logic [31:0] data_o, ref logic s_tck, ref logic s_tms, ref logic s_trstn,
+                            ref logic s_tdi, ref logic s_tdo);
 
       logic [ 1:0] dmi_op;
       logic [31:0] dmi_data;
@@ -935,8 +892,8 @@ package jtag_pkg;
     endtask
 
 
-    task readMem(input logic [31:0] addr_i, output logic [31:0] data_o, ref logic s_tck,
-                 ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task readMem(input logic [31:0] addr_i, output logic [31:0] data_o, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi,
+                 ref logic s_tdo);
 
       logic [ 1:0] dm_op;
       logic [31:0] dm_data;
@@ -982,8 +939,8 @@ package jtag_pkg;
 
     endtask
 
-    task writeMem(input logic [31:0] addr_i, input logic [31:0] data_i, ref logic s_tck,
-                  ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task writeMem(input logic [31:0] addr_i, input logic [31:0] data_i, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi,
+                  ref logic s_tdo);
 
       logic [ 1:0] dm_op;
       logic [31:0] dm_data;
@@ -1005,8 +962,8 @@ package jtag_pkg;
     endtask
 
 
-    task load_memory(input int num_stim, ref logic [95:0] stimuli[$], ref logic s_tck,
-                     ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task load_memory(input int num_stim, ref logic [95:0] stimuli[$], ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi,
+                     ref logic s_tdo);
 
       logic [ 1:0][31:0] jtag_data;
       logic [31:0]       jtag_addr;
@@ -1031,10 +988,8 @@ package jtag_pkg;
 
         jtag_addr = stimuli[num_stim][95:64];
         for (int i = 0; i < 256; i = i + 2) begin
-          if (num_stim > $size(
-                  stimuli
-              ) || stimuli[num_stim] === 96'bx) begin  // make sure we have more stimuli
-            more_stim = 0;                    // if not set variable to 0, will prevent additional stimuli to be applied
+          if (num_stim > $size(stimuli) || stimuli[num_stim] === 96'bx) begin  // make sure we have more stimuli
+            more_stim = 0;  // if not set variable to 0, will prevent additional stimuli to be applied
             break;
           end
           spi_addr     = stimuli[num_stim][95:64];  // assign address
@@ -1072,8 +1027,7 @@ package jtag_pkg;
     endtask
 
     // discover harts by writting all ones to hartsel and reading it back
-    task test_discover_harts(output logic error, ref logic s_tck, ref logic s_tms,
-                             ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task test_discover_harts(output logic error, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
       dm::dmcontrol_t       dmcontrol;
       dm::dmstatus_t        dmstatus;
@@ -1091,8 +1045,7 @@ package jtag_pkg;
 
       this.read_debug_reg(dm::DMControl, dmcontrol, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
 
-      $display("[TESTBENCH] %t - hartsel bits usuable %x", $realtime, {dmcontrol.hartselhi,
-                                                                       dmcontrol.hartsello});
+      $display("[TESTBENCH] %t - hartsel bits usuable %x", $realtime, {dmcontrol.hartselhi, dmcontrol.hartsello});
 
       // some simulators don't like direct indexing
       hartsello = dmcontrol.hartsello;
@@ -1113,8 +1066,7 @@ package jtag_pkg;
 
       assert (hartcount === 1)
       else begin
-        $error("bad number of available harts in system detected: expected %x, received %x", 1,
-               hartcount);
+        $error("bad number of available harts in system detected: expected %x, received %x", 1, hartcount);
         error = 1'b1;
       end
 
@@ -1122,8 +1074,7 @@ package jtag_pkg;
 
 
     // access csr, gpr by means of abstract command
-    task test_gpr_read_write_abstract(output logic error, ref logic s_tck, ref logic s_tms,
-                                      ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task test_gpr_read_write_abstract(output logic error, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
       logic [ 1:0] dmi_op;
       logic [31:0] dmi_data;
@@ -1173,9 +1124,8 @@ package jtag_pkg;
     // access csr, gpr by means of abstract command in this version we employ
     // our precise read and write commands which closely follow what is
     // recommended in the debug spec
-    task test_gpr_read_write_abstract_high_level(output logic error, ref logic s_tck,
-                                                 ref logic s_tms, ref logic s_trstn,
-                                                 ref logic s_tdi, ref logic s_tdo);
+    task test_gpr_read_write_abstract_high_level(output logic error, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi,
+                                                 ref logic s_tdo);
 
       logic [ 1:0] dmi_op;
       logic [31:0] dmi_data;
@@ -1210,8 +1160,7 @@ package jtag_pkg;
     endtask
 
 
-    task test_wfi_in_program_buffer(output logic error, ref logic s_tck, ref logic s_tms,
-                                    ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task test_wfi_in_program_buffer(output logic error, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
       logic [31:0] dm_data;
       this.write_debug_reg(dm::ProgBuf0, riscv_pkg::wfi(),  //wfi
@@ -1228,8 +1177,7 @@ package jtag_pkg;
     endtask
 
 
-    task test_abstract_cmds_prog_buf(output logic error, input logic [31:0] address_i,
-                                     ref logic s_tck, ref logic s_tms, ref logic s_trstn,
+    task test_abstract_cmds_prog_buf(output logic error, input logic [31:0] address_i, ref logic s_tck, ref logic s_tms, ref logic s_trstn,
                                      ref logic s_tdi, ref logic s_tdo);
 
       logic [ 1:0] dm_op;
@@ -1259,17 +1207,14 @@ package jtag_pkg;
 
       //increase every registers x2-x31 by 2-31  store them to *(x1++)
       for (logic [15:0] regno = 16'h1002; regno < 16'h1020; regno = regno + 1) begin
-        this.write_debug_reg(dm::ProgBuf0, {7'h0, regno[4:0], regno[4:0], 3'b000, regno[4:0], 7'h13
-                             },  // addi xi, xi, i
+        this.write_debug_reg(dm::ProgBuf0, {7'h0, regno[4:0], regno[4:0], 3'b000, regno[4:0], 7'h13},  // addi xi, xi, i
                              s_tck, s_tms, s_trstn, s_tdi, s_tdo);
 
-        this.write_debug_reg(dm::ProgBuf0 + 1, riscv_pkg::store(3'b010, regno[4:0], 5'h1, 12'h0
-                             ),  // sw xi, 0(x1)
+        this.write_debug_reg(dm::ProgBuf0 + 1, riscv_pkg::store(3'b010, regno[4:0], 5'h1, 12'h0),  // sw xi, 0(x1)
                              //{ 7'h0, regno[4:0], 5'h1, 1'b0, 2'b10, 5'h0, 7'h23 },
                              s_tck, s_tms, s_trstn, s_tdi, s_tdo);
 
-        this.write_debug_reg(dm::ProgBuf0 + 2, {12'h4, 5'h1, 3'b000, 5'h1, 7'h13
-                             },  // addi x1, x1, 4
+        this.write_debug_reg(dm::ProgBuf0 + 2, {12'h4, 5'h1, 3'b000, 5'h1, 7'h13},  // addi x1, x1, 4
                              s_tck, s_tms, s_trstn, s_tdi, s_tdo);
 
         this.write_debug_reg(dm::ProgBuf0 + 3, riscv_pkg::ebreak(),  //ebreak
@@ -1287,8 +1232,7 @@ package jtag_pkg;
         // $display("[TESTBENCH] %t Read %x from %x",$realtime(), dm_data, address_i + (incAddr-2)*4);
         assert (dm_data === key_word + incAddr)
         else begin
-          $error("read %x from %x instead of %x", dm_data, address_i + (incAddr - 2) * 4,
-                 key_word + incAddr);
+          $error("read %x from %x instead of %x", dm_data, address_i + (incAddr - 2) * 4, key_word + incAddr);
           error = 1'b1;
         end
       end
@@ -1296,8 +1240,7 @@ package jtag_pkg;
     endtask
 
 
-    task test_read_write_dpc(output logic error, ref logic s_tck, ref logic s_tms,
-                             ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task test_read_write_dpc(output logic error, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
       logic [ 1:0] dm_op;
       logic [31:0] dm_data;
@@ -1312,8 +1255,7 @@ package jtag_pkg;
 
       this.read_reg_abstract_cmd(riscv_pkg::CSR_DPC, saved, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
 
-      this.write_reg_abstract_cmd(riscv_pkg::CSR_DPC, key_word, s_tck, s_tms, s_trstn, s_tdi,
-                                  s_tdo);
+      this.write_reg_abstract_cmd(riscv_pkg::CSR_DPC, key_word, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
 
       this.read_reg_abstract_cmd(riscv_pkg::CSR_DPC, dm_data, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
 
@@ -1328,8 +1270,8 @@ package jtag_pkg;
 
     endtask
 
-    task test_wfi_wakeup(output logic error, input logic [31:0] addr_i, ref logic s_tck,
-                         ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task test_wfi_wakeup(output logic error, input logic [31:0] addr_i, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi,
+                         ref logic s_tdo);
 
       logic             [31:0] dm_dpc;
       riscv_pkg::dcsr_t        dcsr;
@@ -1384,8 +1326,7 @@ package jtag_pkg;
     endtask
 
 
-    task test_single_stepping_abstract_cmd(output logic error, input logic [31:0] addr_i,
-                                           ref logic s_tck, ref logic s_tms, ref logic s_trstn,
+    task test_single_stepping_abstract_cmd(output logic error, input logic [31:0] addr_i, ref logic s_tck, ref logic s_tms, ref logic s_trstn,
                                            ref logic s_tdi, ref logic s_tdo);
 
       logic             [ 1:0] dm_op;
@@ -1442,8 +1383,7 @@ package jtag_pkg;
         this.halt_harts(s_tck, s_tms, s_trstn, s_tdi, s_tdo);
         // this.block_until_any_halt(s_tck, s_tms, s_trstn, s_tdi, s_tdo);
 
-        this.read_reg_abstract_cmd(riscv_pkg::CSR_DPC, dm_data, s_tck, s_tms, s_trstn, s_tdi,
-                                   s_tdo);
+        this.read_reg_abstract_cmd(riscv_pkg::CSR_DPC, dm_data, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
         // check if dpc, dcause and flag bits are ok
         assert (addr_i + 4 * i === dm_data)  // did dpc increment?
         else begin
@@ -1469,8 +1409,7 @@ package jtag_pkg;
     endtask
 
 
-    task test_single_stepping_edge_cases(output logic error, input logic [31:0] addr_i,
-                                         ref logic s_tck, ref logic s_tms, ref logic s_trstn,
+    task test_single_stepping_edge_cases(output logic error, input logic [31:0] addr_i, ref logic s_tck, ref logic s_tms, ref logic s_trstn,
                                          ref logic s_tdi, ref logic s_tdo);
 
       logic             [ 1:0] dm_op;
@@ -1536,8 +1475,7 @@ package jtag_pkg;
         this.halt_harts(s_tck, s_tms, s_trstn, s_tdi, s_tdo);
         // this.block_until_any_halt(s_tck, s_tms, s_trstn, s_tdi, s_tdo);
 
-        this.read_reg_abstract_cmd(riscv_pkg::CSR_DPC, dm_data, s_tck, s_tms, s_trstn, s_tdi,
-                                   s_tdo);
+        this.read_reg_abstract_cmd(riscv_pkg::CSR_DPC, dm_data, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
         // check if dpc, dcause and flag bits are ok
         assert (addr_i + pc_offsets[i] === dm_data)  // did dpc increment?
         else begin
@@ -1563,8 +1501,7 @@ package jtag_pkg;
     endtask
 
 
-    task test_halt_resume(output logic error, ref logic s_tck, ref logic s_tms, ref logic s_trstn,
-                          ref logic s_tdi, ref logic s_tdo);
+    task test_halt_resume(output logic error, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
       dm::dmstatus_t dmstatus;
       error = 1'b0;
 
@@ -1597,8 +1534,7 @@ package jtag_pkg;
 
     endtask
 
-    task test_debug_cause_values(output logic error, input logic [31:0] addr_i, ref logic s_tck,
-                                 ref logic s_tms, ref logic s_trstn, ref logic s_tdi,
+    task test_debug_cause_values(output logic error, input logic [31:0] addr_i, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi,
                                  ref logic s_tdo);
       dm::dmstatus_t dmstatus;
       riscv_pkg::dcsr_t dcsr;
@@ -1682,8 +1618,7 @@ package jtag_pkg;
     endtask
 
 
-    task test_ebreak_in_program_buffer(output logic error, ref logic s_tck, ref logic s_tms,
-                                       ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task test_ebreak_in_program_buffer(output logic error, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
       logic [31:0] dm_data;
       logic [31:0] dpc_save, dpc;
@@ -1703,13 +1638,11 @@ package jtag_pkg;
       // save dpc, dcsr.cause
       this.read_reg_abstract_cmd(riscv_pkg::CSR_DPC, dpc_save, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
 
-      this.read_reg_abstract_cmd(riscv_pkg::CSR_DCSR, dcsr_save, s_tck, s_tms, s_trstn, s_tdi,
-                                 s_tdo);
+      this.read_reg_abstract_cmd(riscv_pkg::CSR_DCSR, dcsr_save, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
 
       // write to program buffer
       this.write_debug_reg(dm::ProgBuf0, riscv_pkg::nop(), s_tck, s_tms, s_trstn, s_tdi, s_tdo);
-      this.write_debug_reg(dm::ProgBuf0 + 1, riscv_pkg::ebreak(), s_tck, s_tms, s_trstn, s_tdi,
-                           s_tdo);
+      this.write_debug_reg(dm::ProgBuf0 + 1, riscv_pkg::ebreak(), s_tck, s_tms, s_trstn, s_tdi, s_tdo);
 
       //execute the program buffer
       dm_data = {8'h0, 1'b0, 3'd2, 1'b0, 1'b1, 1'b0, 1'b0, 16'h0};
@@ -1733,8 +1666,7 @@ package jtag_pkg;
 
     endtask
 
-    task test_bad_aarsize(output logic error, ref logic s_tck, ref logic s_tms, ref logic s_trstn,
-                          ref logic s_tdi, ref logic s_tdo);
+    task test_bad_aarsize(output logic error, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
       // assert busy == 0 and cmderr != 0,1
       logic [1:0] dm_op;
       logic [6:0] dm_addr;
@@ -1743,18 +1675,10 @@ package jtag_pkg;
       dm::ac_ar_cmd_t command;
 
       // abstract command with aarsize = 3
-      command = '{
-          default: 0,
-          aarsize: 3'd3,
-          postexec: 1'b0,
-          transfer: 1'b1,
-          write: 1'b0,
-          regno: 16'h1002
-      };
+      command = '{default: 0, aarsize: 3'd3, postexec: 1'b0, transfer: 1'b1, write: 1'b0, regno: 16'h1002};
 
       this.set_dmi(2'b10,  //write
-                   dm::Command, {8'h0, command}, {dm_addr, dm_data, dm_op}, s_tck, s_tms, s_trstn,
-                   s_tdi, s_tdo);
+                   dm::Command, {8'h0, command}, {dm_addr, dm_data, dm_op}, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
 
       do begin
         this.read_debug_reg(dm::AbstractCS, abstractcs, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
@@ -1784,8 +1708,7 @@ package jtag_pkg;
     endtask
 
 
-    task test_read_write_csr(output logic error, ref logic s_tck, ref logic s_tms,
-                             ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+    task test_read_write_csr(output logic error, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
 
       dm::abstractcs_t abstractcs;
       logic [31:0] regs[];
@@ -1797,8 +1720,7 @@ package jtag_pkg;
       for (int i = 0; i < $size(regs); i++) begin
         this.read_reg_abstract_cmd(regs[i], contents, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
 
-        this.read_reg_abstract_cmd(riscv_pkg::CSR_MISA, contents, s_tck, s_tms, s_trstn, s_tdi,
-                                   s_tdo);
+        this.read_reg_abstract_cmd(riscv_pkg::CSR_MISA, contents, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
 
       end
 
@@ -1811,8 +1733,7 @@ package jtag_pkg;
     // required when this tests ends so that the program can properly resume
     // after this tests are run once the binary is loaded into l2.
     task run_dm_tests(int fc_core_id, int begin_l2_instr,  // required to restart booting process
-                      output logic error, output int num_err, ref logic s_tck, ref logic s_tms,
-                      ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
+                      output logic error, output int num_err, ref logic s_tck, ref logic s_tms, ref logic s_trstn, ref logic s_tdi, ref logic s_tdo);
       logic [31:0] dm_data;
       num_err = 0;
 
@@ -1853,9 +1774,7 @@ package jtag_pkg;
       test_wfi_wakeup(error, begin_l2_instr, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
       $display("[TESTBENCH] %t OK", $realtime);  //otherwise we wouldn't get here
 
-      $display(
-          "[TESTBENCH] %t - TEST read/write gpr with abstract command and proper waiting logic",
-          $realtime);
+      $display("[TESTBENCH] %t - TEST read/write gpr with abstract command and proper waiting logic", $realtime);
       test_gpr_read_write_abstract_high_level(error, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
       if (error) begin
         $display("[TESTBENCH] %t FAIL", $realtime);
@@ -1939,8 +1858,7 @@ package jtag_pkg;
       // allows the jtag booting process to smoothly continue once we leave
       // this test
       $display("[TESTBENCH] %t - Writing the boot address into dpc", $realtime);
-      write_reg_abstract_cmd(riscv_pkg::CSR_DPC, begin_l2_instr, s_tck, s_tms, s_trstn, s_tdi,
-                             s_tdo);
+      write_reg_abstract_cmd(riscv_pkg::CSR_DPC, begin_l2_instr, s_tck, s_tms, s_trstn, s_tdi, s_tdo);
 
     endtask
   endclass

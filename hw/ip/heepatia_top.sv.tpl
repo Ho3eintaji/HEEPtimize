@@ -42,12 +42,12 @@ ${pad.x_heep_system_interface}
   obi_resp_t heep_core_data_rsp;
   obi_req_t  heep_debug_master_req;
   obi_resp_t heep_debug_master_rsp;
-  obi_req_t  heep_dma_read_ch0_req;
-  obi_resp_t heep_dma_read_ch0_rsp;
-  obi_req_t  heep_dma_write_ch0_req;
-  obi_resp_t heep_dma_write_ch0_rsp;
-  obi_req_t  heep_dma_addr_ch0_req;
-  obi_resp_t heep_dma_addr_ch0_rsp;
+  obi_req_t  [DMA_NUM_MASTER_PORTS-1:0] heep_dma_read_req;
+  obi_resp_t [DMA_NUM_MASTER_PORTS-1:0] heep_dma_read_rsp;
+  obi_req_t  [DMA_NUM_MASTER_PORTS-1:0] heep_dma_write_req;
+  obi_resp_t [DMA_NUM_MASTER_PORTS-1:0] heep_dma_write_rsp;
+  obi_req_t  [DMA_NUM_MASTER_PORTS-1:0] heep_dma_addr_req;
+  obi_resp_t [DMA_NUM_MASTER_PORTS-1:0] heep_dma_addr_rsp;
 
   // X-HEEP slave ports
   obi_req_t  [ExtXbarNmasterRnd-1:0] heep_slave_req;
@@ -72,6 +72,12 @@ ${pad.x_heep_system_interface}
   obi_req_t  oecgra_context_mem_slave_req;
   obi_resp_t oecgra_context_mem_slave_rsp;
 
+  // // Power Manager signals
+  // logic cpu_subsystem_powergate_switch_n;
+  // logic cpu_subsystem_powergate_switch_ack_n;
+  // logic peripheral_subsystem_powergate_switch_n;
+  // logic peripheral_subsystem_powergate_switch_ack_n;
+
   // External peripherals
   reg_req_t fll_req; // request to FLL subsystem
   reg_rsp_t fll_rsp; // response from FLL subsystem
@@ -80,6 +86,17 @@ ${pad.x_heep_system_interface}
 
   reg_req_t oecgra_config_regs_slave_req;
   reg_rsp_t oecgra_config_regs_slave_rsp;
+
+  /* verilator lint_off UNUSED */
+  reg_req_t heepatia_im2col_req; // request to heepatia coprosit controller
+  reg_rsp_t heepatia_im2col_rsp; // response from heepatia coprosit controller
+
+  // External SPC interface signals
+  reg_req_t [AoSPCNum-1:0] ext_ao_peripheral_req;
+  reg_rsp_t  [AoSPCNum-1:0] ext_ao_peripheral_resp;
+  logic [DMACHNum-1:0] dma_busy;
+  logic im2col_spc_done_int;
+  /* verilator lint_on UNUSED */
 
   // Pad controller
   reg_req_t pad_req;
@@ -113,51 +130,30 @@ ${pad.x_heep_system_interface}
   logic caesar_rst_n;
   logic caesar_set_retentive_n;
   logic caesar_clkgate_n;
-
-
   // OECGRA signals
   logic oecgra_rst_n;
   logic oecgra_set_retentive_n;
   logic oecgra_clkgate_n;
 
-  // eXtension Interface
-  if_xif #() ext_xif ();
+  logic ext_debug_req;
+  logic ext_debug_reset_n;
 
-// `ifndef VERILATOR
-//   coprosit #(
-//     .XLEN(coprosit_pkg::XLEN),
-//     .INPUT_BUFFER_DEPTH(1),
-//     .FORWARDING(1)
-//   ) coprosit_i (
-//     // Clock and Reset
-//     .clk_i(system_clk),
-//     .rst_ni(rst_nin_sync),
-
-//     // CORE-V eXtension Interface
-//     .xif_compressed_if (ext_xif.coproc_compressed),
-//     .xif_issue_if      (ext_xif.coproc_issue),
-//     .xif_commit_if     (ext_xif.coproc_commit),
-//     .xif_mem_if        (ext_xif.coproc_mem),
-//     .xif_mem_result_if (ext_xif.coproc_mem_result),
-//     .xif_result_if     (ext_xif.coproc_result)
-//   );
-// `else
   // Tie the CV-X-IF coprocessor signals to a default value that will
   // receive petitions but reject all offloaded instructions
-  initial begin
-    ext_xif.compressed_ready   = 1'b1;
-    ext_xif.compressed_resp    = '0;
+  // CV-X-IF is unused in core-v-mini-mcu as it has the cv32e40p CPU
+  if_xif #() ext_if ();
 
-    ext_xif.issue_ready        = 1'b1;
-    ext_xif.issue_resp         = '0;
+  assign ext_if.compressed_ready = 1'b1;
+  assign ext_if.compressed_resp  = '0;
 
-    ext_xif.mem_valid          = 1'b0;
-    ext_xif.mem_req            = '0;
+  assign ext_if.issue_ready      = 1'b1;
+  assign ext_if.issue_resp       = '0;
 
-    ext_xif.result_valid       = 1'b0;
-    ext_xif.result             = '0;
-  end
-// `endif
+  assign ext_if.mem_valid        = 1'b0;
+  assign ext_if.mem_req          = '0;
+
+  assign ext_if.result_valid     = 1'b0;
+  assign ext_if.result           = '0;
 
   // CORE-V-MINI-MCU input/output pins
 % for pad in total_pad_list:
@@ -196,7 +192,9 @@ ${pad.internal_signals}
     .FPU             (CpuFpu),
     .ZFINX           (CpuRiscvZfinx),
     .EXT_XBAR_NMASTER(ExtXbarNMaster),
-    .X_EXT           (CpuCorevXif)
+    .X_EXT           (CpuCorevXif),
+    .AO_SPC_NUM      (AoSPCNum),
+    .EXT_HARTS       (1)
   ) u_core_v_mini_mcu (
     .rst_ni (rst_nin_sync),
     .clk_i  (system_clk),
@@ -213,12 +211,12 @@ ${pad.core_v_mini_mcu_bonding}
 `endif
 
     // CORE-V eXtension Interface
-    .xif_compressed_if (ext_xif.cpu_compressed),
-    .xif_issue_if      (ext_xif.cpu_issue),
-    .xif_commit_if     (ext_xif.cpu_commit),
-    .xif_mem_if        (ext_xif.cpu_mem),
-    .xif_mem_result_if (ext_xif.cpu_mem_result),
-    .xif_result_if     (ext_xif.cpu_result),
+    .xif_compressed_if (ext_if.cpu_compressed),
+    .xif_issue_if      (ext_if.cpu_issue),
+    .xif_commit_if     (ext_if.cpu_commit),
+    .xif_mem_if        (ext_if.cpu_mem),
+    .xif_mem_result_if (ext_if.cpu_mem_result),
+    .xif_result_if     (ext_if.cpu_result),
 
     // Pad controller interface
     .pad_req_o  (pad_req),
@@ -235,16 +233,20 @@ ${pad.core_v_mini_mcu_bonding}
     .ext_core_data_resp_i (heep_core_data_rsp),
     .ext_debug_master_req_o (heep_debug_master_req),
     .ext_debug_master_resp_i (heep_debug_master_rsp),
-    .ext_dma_read_ch0_req_o (heep_dma_read_ch0_req),
-    .ext_dma_read_ch0_resp_i (heep_dma_read_ch0_rsp),
-    .ext_dma_write_ch0_req_o (heep_dma_write_ch0_req),
-    .ext_dma_write_ch0_resp_i (heep_dma_write_ch0_rsp),
-    .ext_dma_addr_ch0_req_o (heep_dma_addr_ch0_req),
-    .ext_dma_addr_ch0_resp_i (heep_dma_addr_ch0_rsp),
+    .ext_dma_read_req_o (heep_dma_read_req),
+    .ext_dma_read_resp_i (heep_dma_read_rsp),
+    .ext_dma_write_req_o (heep_dma_write_req),
+    .ext_dma_write_resp_i (heep_dma_write_rsp),
+    .ext_dma_addr_req_o (heep_dma_addr_req),
+    .ext_dma_addr_resp_i (heep_dma_addr_rsp),
 
     // External peripherals slave ports
     .ext_peripheral_slave_req_o  (heep_peripheral_req),
     .ext_peripheral_slave_resp_i (heep_peripheral_rsp),
+
+    // SPC signals
+    .ext_ao_peripheral_slave_req_i(ext_ao_peripheral_req),
+    .ext_ao_peripheral_slave_resp_o(ext_ao_peripheral_resp),
 
     // Power switches connected by the backend
     .cpu_subsystem_powergate_switch_no            (), // unused
@@ -252,9 +254,9 @@ ${pad.core_v_mini_mcu_bonding}
     .peripheral_subsystem_powergate_switch_no     (), // unused
     .peripheral_subsystem_powergate_switch_ack_ni (1'b1),
 
-    // Other power switches controlled here
-    .memory_subsystem_banks_powergate_switch_no(),
-    .memory_subsystem_banks_powergate_switch_ack_ni('1),
+    // // Other power switches controlled here
+    // .memory_subsystem_banks_powergate_switch_no(),
+    // .memory_subsystem_banks_powergate_switch_ack_ni('1),
 
     .external_subsystem_powergate_switch_no(external_subsystem_powergate_switch_n),
     .external_subsystem_powergate_switch_ack_ni(external_subsystem_powergate_switch_ack_n),
@@ -271,8 +273,18 @@ ${pad.core_v_mini_mcu_bonding}
     .ext_dma_slot_tx_i('0),
     .ext_dma_slot_rx_i('0),
 
+    .ext_debug_req_o(ext_debug_req),
+    .ext_debug_reset_no(ext_debug_reset_n),
+    .ext_cpu_subsystem_rst_no(),
+
+    .ext_dma_stop_i('0),
+    .dma_done_o(dma_busy),
+    
     .exit_value_o (exit_value)
   );
+
+  // assign cpu_subsystem_powergate_switch_ack_n = cpu_subsystem_powergate_switch_n;
+  // assign peripheral_subsystem_powergate_switch_ack_n = peripheral_subsystem_powergate_switch_n;
 
   //todo: double check
   assign oecgra_rst_n            = external_subsystem_rst_n[0];
@@ -287,22 +299,20 @@ ${pad.core_v_mini_mcu_bonding}
   assign caesar_set_retentive_n = external_ram_banks_set_retentive_n[2];
   assign caesar_clkgate_n        = external_subsystem_clkgate_en_n[2];
 
-  
+
+
 
   // External peripherals
   // --------------------
-
   heepatia_peripherals u_heepatia_peripherals(
     .ref_clk_i                        (ref_clk_in_x),
     .rst_ni                           (rst_nin_sync),
     .system_clk_o                     (system_clk),
     .bypass_fll_i                     (bypass_fll_in_x),
-
     .carus_rst_ni                     (carus_rst_n),
     .carus_set_retentive_ni           (carus_set_retentive_n),
     .carus_req_i                      (carus_req),
     .carus_rsp_o                      (carus_rsp),
-
     .caesar_rst_ni          (caesar_rst_n),
     .caesar_set_retentive_ni(caesar_set_retentive_n),
     .caesar_req_i           (caesar_req),
@@ -317,17 +327,66 @@ ${pad.core_v_mini_mcu_bonding}
     .oecgra_context_mem_slave_req_i    (oecgra_context_mem_slave_req),
     .oecgra_context_mem_slave_rsp_o    (oecgra_context_mem_slave_rsp),
     .oecgra_context_mem_set_retentive_i(~oecgra_set_retentive_n),
-
     .fll_req_i                        (fll_req),
     .fll_rsp_o                        (fll_rsp),
     .heepatia_ctrl_req_i              (heepatia_ctrl_req),
     .heepatia_ctrl_rsp_o              (heepatia_ctrl_rsp),
+    .im2col_spc_done_int_i            (im2col_spc_done_int),
     .ext_int_vector_o                 (ext_int_vector)
   );
 
+  // // Co-prosit subsystem
+  // // --------------------
+  // cv32e40px_coprosit_ss #(
+  //   .X_EXT     (CpuCorevXif),
+  //   .COREV_PULP(CpuCorevPulp),
+  //   .FPU       (CpuFpu),
+  //   .ZFINX     (CpuRiscvZfinx)
+  // ) u_cv32e40px_coprosit_ss (
+  //   .clk_i            (system_clk),
+  //   .rst_ni           (coprosit_reset_n && ext_debug_reset_n),
+  //   .coprosit_clken_ni(coprosit_clken_n),
+  //   .core_instr_req_o (heepatia_master_req[CoprositInstrIdx]),
+  //   .core_instr_resp_i(heepatia_master_resp[CoprositInstrIdx]),
+  //   .core_data_req_o  (heepatia_master_req[CoprositDataIdx]),
+  //   .core_data_resp_i (heepatia_master_resp[CoprositDataIdx]),
+  //   .irq_i            (coprosit_interrupts),
+  //   .irq_ack_o        (),
+  //   .irq_id_o         (),
+  //   .debug_req_i      (ext_debug_req),
+  //   .boot_addr_i      (coprosit_boot_addr),
+  //   .dm_halt_addr_i   (coprosit_dm_halt_addr),
+  //   .mtvec_addr_i     (coprosit_mtvec_addr),
+  //   .fetch_enable_i   (coprosit_fetch_enable),
+  //   .core_sleep_o     ()
+  // );
+
+  if (heepatia_pkg::Im2ColEnable == 1) begin : gen_im2col
+
+    im2col_spc im2col_spc_i (
+      .clk_i (system_clk),
+      .rst_ni(rst_nin_sync),
+
+      .aopb2im2col_resp_i(ext_ao_peripheral_resp[0]),
+      .im2col2aopb_req_o (ext_ao_peripheral_req[0]),
+
+      .reg_req_i(heepatia_im2col_req),
+      .reg_rsp_o(heepatia_im2col_rsp),
+
+      .dma_done_i(dma_busy),
+      .im2col_spc_done_int_o(im2col_spc_done_int)
+    );
+  
+  end else begin : gen_no_im2col
+    
+    assign heepatia_im2col_rsp = '0;
+    assign ext_ao_peripheral_req[0] = '0;
+    assign im2col_spc_done_int = '0;
+
+  end
+
   // External peripherals bus
   // ------------------------
-
   heepatia_bus u_heepatia_bus (
     .clk_i                        (system_clk),
     .rst_ni                       (rst_nin_sync),
@@ -337,12 +396,12 @@ ${pad.core_v_mini_mcu_bonding}
     .heep_core_data_resp_o        (heep_core_data_rsp),
     .heep_debug_master_req_i      (heep_debug_master_req),
     .heep_debug_master_resp_o     (heep_debug_master_rsp),
-    .heep_dma_read_ch0_req_i      (heep_dma_read_ch0_req),
-    .heep_dma_read_ch0_resp_o     (heep_dma_read_ch0_rsp),
-    .heep_dma_write_ch0_req_i     (heep_dma_write_ch0_req),
-    .heep_dma_write_ch0_resp_o    (heep_dma_write_ch0_rsp),
-    .heep_dma_addr_ch0_req_i      (heep_dma_addr_ch0_req),
-    .heep_dma_addr_ch0_resp_o     (heep_dma_addr_ch0_rsp),
+    .heep_dma_read_req_i          (heep_dma_read_req),
+    .heep_dma_read_resp_o         (heep_dma_read_rsp),
+    .heep_dma_write_req_i         (heep_dma_write_req),
+    .heep_dma_write_resp_o        (heep_dma_write_rsp),
+    .heep_dma_addr_req_i          (heep_dma_addr_req),
+    .heep_dma_addr_resp_o         (heep_dma_addr_rsp),
     .heepatia_master_req_i        (heepatia_master_req),
     .heepatia_master_resp_o       (heepatia_master_resp),
     .heep_slave_req_o             (heep_slave_req),
@@ -360,7 +419,9 @@ ${pad.core_v_mini_mcu_bonding}
     .fll_req_o                    (fll_req),
     .fll_resp_i                   (fll_rsp),
     .heepatia_ctrl_req_o          (heepatia_ctrl_req),
-    .heepatia_ctrl_resp_i         (heepatia_ctrl_rsp)
+    .heepatia_ctrl_resp_i         (heepatia_ctrl_rsp),
+    .heepatia_im2col_req_o        (heepatia_im2col_req),
+    .heepatia_im2col_resp_i       (heepatia_im2col_rsp)
   );
 
   // Pad ring

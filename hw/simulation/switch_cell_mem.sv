@@ -1,13 +1,13 @@
 module switch_cell_mem (
 `ifdef USE_PG_PIN
-  inout  VIN,
-  inout  VOUT,
-  inout  VSS,
+    inout  VIN,
+    inout  VOUT,
+    inout  VSS,
 `endif
-  input  VCTRL,     // Switch Signal Input
-  output VCTRLFBn,  //Negated Schmitt Trigger Output
-  output VCTRLFB,   //Schmitt Trigger Output
-  output VCTRL_BUF  //ACK signal Output
+    input  VCTRL,     // Switch Signal Input
+    output VCTRLFBn,  //Negated Schmitt Trigger Output
+    output VCTRLFB,   //Schmitt Trigger Output
+    output VCTRL_BUF  //ACK signal Output
 );
 
 

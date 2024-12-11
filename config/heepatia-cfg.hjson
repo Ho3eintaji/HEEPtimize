@@ -16,6 +16,9 @@
         riscv_zfinx: false,
     },
 
+    // SPC
+    ao_spc_num: 1,
+
     // Slaves memory map
     // ext_xbar_masters: 0,
     ext_xbar_masters: 4,    // HT: increased for oecgra
@@ -62,6 +65,10 @@
         },
         heepatia_ctrl: {
             offset: "0x00001000",
+            length: "0x00001000",
+        },
+        im2col_spc: {
+            offset: "0x00002000",
             length: "0x00001000",
         },
     }

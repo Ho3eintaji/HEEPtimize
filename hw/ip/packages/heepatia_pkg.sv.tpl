@@ -21,6 +21,14 @@ package heepatia_pkg;
   localparam int unsigned CpuFpu = 32'd${cpu_fpu};
   localparam int unsigned CpuRiscvZfinx = 32'd${cpu_riscv_zfinx};
 
+  // SPC
+  localparam int unsigned Im2ColEnable = `IM2COL_ENABLE;
+
+  localparam int unsigned AoSPCNum = 32'd${ao_spc_num};
+
+  localparam int unsigned DMAMasterPortsNum = DMA_NUM_MASTER_PORTS;
+  localparam int unsigned DMACHNum = DMA_CH_NUM;
+
   // ----------------
   // EXTERNAL OBI BUS
   // ----------------
@@ -102,7 +110,7 @@ package heepatia_pkg;
     '{idx: OecgraConfigRegsIdx, start_addr: OecgraConfigRegsStartAddr, end_addr: OecgraConfigRegsEndAddr}
   };
 
-  
+
   // --------------------
   // EXTERNAL PERIPHERALS
   // --------------------
@@ -118,14 +126,21 @@ package heepatia_pkg;
   localparam logic [31:0] FLLStartAddr = EXT_PERIPHERAL_START_ADDRESS + 32'h${fll_start_address};
   localparam logic [31:0] FLLEndAddr = FLLStartAddr + 32'h${fll_size};
 
- // heepatia external subsystem control
+  // heepatia external subsystem control
   localparam int unsigned HeepatiaCtrlIdx = 32'd1;
   localparam logic [31:0] HeepatiaCtrlStartAddr = EXT_PERIPHERAL_START_ADDRESS + 32'h${heepatia_ctrl_start_address};
   localparam logic [31:0] HeepatiaCtrlEndAddr = HeepatiaCtrlStartAddr + 32'h${heepatia_ctrl_size};
 
+  // im2col SPC
+  localparam int unsigned HeepatiaIm2ColIdx = 32'd2;
+  localparam logic [31:0] HeepatiaIm2ColStartAddr = EXT_PERIPHERAL_START_ADDRESS + 32'h${im2col_start_address};
+  localparam logic [31:0] HeepatiaIm2ColEndAddr = HeepatiaIm2ColStartAddr + 32'h${im2col_size};
+
+
   // External peripherals address map
   localparam addr_map_rule_t [ExtPeriphNSlave-1:0] ExtPeriphAddrRules = '{
     '{idx: FLLIdx, start_addr: FLLStartAddr, end_addr: FLLEndAddr},
-    '{idx: HeepatiaCtrlIdx, start_addr: HeepatiaCtrlStartAddr, end_addr: HeepatiaCtrlEndAddr}
+    '{idx: HeepatiaCtrlIdx, start_addr: HeepatiaCtrlStartAddr, end_addr: HeepatiaCtrlEndAddr},
+    '{idx: HeepatiaIm2ColIdx, start_addr: HeepatiaIm2ColStartAddr, end_addr: HeepatiaIm2ColEndAddr}
   };
 endpackage

@@ -48,7 +48,7 @@ function int tb_get_carus_cfg(int unsigned field);
     3: return cfg.boot_pc;
     default: return -1;
   endcase
-endfunction: tb_get_carus_cfg
+endfunction : tb_get_carus_cfg
 
 // NM-Caesar execution timer trigger
 // ----------------------------------
@@ -59,8 +59,8 @@ function logic tb_get_caesar_timer_trigger();
   gpio_trigger = `TOP.gpio_1_io; // check GPIO pin number in "timer_util.h"
   caesar_imc   = `TOP.u_heepatia_peripherals.gen_caesar[0].u_nm_caesar_wrapper.u_caesar_top.imc_i;
   caesar_cs    = `TOP.u_heepatia_peripherals.gen_caesar[0].u_nm_caesar_wrapper.u_caesar_top.cs_i;
-  return (caesar_imc & caesar_cs) | gpio_trigger; // use GPIO trigger if toggled by software
-endfunction: tb_get_caesar_timer_trigger
+  return (caesar_imc & caesar_cs) | gpio_trigger;  // use GPIO trigger if toggled by software
+endfunction : tb_get_caesar_timer_trigger
 
 
-`endif // NMC_TB_UTIL_SVH_
+`endif  // NMC_TB_UTIL_SVH_

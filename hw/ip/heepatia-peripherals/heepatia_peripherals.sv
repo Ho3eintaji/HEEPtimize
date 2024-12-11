@@ -8,55 +8,58 @@
 // Description: heepatia peripheral subsystem
 
 module heepatia_peripherals #(
-  // Dependent parameters: do not override!
-  localparam int unsigned CarusNumRnd  = (heepatia_pkg::CarusNum > 32'd1) ? heepatia_pkg::CarusNum : 32'd1,
-  localparam int unsigned CaesarNumRnd = (heepatia_pkg::CaesarNum > 32'd1) ? heepatia_pkg::CaesarNum : 32'd1,
-  localparam int unsigned ExtXbarNmasterRnd = (heepatia_pkg::ExtXbarNMaster > 0) ? heepatia_pkg::ExtXbarNMaster : 32'd1
+    // Dependent parameters: do not override!
+    localparam int unsigned CarusNumRnd = (heepatia_pkg::CarusNum > 32'd1) ? heepatia_pkg::CarusNum : 32'd1,
+    localparam int unsigned CaesarNumRnd = (heepatia_pkg::CaesarNum > 32'd1) ? heepatia_pkg::CaesarNum : 32'd1,
+    localparam int unsigned ExtXbarNmasterRnd = (heepatia_pkg::ExtXbarNMaster > 0) ? heepatia_pkg::ExtXbarNMaster : 32'd1
 ) (
-  input logic ref_clk_i,
-  input logic rst_ni,
+    input logic ref_clk_i,
+    input logic rst_ni,
 
-  // System clock
-  output logic system_clk_o,
-  input  logic bypass_fll_i,
+    // System clock
+    output logic system_clk_o,
+    input  logic bypass_fll_i,
 
-  // NM-Carus and NM-Caesar
-  input  logic                                  caesar_rst_ni,
-  input  logic                                  caesar_set_retentive_ni,
-  input  obi_pkg::obi_req_t  [CaesarNumRnd-1:0] caesar_req_i,
-  output obi_pkg::obi_resp_t [CaesarNumRnd-1:0] caesar_rsp_o,
+    // NM-Carus and NM-Caesar
+    input  logic                                  caesar_rst_ni,
+    input  logic                                  caesar_set_retentive_ni,
+    input  obi_pkg::obi_req_t  [CaesarNumRnd-1:0] caesar_req_i,
+    output obi_pkg::obi_resp_t [CaesarNumRnd-1:0] caesar_rsp_o,
 
-  input  logic                                 carus_rst_ni,
-  input  logic                                 carus_set_retentive_ni,
-  input  obi_pkg::obi_req_t  [CarusNumRnd-1:0] carus_req_i,
-  output obi_pkg::obi_resp_t [CarusNumRnd-1:0] carus_rsp_o,
+    input  logic                                 carus_rst_ni,
+    input  logic                                 carus_set_retentive_ni,
+    input  obi_pkg::obi_req_t  [CarusNumRnd-1:0] carus_req_i,
+    output obi_pkg::obi_resp_t [CarusNumRnd-1:0] carus_rsp_o,
 
-  // OECGRA
-  input logic oecgra_rst_ni,
-  input logic oecgra_enable_i,
+    // OECGRA
+    input logic oecgra_rst_ni,
+    input logic oecgra_enable_i,
 
-  output obi_pkg::obi_req_t  [ExtXbarNmasterRnd-1:0] oecgra_master_req_o,
-  input  obi_pkg::obi_resp_t [ExtXbarNmasterRnd-1:0] oecgra_master_resp_i,
+    output obi_pkg::obi_req_t  [ExtXbarNmasterRnd-1:0] oecgra_master_req_o,
+    input  obi_pkg::obi_resp_t [ExtXbarNmasterRnd-1:0] oecgra_master_resp_i,
 
-  input  obi_pkg::obi_req_t  oecgra_context_mem_slave_req_i,
-  output obi_pkg::obi_resp_t oecgra_context_mem_slave_rsp_o,
+    input  obi_pkg::obi_req_t  oecgra_context_mem_slave_req_i,
+    output obi_pkg::obi_resp_t oecgra_context_mem_slave_rsp_o,
 
-  input  reg_pkg::reg_req_t oecgra_config_regs_slave_req_i,
-  output reg_pkg::reg_rsp_t oecgra_config_regs_slave_rsp_o,
+    input  reg_pkg::reg_req_t oecgra_config_regs_slave_req_i,
+    output reg_pkg::reg_rsp_t oecgra_config_regs_slave_rsp_o,
 
-  input logic oecgra_context_mem_set_retentive_i,
+    input logic oecgra_context_mem_set_retentive_i,
 
 
-  // FLL Subsystem
-  input  reg_pkg::reg_req_t fll_req_i,
-  output reg_pkg::reg_rsp_t fll_rsp_o,
+    // FLL Subsystem
+    input  reg_pkg::reg_req_t fll_req_i,
+    output reg_pkg::reg_rsp_t fll_rsp_o,
 
-  // Control and status registers
-  input  reg_pkg::reg_req_t heepatia_ctrl_req_i,
-  output reg_pkg::reg_rsp_t heepatia_ctrl_rsp_o,
+    // Control and status registers
+    input  reg_pkg::reg_req_t heepatia_ctrl_req_i,
+    output reg_pkg::reg_rsp_t heepatia_ctrl_rsp_o,
 
-  // Interrupts
-  output [core_v_mini_mcu_pkg::NEXT_INT-1:0] ext_int_vector_o
+    // Im2col signals
+    input logic im2col_spc_done_int_i,
+
+    // Interrupts
+    output [core_v_mini_mcu_pkg::NEXT_INT-1:0] ext_int_vector_o
 );
   import heepatia_pkg::*;
 
@@ -64,6 +67,8 @@ module heepatia_peripherals #(
   // ----------------
   // System clock
   logic                    system_clk;
+  // logic                   carus_clk;
+
 
   // Near-memory computing devices
   logic [ CarusNumRnd-1:0] carus_imc;  // computing mode trigger for NM-Carus
@@ -78,13 +83,14 @@ module heepatia_peripherals #(
   // OUTPUT CONTROL
   // --------------
   assign system_clk_o                                        = system_clk;
-  assign ext_int_vector_o[core_v_mini_mcu_pkg::NEXT_INT-1:2] = '0;
+  assign ext_int_vector_o[core_v_mini_mcu_pkg::NEXT_INT-1:3] = '0;
   // NOTE: all Carus interrupts are aggregated into a single external interrupt
   // line. The associated interrupt handling routine must determine which
   // instance triggered the interrupt by reading the corresponding status
   // registers.
   assign ext_int_vector_o[0]                                 = |carus_intr;
   assign ext_int_vector_o[1]                                 = oecgra_int;
+  assign ext_int_vector_o[2]                                 = im2col_spc_done_int_i;
 
   // ----------
   // COMPONENTS
@@ -95,16 +101,16 @@ module heepatia_peripherals #(
   generate
     for (genvar i = 0; unsigned'(i) < CarusNum; i++) begin : gen_carus
       nm_carus_wrapper #(
-        .NUM_BANKS      (heepatia_pkg::InstancesNumBanks[i]),
-        .BANK_ADDR_WIDTH(heepatia_pkg::InstancesBankAddrWidth[i])
+          .NUM_BANKS      (heepatia_pkg::InstancesNumBanks[i]),
+          .BANK_ADDR_WIDTH(heepatia_pkg::InstancesBankAddrWidth[i])
       ) u_nm_carus_wrapper (
-        .clk_i           (system_clk),
-        .rst_ni          (carus_rst_ni),
-        .set_retentive_ni(carus_set_retentive_ni),
-        .imc_i           (carus_imc[i]),
-        .done_o          (carus_intr[i]),
-        .bus_req_i       (carus_req_i[i]),
-        .bus_rsp_o       (carus_rsp_o[i])
+          .clk_i           (system_clk),
+          .rst_ni          (carus_rst_ni),
+          .set_retentive_ni(carus_set_retentive_ni),
+          .imc_i           (carus_imc[i]),
+          .done_o          (carus_intr[i]),
+          .bus_req_i       (carus_req_i[i]),
+          .bus_rsp_o       (carus_rsp_o[i])
       );
     end
   endgenerate
@@ -114,16 +120,16 @@ module heepatia_peripherals #(
   generate
     for (genvar i = 0; unsigned'(i) < CaesarNum; i++) begin : gen_caesar
       nm_caesar_wrapper #(
-        .REQ_PROXY(32'd0),  // imc_i synchronization ensured by software nops,
-        .MEM_NUM_WORDS(heepatia_pkg::CaesarNumWords),  // 32kB
-        .MEM_DATA_WIDTH(heepatia_pkg::CaesarDataWidth)  // 32 bits
+          .REQ_PROXY(32'd0),  // imc_i synchronization ensured by software nops,
+          .MEM_NUM_WORDS(heepatia_pkg::CaesarNumWords),  // 32kB
+          .MEM_DATA_WIDTH(heepatia_pkg::CaesarDataWidth)  // 32 bits
       ) u_nm_caesar_wrapper (
-        .clk_i           (system_clk),
-        .rst_ni          (caesar_rst_ni),
-        .set_retentive_ni(caesar_set_retentive_ni),
-        .imc_i           (caesar_imc[i]),
-        .bus_req_i       (caesar_req_i[i]),
-        .bus_rsp_o       (caesar_rsp_o[i])
+          .clk_i           (system_clk),
+          .rst_ni          (caesar_rst_ni),
+          .set_retentive_ni(caesar_set_retentive_ni),
+          .imc_i           (caesar_imc[i]),
+          .bus_req_i       (caesar_req_i[i]),
+          .bus_rsp_o       (caesar_rsp_o[i])
       );
     end
   endgenerate
@@ -133,18 +139,18 @@ module heepatia_peripherals #(
   // OECGRA //todo: double check the top wrapper!
   // -----
   cgra_top_wrapper u_cgra_top_wrapper (
-    .clk_i               (system_clk),
-    .rst_ni              (oecgra_rst_ni),
-    .rst_logic_ni        (oecgra_rst_ni),
-    .cgra_enable_i       (oecgra_enable_i),
-    .masters_req_o       (oecgra_master_req_o),
-    .masters_resp_i      (oecgra_master_resp_i),
-    .reg_req_i           (oecgra_config_regs_slave_req_i),
-    .reg_rsp_o           (oecgra_config_regs_slave_rsp_o),
-    .slave_req_i         (oecgra_context_mem_slave_req_i),
-    .slave_resp_o        (oecgra_context_mem_slave_rsp_o),
-    .cmem_set_retentive_i(oecgra_context_mem_set_retentive_i),
-    .cgra_int_o          (oecgra_int)
+      .clk_i               (system_clk),
+      .rst_ni              (oecgra_rst_ni),
+      .rst_logic_ni        (oecgra_rst_ni),
+      .cgra_enable_i       (oecgra_enable_i),
+      .masters_req_o       (oecgra_master_req_o),
+      .masters_resp_i      (oecgra_master_resp_i),
+      .reg_req_i           (oecgra_config_regs_slave_req_i),
+      .reg_rsp_o           (oecgra_config_regs_slave_rsp_o),
+      .slave_req_i         (oecgra_context_mem_slave_req_i),
+      .slave_resp_o        (oecgra_context_mem_slave_rsp_o),
+      .cmem_set_retentive_i(oecgra_context_mem_set_retentive_i),
+      .cgra_int_o          (oecgra_int)
   );
 
   // `endif
@@ -154,12 +160,12 @@ module heepatia_peripherals #(
   // FLL Subsystem
   // -------------
   fll_subsystem u_fll_subsystem (
-    .ref_clk_i       (ref_clk_i),
-    .rst_ni          (rst_ni),
-    .system_clk_o    (system_clk),
-    .bypass_fll_i    (bypass_fll_i),
-    .fll_slave_req_i (fll_req_i),
-    .fll_slave_resp_o(fll_rsp_o)
+      .ref_clk_i       (ref_clk_i),
+      .rst_ni          (rst_ni),
+      .system_clk_o    (system_clk),
+      .bypass_fll_i    (bypass_fll_i),
+      .fll_slave_req_i (fll_req_i),
+      .fll_slave_resp_o(fll_rsp_o)
   );
 
 `else
@@ -171,12 +177,12 @@ module heepatia_peripherals #(
   // Control and status registers
   // ----------------------------
   heepatia_ctrl_reg u_heepatia_ctrl_reg (
-    .clk_i       (system_clk),
-    .rst_ni      (rst_ni),
-    .req_i       (heepatia_ctrl_req_i),
-    .rsp_o       (heepatia_ctrl_rsp_o),
-    .caesar_imc_o(caesar_imc),
-    .carus_imc_o (carus_imc)
+      .clk_i       (system_clk),
+      .rst_ni      (rst_ni),
+      .req_i       (heepatia_ctrl_req_i),
+      .rsp_o       (heepatia_ctrl_rsp_o),
+      .caesar_imc_o(caesar_imc),
+      .carus_imc_o (carus_imc)
   );
 
 endmodule

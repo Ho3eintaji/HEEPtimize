@@ -60,6 +60,11 @@ extern "C" {
 #define HEEPATIA_CTRL_START_ADDRESS (EXT_PERIPHERAL_START_ADDRESS + 0x${heepatia_ctrl_start_address})
 #define HEEPATIA_CTRL_SIZE 0x${heepatia_ctrl_size}
 #define HEEPATIA_CTRL_END_ADDRESS (NMC_CTRL_START_ADDRESS + NMC_CTRL_SIZE)
+// im2col registers
+#define HEEPATIA_IM2COL_START_ADDRESS (EXT_PERIPHERAL_START_ADDRESS + 0x${im2col_start_address})
+#define HEEPATIA_IM2COL_SIZE 0x${im2col_size}
+#define HEEPATIA_IM2COL_END_ADDRESS (HEEPATIA_IM2COL_START_ADDRESS + HEEPATIA_IM2COL_SIZE)
+
 
 #ifdef __cplusplus
 } // extern "C"

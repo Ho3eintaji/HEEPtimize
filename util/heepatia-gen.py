@@ -177,6 +177,7 @@ def main():
     # Bus configuration
     xbar_nmasters = int(cfg["ext_xbar_masters"])
     xbar_nslaves = carus_num + 2
+    # xbar_nslaves = int(cfg["ext_xbar_slaves"]["nslaves"])
     periph_nslaves = len(cfg["ext_periph"])
 
     #Caesar memory
@@ -213,6 +214,13 @@ def main():
     heepatia_ctrl_start_address_hex = int2hexstr(heepatia_ctrl_start_address, 32)
     heepatia_ctrl_size = int(cfg["ext_periph"]["heepatia_ctrl"]["length"], 16)
     heepatia_ctrl_size_hex = int2hexstr(heepatia_ctrl_size, 32)
+
+    im2col_start_address = int(cfg["ext_periph"]["im2col_spc"]["offset"], 16)
+    im2col_start_address_hex = int2hexstr(im2col_start_address, 32)
+    im2col_size = int(cfg["ext_periph"]["im2col_spc"]["length"], 16)
+    im2col_size_hex = int2hexstr(im2col_size, 32)
+
+    ao_spc_num = int(cfg["ao_spc_num"])
 
     # Dependent parameters
     if not math.log2(carus_size).is_integer():
@@ -256,12 +264,13 @@ def main():
         "carus_mem_name": "xilinx_mem_gen_carus",
         "carus_tile_size": carus_size // carus_num_banks // 4,
         "carus_vlen_max": carus_size // 32,
-
-        
         "fll_start_address": fll_start_address_hex,
         "fll_size": fll_size_hex,
         "heepatia_ctrl_start_address": heepatia_ctrl_start_address_hex,
         "heepatia_ctrl_size": heepatia_ctrl_size_hex,
+        "im2col_start_address": im2col_start_address_hex,
+        "im2col_size": im2col_size_hex,
+        "ao_spc_num": ao_spc_num,
     }
 
     # Generate SystemVerilog package

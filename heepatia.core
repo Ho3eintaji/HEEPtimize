@@ -153,7 +153,12 @@ filesets:
   # Modelsim/VCS testbench
   # NOTE: defined separately to avoid formatting
   tb-others:
+    depend:
+    - pulp-platform.org::riscv_dbg_pkg
     files:
+    - tb/include/riscv_pkg.sv
+    - tb/include/jtag_pkg.sv
+    - tb/include/srec_pkg.sv
     - tb/tb_top.sv
     file_type: systemVerilogSource
 
@@ -225,7 +230,11 @@ targets:
     filesets:
     - rtl
     - rtl-x-heep
-    # - "!tool_verilator ? (rtl-coprosit)"
+    parameters:
+    - "carus_disable? (CARUS_DISABLE=true)"
+    - "!carus_disable? (CARUS_DISABLE=false)"
+    - "im2col_enable? (IM2COL_ENABLE=true)"
+    - "!im2col_enable? (IM2COL_ENABLE=false)"
     toplevel: heepatia_top
 
   # Synthesis
@@ -233,7 +242,7 @@ targets:
     <<: *default
     default_tool: design_compiler
     description: Design Compiler Script
-    parameters:
+    parameters_append:
     - SYNTHESIS=true
     - PRIM_DEFAULT_IMPL=prim_pkg::gf22 //not really needed as today
     filesets_append:
@@ -259,16 +268,17 @@ targets:
     - nm_caesar_sim
     - fpga-top
     - ip-fpga
-    parameters:
+    parameters_append:
     - SYNTHESIS=true
     - FPGA=true
+    - IM2COL_ENABLE=false
     tools:
       vivado:
         part: xc7z020clg400-1
         board_part: tul.com.tw:pynq-z2:part0:1.0
         board_repo_paths: [../../../hw/vendor/x-heep/hw/fpga/board_files/vendor/esl_epfl_pynq_z2_board_files]
     toplevel: [xilinx_heepatia_top_wrapper]
-  
+
   zcu104:
     <<: *default
     default_tool: vivado
@@ -279,11 +289,12 @@ targets:
     - nm_caesar_sim
     - fpga-top
     - ip-fpga
-    parameters:
+    parameters_append:
     - SYNTHESIS=true
     - FPGA_ZCU104=true
     # - REMOVE_OECGRA=false
     - FPGA=true
+    - IM2COL_ENABLE=false
     tools:
       vivado:
         part: xczu7ev-ffvc1156-2-e
@@ -362,6 +373,7 @@ targets:
         - '-LDFLAGS "-pthread -lutil -lelf"'
         # - '-CFLAGS "-Wall -g"'
 
+  # RTL simulation
   sim: &sim
     <<: *default
     description: Simulate the design using Verilator
@@ -390,7 +402,7 @@ targets:
       post_run:
       - copy_waves
       - copy_uart
-    parameters:
+    parameters_append:
     - boot_mode
     - firmware
     - max_cycles
@@ -401,6 +413,7 @@ targets:
     - tool_verilator ? (trace)
     - tool_verilator ? (no_err)
     - RTL_SIMULATION=true
+    - tool_verilator ? (IM2COL_ENABLE=false)
     tools:
       modelsim:
         vlog_options:
@@ -496,7 +509,7 @@ targets:
     - rtl-sim
     - rtl-gf22
     - fll_simulation
-    parameters:
+    parameters_append:
     - boot_mode
     - firmware
     - max_cycles
@@ -507,6 +520,7 @@ targets:
     - UNIT_DELAY=0
     - no_warning=true
     - SYNTHESIS=true
+    - IM2COL_ENABLE=false
     toplevel:
     - tb_top
     hooks:
@@ -547,7 +561,7 @@ targets:
     - rtl-sim
     - rtl-gf22
     - fll_simulation
-    parameters:
+    parameters_append:
     - boot_mode
     - firmware
     - max_cycles
@@ -560,6 +574,7 @@ targets:
     - USE_PG_PIN=true
     - SYNTHESIS=true
     - POSTLAYOUT=true
+    - IM2COL_ENABLE=false
     toplevel:
     - tb_top
     hooks:
@@ -599,6 +614,8 @@ targets:
     toplevel: heepatia_top
     description: Format source files using verible-verilog-format
     default_tool: veribleformat
+    parameters_append:
+    - IM2COL_ENABLE=false
     tools:
       veribleformat:
         verible_format_args:
@@ -626,13 +643,15 @@ targets:
     toplevel: heepatia_top
     description: Perform static analysis using Verible
     default_tool: veriblelint
+    parameters_append:
+    - IM2COL_ENABLE=false
     tools:
       veriblelint:
         ruleset: default
         verible_lint_args:
         - '--waiver_files=../../../hw/misc/verible-lint.waiver,../../../tb/misc/verible-lint.waiver'
         rules:
-        - 'line-length=length:120'
+        - 'line-length=length:200'
 
 
 # Parameters
@@ -722,9 +741,14 @@ parameters:
     datatype: bool
     paramtype: vlogdefine
     default: false
-  # REMOVE_OECGRA:
-  #   datatype: bool
-  #   paramtype: vlogdefine
-  #   default: false
+  CARUS_DISABLE:
+    datatype: bool
+    paramtype: vlogdefine
+    description: Carus disable
+    default: false
+  IM2COL_ENABLE:
+    datatype: bool
+    paramtype: vlogdefine
+    description: Im2col enable
+    default: false
 
-  

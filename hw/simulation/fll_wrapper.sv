@@ -11,36 +11,36 @@
 // DO NOT USE FOR REAL IMPLEMENTATION.
 
 module fll_wrapper (
-  // Clock signals
-  output logic clk_o,      // generated clock
-  input  logic oe_i,       // output enable
-  input  logic ref_clk_i,  // reference clock
-  output logic lock_o,     // FLL locked
+    // Clock signals
+    output logic clk_o,      // generated clock
+    input  logic oe_i,       // output enable
+    input  logic ref_clk_i,  // reference clock
+    output logic lock_o,     // FLL locked
 
-  // Configuration
-  input  logic        req_i,        // FLL request
-  output logic        ack_o,        // FLL acknowledge
-  input  logic [ 1:0] addr_i,       // address
-  input  logic [31:0] wdata_i,      // write data
-  output logic [31:0] rdata_o,      // read data
-  input  logic        wr_ni,        // write enable
-  input  logic        rst_ni,       // reset
-  input  logic        pwd_i,
-  input  logic        test_mode_i,
-  input  logic        shift_en_i,
-  input  logic        td_i,
-  output logic        tq_o,
-  input  logic        jtd_i,
-  output logic        jtq_o
+    // Configuration
+    input  logic        req_i,        // FLL request
+    output logic        ack_o,        // FLL acknowledge
+    input  logic [ 1:0] addr_i,       // address
+    input  logic [31:0] wdata_i,      // write data
+    output logic [31:0] rdata_o,      // read data
+    input  logic        wr_ni,        // write enable
+    input  logic        rst_ni,       // reset
+    input  logic        pwd_i,
+    input  logic        test_mode_i,
+    input  logic        shift_en_i,
+    input  logic        td_i,
+    output logic        tq_o,
+    input  logic        jtd_i,
+    output logic        jtq_o
 );
   // INTERNAL SIGNALS
   // ----------------
-  logic       gen_clk;    // generated clock
-  logic       div_clk;    // divided clock
-  logic [1:0] clk_cnt;    // clock counter
-  logic       clk_cnt_tc; // clock counter terminal count
+  logic       gen_clk;  // generated clock
+  logic       div_clk;  // divided clock
+  logic [1:0] clk_cnt;  // clock counter
+  logic       clk_cnt_tc;  // clock counter terminal count
   logic [1:0] clk_div_q;  // clock divider
-  logic       clk_sel;    // clock selector
+  logic       clk_sel;  // clock selector
 
   // --------------
   // INTERNAL LOGIC
@@ -78,22 +78,22 @@ module fll_wrapper (
 
   // Generated clock mux
   assign clk_sel = clk_div_q != 2'b00;
-  tc_clk_mux2 u_clk_mux(
-  	.clk0_i    (ref_clk_i),
-    .clk1_i    (div_clk),
-    .clk_sel_i (clk_sel),
-    .clk_o     (gen_clk)
+  tc_clk_mux2 u_clk_mux (
+      .clk0_i   (ref_clk_i),
+      .clk1_i   (div_clk),
+      .clk_sel_i(clk_sel),
+      .clk_o    (gen_clk)
   );
 
   // --------------
   // OUTPUT NETWORK
   // --------------
   // Output clock gate
-  fll_clk_gate_wrapper u_clk_gate(
-  	.clk_i        (gen_clk),
-    .en_i         (oe_i),
-    .scan_cg_en_i (1'b0),
-    .clk_o        (clk_o)
+  fll_clk_gate_wrapper u_clk_gate (
+      .clk_i       (gen_clk),
+      .en_i        (oe_i),
+      .scan_cg_en_i(1'b0),
+      .clk_o       (clk_o)
   );
   assign lock_o  = 1'b1;
 

@@ -12,10 +12,10 @@
 // FOR SIMULATION ONLY. DO NOT USE FOR IMPLEMENTATION
 
 module fll_clk_gate_wrapper (
-  input  logic clk_i,
-  input  logic en_i,
-  input  logic scan_cg_en_i,
-  output logic clk_o
+    input  logic clk_i,
+    input  logic en_i,
+    input  logic scan_cg_en_i,
+    output logic clk_o
 );
   // INTERNAL SIGNALS
   logic clk_en;

@@ -1,3 +1,10 @@
+#######################################################################################
+#                                                                                     #
+# IMPORTANT: If you edit this file you MUST apply identical changes to env.csh        #
+# If you fail we will have to murder this kitten: https://tinyurl.com/y3ysuhhb        #
+#                                                                                     #
+#######################################################################################
+
 # Activate conda environment
 conda activate heeptimize
 
@@ -14,10 +21,10 @@ PATH="/softs/mentor/qsta/2020.4/bin/:$PATH"
 
 # RISC-V compiler
 export RISCV=/shares/eslfiler1/apps/linux/Development/rv32imc
+# export RISCV="/shares/eslfiler1/apps/linux/Development/corev-openhw-gcc-centos7-20240530"
 
 # Xilinx Vivado
 export XILINX_VIVADO="/softs/xilinx/vivado/2023.1_lin64/"
-# export XILINX_VIVADO="/softs/xilinx/vivado/2020.2_lin64/"
 export XILINXD_LICENSE_FILE=2100@ielsrv01.epfl.ch
 PATH="$XILINX_VIVADO/bin:/edadk_repo/softs/xilinx/DocNav:$PATH"
 
@@ -41,8 +48,8 @@ PATH=$SNPS_SITE_PATH/bin:$SYNOPSYS_DC/bin:$SYNOPSYS_PP/bin:$SYNOPSYS_LC/bin:$VCS
 
 # Innovus
 export CDS_LIC_FILE=5280@edalicsrv.epfl.ch
-export INNOVUS_SITE=/softs/cadence/innovus/20.1/bin/
-export GENUS_SITE=/softs/cadence/genus/20.1/bin/
+export INNOVUS_SITE=/softs/cadence/ddi/22.33.000/INNOVUS221/bin/
+export GENUS_SITE=/softs/cadence/ddi/22.33.000/GENUS221/bin/
 export XCELIUM_SITE=/softs/cadence/xcelium/23.03/tools/xcelium/bin/
 
 PATH=$INNOVUS_SITE:$GENUS_SITE:$XCELIUM_SITE:$PATH

@@ -8,13 +8,13 @@
 // Description: Output pad standard cell
 
 module pad_cell_output #(
-  parameter int unsigned PADATTR = 16
+    parameter int unsigned PADATTR = 16
 ) (
-  input logic pad_in_i, // pad input value
-  input logic pad_oe_i, // pad output enable
-  output logic pad_out_o, // pad output value
-  inout logic pad_io, // pad value
-  input logic [PADATTR-1:0] pad_attributes_i // pad attributes
+    input logic pad_in_i,  // pad input value
+    input logic pad_oe_i,  // pad output enable
+    output logic pad_out_o,  // pad output value
+    inout logic pad_io,  // pad value
+    input logic [PADATTR-1:0] pad_attributes_i  // pad attributes
 );
   // INTERNAL SIGNALS
   logic pad;

@@ -8,7 +8,7 @@
 # Description: CORE-V-MINI-MCU configuration for heepatia
 
 {
-    cpu_type: cv32e40x
+    cpu_type: cv32e40p
 
     linker_script: {
         stack_size: 0x800,
@@ -40,9 +40,13 @@
             offset:  0x00028000,
             length:  0x00008000,
         },
-        dma: {
+         dma: {
             offset:  0x00030000,
             length:  0x00010000,
+            ch_length:    0x100,
+            num_channels:   0x4,
+            num_master_ports: 0x2,
+            num_channels_per_master_port: 0x2,
             path:    "./hw/ip/dma/data/dma.hjson"
         },
         power_manager: {

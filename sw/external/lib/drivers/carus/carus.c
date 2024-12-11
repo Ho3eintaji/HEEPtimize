@@ -12,9 +12,11 @@
 #include "heepatia.h"
 #include "heepatia_ctrl_reg.h"
 #include "carus_addr_map.h"
-#include "dma_util.h"
+#include "dma_sdk.h"
 #include "ext_irq.h"
 #include "hart.h"
+#include "csr.h"
+#include "dma.h"
 
 /******************************/
 /* ---- GLOBAL VARIABLES ---- */
@@ -239,7 +241,7 @@ int carus_init(const uint8_t inst)
     memcpy(emem_image, carus_loader, CARUS_LOADER_SIZE);
 
     // Initialize the DMA
-    dma_init(NULL);
+    dma_sdk_init();
 
     // Reset control register
     if (carus_set_ctl(inst, &ctl) != 0)
@@ -248,7 +250,8 @@ int carus_init(const uint8_t inst)
     // Load the initial eMEM image with the startup code
     if (carus_set_mode(inst, CARUS_MODE_CFG) != 0)
         return -1;
-    dma_copy_32b(emem_ptr, emem_image, CARUS_EMEM_SIZE >> 2);
+    // dma_copy_32b(emem_ptr, emem_image, CARUS_EMEM_SIZE >> 2);
+    dma_copy(emem_ptr, emem_image, CARUS_EMEM_SIZE >> 2, inst % DMA_CH_NUM, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
     if (carus_set_mode(inst, CARUS_MODE_MEM) != 0)
         return -1;
 
@@ -278,14 +281,15 @@ int carus_load_kernel(const uint8_t inst, const uint32_t *kernel, const uint32_t
         return -1;
 
     // Initialize the DMA
-    dma_init(NULL);
+    dma_sdk_init();
 
     // Set the target instance in configuration mode
     if (carus_set_mode(inst, CARUS_MODE_CFG) != 0)
         return -1;
 
     // Load the kernel, @DAVIDE: supposed size was byte size
-    dma_copy_32b(emem_ptr, kernel, size >> 2);
+    // dma_copy_32b(emem_ptr, kernel, size >> 2);
+    dma_copy(emem_ptr, kernel, size >> 2, inst % DMA_CH_NUM, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
 
     // Set the target instance in memory mode
     if (carus_set_mode(inst, CARUS_MODE_MEM) != 0)
