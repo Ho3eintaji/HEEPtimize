@@ -33,9 +33,9 @@
 
         carus: {
             offset:     "0x00010000",
-            length:    "0x000010000",        //#num of bytes
+            length:    ["0x000010000"],        //#num of bytes
             num:       1,
-            num_banks: 4, // bank address width is log2(length/num_banks)
+            num_banks: [4], // bank address width is log2(length/num_banks)
         }, 
         caesar: {
             offset:    "0x000020000",

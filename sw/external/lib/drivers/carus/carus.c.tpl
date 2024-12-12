@@ -30,11 +30,15 @@ volatile uint32_t carus_irq_error = 0;
 
 
 const int32_t carus_vlen[CARUS_NUM] = {
-    (int32_t) CARUS0_VLEN_MAX,
+%for inst in range(carus_num):
+    (int32_t) CARUS${inst}_VLEN_MAX,
+%endfor
 };
 
 int32_t carus[CARUS_NUM] = {
-    (int32_t) CARUS0_START_ADDRESS,
+%for inst in range(carus_num):
+    (int32_t) CARUS${inst}_START_ADDRESS,
+%endfor
 };
 
 /*************************************/
@@ -361,12 +365,12 @@ void __attribute__((noinline)) carus_irq(uint32_t id) {
             return;
         }
         if (ctl.done == 0) continue;
-
+        
         // Register IRQ
         carus_irq_idx = i;
         carus_irq_flag++;
         if (ctl.err != 0) carus_irq_error = 1;
-
+        
         // Clear done bit
         ctl.done = 0;
         if (carus_set_ctl(i, &ctl) != 0) {

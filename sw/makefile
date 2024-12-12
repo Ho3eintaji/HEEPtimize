@@ -19,7 +19,7 @@ CAESAR_BUILD_DIR		:= $(BUILD_DIR)/caesar
 
 # NM-Carus startup code header
 CARUS_INIT_HEADER_DIR	:= external/lib/drivers/carus
-CARUS_INIT_SRC			:= external/lib/drivers/carus/init.S
+CARUS_INIT_SRC			:= external/lib/drivers/carus/exclude_init.S
 CARUS_INIT_DST			:= $(CARUS_INIT_SRC:external/lib/drivers/carus/%=$(CARUS_BUILD_DIR)/%)
 CARUS_INIT_ELF			:= $(CARUS_INIT_DST:.S=.elf)
 CARUS_INIT_BIN			:= $(CARUS_INIT_DST:.S=.bin)
@@ -27,7 +27,7 @@ CARUS_INIT_HEADER		:= $(CARUS_INIT_HEADER_DIR)/carus_loader.h
 
 # NM-Carus kernel source files
 CARUS_KERNEL_SRC_DIR	:= nmc/kernels/carus
-CARUS_KERNEL_OUT_DIR	?= external/carus/kernels
+CARUS_KERNEL_OUT_DIR	?= external/carus_exclude/kernels
 CARUS_KERNEL_SRCS_ASM	:= $(wildcard $(CARUS_KERNEL_SRC_DIR)/*.S)
 CARUS_KERNEL_SRCS_C		:= $(wildcard $(CARUS_KERNEL_SRC_DIR)/*.c)
 CARUS_KERNEL_SRCS		:= $(CARUS_KERNEL_SRCS_ASM) $(CARUS_KERNEL_SRCS_C)
@@ -53,14 +53,14 @@ RVV_CFLAGS			:= \
 	-O2 \
 	-Wall
 RVV_LDFLAGS			:= \
-	-T $(ROOT_DIR)/sw/external/carus/linker/emem.ld \
+	-T $(ROOT_DIR)/sw/external/carus_exclude/linker/emem.ld \
 	-nostdlib \
 	-nostartfiles \
 	-static \
 	-Wl,--gc-sections
 RVV_INCLUDES		:= \
-	-I $(ROOT_DIR)/sw/external/carus/include \
-	-I $(ROOT_DIR)/sw/external/carus/device/include
+	-I $(ROOT_DIR)/sw/external/carus_exclude/include \
+	-I $(ROOT_DIR)/sw/external/carus_exclude/device/include
 RVV_DEP_FLAGS		= -MT $@ -MMD -MP -MF $*.d
 
 ###########################

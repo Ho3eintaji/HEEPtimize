@@ -1,10 +1,10 @@
-// Copyright 2022 EPFL and Politecnico di Torino.
+// Copyright 2024 EPFL and Politecnico di Torino.
 // Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
 // File: carus.h
-// Author: Michele Caon
-// Date: 19/06/2023
+// Author: Michele Caon, Luig Giuffrida
+// Date: 20/06/2024
 // Description: Header file for NM-Carus driver
 
 #ifndef CARUS_H_
@@ -12,14 +12,20 @@
 
 #include <stdint.h>
 
+#include "heepatia.h"
 #include "carus_addr_map.h"
+#include "dma.h"
 
 /*********************/
 /* ---- DEFINES ---- */
 /*********************/
 
-// Vector register file
-#define VLEN_MAX ${carus_vlen_max} // maximum vector length in bytes
+// Vector register file length in bytes
+%for inst in range(carus_num):
+#define CARUS${inst}_VLEN_MAX ${carus_vlen_max[inst]}
+%endfor
+
+#define carus_vrf(inst, v) (int8_t*)(carus[inst] + (v) * carus_vlen[inst])
 
 // NM-Carus control register initializer (for carus_ctl_t structures)
 #define CARUS_CTL_INIT {\\
@@ -38,25 +44,25 @@
 
 }
 
-// NM-Carus configuration registers initializer (for carus_cfg_t structures)
-#define CARUS_CFG_INIT {\\
+// NM-Carus configuration register initializer (for carus_cfg_t structures)
+#define CARUS_CFG_INIT(inst) {\\
 
     .koffs   = 0x0,\\
-    
+
     .scratch = 0x0,\\
-    
-    .vl      = VLEN_MAX,\\
-    
-    .vtype   = VTYPE_VSEW_32,\\
-    
+
+    .vl      = carus_vlen[inst],\\
+
+    .vtype   = 0x0,\\
+
     .arg0    = 0x0,\\
-    
+
     .arg1    = 0x0,\\
-    
+
     .arg2    = 0x0,\\
-    
+
     .arg3    = 0x0,\\
-    
+
 }
 
 /************************/
@@ -102,8 +108,14 @@ enum vtype_flags_e {
 /* ---- EXPORTED GLOBAL VARIABLES ---- */
 /***************************************/
 
-// Vector register file addresses 
-extern const uint8_t *vregs[];
+// Pointers to carus instances
+
+extern int32_t carus[CARUS_NUM];
+
+extern const int32_t carus_vlen[CARUS_NUM];
+
+// NM-Carus configuration registers initializers (for carus_cfg_t structures)
+extern const carus_cfg_t carus_cfg_init[CARUS_NUM];
 
 /*************************************/
 /* ---- CONFIGURATION FUNCTIONS ---- */
@@ -115,7 +127,7 @@ extern const uint8_t *vregs[];
  * @param mode Pointer to the operating mode variable to be filled.
  * @return 0 if success, -1 otherwise.
  */
-int carus_get_mode(const uint8_t inst, carus_mode_t *mode);
+int __attribute__ ((noinline)) carus_get_mode(const uint8_t inst, carus_mode_t *mode);
 
 /**
  * @brief Set the specified NM-Carus instance operating mode.
@@ -123,7 +135,7 @@ int carus_get_mode(const uint8_t inst, carus_mode_t *mode);
  * @param mode Operating mode (memory or configuration).
  * @return 0 if success, -1 otherwise.
  */
-int carus_set_mode(const uint8_t inst, const carus_mode_t mode);
+int __attribute__ ((noinline)) carus_set_mode(const uint8_t inst, const carus_mode_t mode);
 
 /**
  * @brief Get the status data of the specified NM-Carus instance.
@@ -131,7 +143,7 @@ int carus_set_mode(const uint8_t inst, const carus_mode_t mode);
  * @param ctl Pointer to the control data structure to be filled.
  * @return 0 if success, -1 otherwise.
  */
-int carus_get_ctl(const uint8_t inst, carus_ctl_t *ctl);
+int __attribute__ ((noinline)) carus_get_ctl(const uint8_t inst, carus_ctl_t *ctl);
 
 /**
  * @brief Write the control register of the specified NM-Carus instance.
@@ -139,7 +151,7 @@ int carus_get_ctl(const uint8_t inst, carus_ctl_t *ctl);
  * @param cfg Pointer to the configuration structure to be set.
  * @return 0 if success, -1 otherwise.
  */
-int carus_set_ctl(const uint8_t inst, const carus_ctl_t *ctl);
+int __attribute__ ((noinline)) carus_set_ctl(const uint8_t inst, const carus_ctl_t *ctl);
 
 /**
  * @brief Get the parameters of the specified NM-Carus instance.
@@ -147,7 +159,7 @@ int carus_set_ctl(const uint8_t inst, const carus_ctl_t *ctl);
  * @param params Pointer to the parameters structure to be filled.
  * @return 0 if success, -1 otherwise.
  */
-int carus_get_cfg(const uint8_t inst, carus_cfg_t *cfg);
+int __attribute__ ((noinline)) carus_get_cfg(const uint8_t inst, carus_cfg_t *cfg);
 
 /**
  * @brief Set the parameters of the specified NM-Carus instance.
@@ -155,7 +167,7 @@ int carus_get_cfg(const uint8_t inst, carus_cfg_t *cfg);
  * @param params Pointer to the parameters structure to be set.
  * @return 0 if success, -1 otherwise.
  */
-int carus_set_cfg(const uint8_t inst, const carus_cfg_t *cfg);
+int __attribute__ ((noinline)) carus_set_cfg(const uint8_t inst, const carus_cfg_t *cfg);
 
 /**
  * @brief Initialize the specified NM-Carus instance
@@ -163,7 +175,7 @@ int carus_set_cfg(const uint8_t inst, const carus_cfg_t *cfg);
  * @param inst NM-Carus instance number.
  * @return 0 if success, -1 otherwise.
  */
-int carus_init(const uint8_t inst);
+int __attribute__ ((noinline)) carus_init(const uint8_t inst);
 
 /**
  * @brief Load a vector kernel into the specified NM-Carus instance.
@@ -173,21 +185,21 @@ int carus_init(const uint8_t inst);
  * @param offs Offset at which to load the kernel in bytes.
  * @return 0 if success, -1 otherwise.
  */
-int carus_load_kernel(const uint8_t inst, const uint32_t *kernel, const uint32_t size, const uint32_t offs);
+int __attribute__ ((noinline)) carus_load_kernel(const uint8_t inst, const uint32_t *kernel, const uint32_t size, const uint32_t offs);
 
 /**
  * @brief Run the current vector kernel on the specified NM-Carus instance.
  * @param inst NM-Carus instance number.
  * @return 0 if success, -1 otherwise.
  */
-int carus_run_kernel(const uint8_t inst);
+int __attribute__ ((noinline)) carus_run_kernel(const uint8_t inst);
 
 /**
  * @brief Wait for the current vector kernel to finish on the specified NM-Carus instance.
  * @param inst NM-Carus instance number.
  * @return 0 if success, -1 otherwise.
  */
-int carus_wait_done(const uint8_t inst);
+int __attribute__ ((noinline)) carus_wait_done(const uint8_t inst);
 
 /**
  * @brief Load and execute a vector kernel on the specified NM-Carus instance.
@@ -196,25 +208,8 @@ int carus_wait_done(const uint8_t inst);
  * @param size Size of the kernel to be executed.
  * @return 0 if success, -1 otherwise.
  */
-int carus_exec_kernel(const uint8_t inst, const uint32_t *kernel, const uint32_t size);
+int __attribute__ ((noinline)) carus_exec_kernel(const uint8_t inst, const uint32_t *kernel, const uint32_t size);
 
-/**
- * @brief Move a vector from and to the system memory to and from NM-Carus instance vector register file.
- * @param inst NM-Carus instance number.
- * @param src Pointer to the vector to be read.
- * @param tgt Pointer to the vector to be written.
- * @param size Size of the vector to be loaded (bytes)
- */
-int carus_copy_vector_to_vector(const uint8_t inst, const uint32_t *src, const uint32_t *tgt, const uint32_t size);
-
-/**
- * @brief Load a scalar in the specified NM-Carus instance vector register file (replicated size times).
- * @param inst NM-Carus instance number.
- * @param src the scalar to be loaded.
- * @param tgt Pointer to the vector destination register.
- * @param size Size of the vector to be loaded (number of words, not bytes)
- */
-int carus_copy_scalar_to_vector(const uint8_t inst, const uint32_t src, const uint32_t *tgt, const uint32_t size);
-
+void __attribute__((noinline)) carus_irq(uint32_t id);
 
 #endif // CARUS_H_

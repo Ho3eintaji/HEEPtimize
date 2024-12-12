@@ -521,6 +521,7 @@ targets:
     - no_warning=true
     - SYNTHESIS=true
     - IM2COL_ENABLE=false
+    - ARM_DISABLE_EMA_CHECK=true
     toplevel:
     - tb_top
     hooks:
@@ -751,4 +752,7 @@ parameters:
     paramtype: vlogdefine
     description: Im2col enable
     default: false
-
+  ARM_DISABLE_EMA_CHECK:
+    datatype: bool
+    paramtype: vlogdefine
+    default: true

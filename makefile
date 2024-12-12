@@ -347,9 +347,9 @@ endif
 	python3 util/heepatia-gen.py $(HEEPATIA_GEN_OPTS) \
 		--outdir sw/external/lib/drivers/carus/ \
 		--tpl-c sw/external/lib/drivers/carus/carus.h.tpl
-	# python3 util/heepatia-gen.py $(HEEPATIA_GEN_OPTS) \
-	# 	--outdir sw/external/lib/drivers/carus \
-	# 	--tpl-c sw/external/lib/drivers/carus/carus.c.tpl
+	python3 util/heepatia-gen.py $(HEEPATIA_GEN_OPTS) \
+		--outdir sw/external/lib/drivers/carus \
+		--tpl-c sw/external/lib/drivers/carus/carus.c.tpl		
 ifeq ($(FORMAT), true)
 	util/format-verible
 	$(FUSESOC) run --no-export --target lint epfl:heepatia:heepatia
@@ -761,6 +761,7 @@ clean:
 	$(RM) hw/ip/heepatia-ctrl/rtl/heepatia_ctrl_reg_pkg.sv
 	$(RM) hw/ip/heepatia-ctrl/rtl/heepatia_ctrl_reg.sv
 	$(RM) sw/external/lib/drivers/carus/carus.h
+	$(RM) sw/external/lib/drivers/carus/carus.c
 	$(RM) sw/device/include/heepatia.h
 	$(RM) sw/device/include/heepatia_ctrl_reg.h
 	$(RM) -r $(BUILD_DIR)

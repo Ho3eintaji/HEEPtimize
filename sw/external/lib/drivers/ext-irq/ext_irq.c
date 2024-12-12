@@ -12,7 +12,7 @@
 #include "rv_plic.h"
 #include "heepatia.h"
 #include "carus.h"
-#include "dsip.h"
+// #include "dsip.h"
 #include "vcd_util.h"
 
 /******************************/
