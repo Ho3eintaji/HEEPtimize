@@ -41,7 +41,7 @@ CAESAR_NUM			?= 1
 XHEEP_DIR			:= $(ROOT_DIR)/hw/vendor/x-heep
 MCU_CFG_PERIPHERALS ?= $(ROOT_DIR)/config/mcu-gen.hjson
 X_HEEP_CFG  		?= $(ROOT_DIR)/config/mcu-gen-system.hjson
-X_HEEP_CFG_FPGA    	?= $(ROOT_DIR)/config/mcu-gen-system-fpga.hjson
+X_HEEP_CFG_FPGA    	?= $(ROOT_DIR)/config/mcu-gen-system.hjson
 PAD_CFG				?= $(ROOT_DIR)/config/heep-pads.hjson
 PAD_CFG_FPGA	    ?= $(ROOT_DIR)/config/heep-pads-fpga.hjson
 EXT_PAD_CFG			?= $(ROOT_DIR)/config/heepatia-pads.hjson
@@ -124,7 +124,7 @@ SIM_VCD 			?= $(BUILD_DIR)/sim-common/questa-waves.fst
 # for carus-matmul.
 APP_MAKE 			:= $(wildcard sw/applications/$(PROJECT)/*akefile)
 
-TOOLCHAIN ?= OHW #also GCC
+TOOLCHAIN ?= OHW
 
 # Custom preprocessor definitions
 CDEFS				?=

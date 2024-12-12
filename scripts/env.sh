@@ -20,8 +20,7 @@ export MTI_VCO_MODE=64
 PATH="/softs/mentor/qsta/2020.4/bin/:$PATH"
 
 # RISC-V compiler
-export RISCV=/shares/eslfiler1/apps/linux/Development/rv32imc
-# export RISCV="/shares/eslfiler1/apps/linux/Development/corev-openhw-gcc-centos7-20240530"
+export RISCV="/shares/eslfiler1/apps/linux/Development/corev-openhw-gcc-centos7-20240530"
 
 # Xilinx Vivado
 export XILINX_VIVADO="/softs/xilinx/vivado/2023.1_lin64/"
