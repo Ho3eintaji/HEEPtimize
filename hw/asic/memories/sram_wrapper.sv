@@ -35,6 +35,8 @@ module sram_wrapper #(
     output logic [         31:0] rdata_o
 );
 
+// TODO: now i consider memories as always active, later fix them when calling this wrapper to pass values
+
   assign pwrgate_ack_no = pwrgate_ni; // Direct acknowledgment
 
   // INTERNAL SIGNALS
@@ -74,8 +76,8 @@ module sram_wrapper #(
             .CLK        (clk_i),
             .CEN        (~req_i),
             .RDWEN      (~we_i),
-            .DEEPSLEEP  (~set_retentive_ni), // Active high means deep sleep
-            .POWERGATE  (~pwrgate_ni),       // Invert pwrgate_ni for POWERGATE
+            .DEEPSLEEP  (1'b0),   // Always active
+            .POWERGATE  (1'b0),   // Always powered
             .AS         (asI),
             .AW         (awI),
             .AC         (acI),
@@ -114,8 +116,8 @@ module sram_wrapper #(
             .CLK        (clk_i),
             .CEN        (~req_i),
             .RDWEN      (~we_i),
-            .DEEPSLEEP  (~set_retentive_ni), // Active high means deep sleep
-            .POWERGATE  (~pwrgate_ni),       // Invert pwrgate_ni for POWERGATE
+            .DEEPSLEEP  (1'b0),   // Always active
+            .POWERGATE  (1'b0),   // Always powered
             .AS         (asI),
             .AW         (awI),
             .AC         (acI),
@@ -154,8 +156,8 @@ module sram_wrapper #(
             .CLK        (clk_i),
             .CEN        (~req_i),
             .RDWEN      (~we_i),
-            .DEEPSLEEP  (~set_retentive_ni), // Active high means deep sleep
-            .POWERGATE  (~pwrgate_ni),       // Invert pwrgate_ni for POWERGATE
+            .DEEPSLEEP  (1'b0),   // Always active
+            .POWERGATE  (1'b0),   // Always powered
             .AS         (asI),
             .AW         (awI),
             .AC         (acI),
@@ -193,8 +195,8 @@ module sram_wrapper #(
             .CLK        (clk_i),
             .CEN        (~req_i),
             .RDWEN      (~we_i),
-            .DEEPSLEEP  (~set_retentive_ni), // Active high means deep sleep
-            .POWERGATE  (~pwrgate_ni),       // Invert pwrgate_ni for POWERGATE
+            .DEEPSLEEP  (1'b0),   // Always active
+            .POWERGATE  (1'b0),   // Always powered
             .AS         (asI),
             .AW         (awI),
             .AC         (acI),
@@ -232,8 +234,8 @@ module sram_wrapper #(
             .CLK        (clk_i),
             .CEN        (~req_i),
             .RDWEN      (~we_i),
-            .DEEPSLEEP  (~set_retentive_ni), // Active high means deep sleep
-            .POWERGATE  (~pwrgate_ni),       // Invert pwrgate_ni for POWERGATE
+            .DEEPSLEEP  (1'b0),   // Always active
+            .POWERGATE  (1'b0),   // Always powered
             .AS         (asI),
             .AW         (awI),
             .AC         (acI),
@@ -271,8 +273,8 @@ module sram_wrapper #(
             .CLK        (clk_i),
             .CEN        (~req_i),
             .RDWEN      (~we_i),
-            .DEEPSLEEP  (~set_retentive_ni), // Active high means deep sleep
-            .POWERGATE  (~pwrgate_ni),       // Invert pwrgate_ni for POWERGATE
+            .DEEPSLEEP  (1'b0),   // Always active
+            .POWERGATE  (1'b0),   // Always powered
             .AS         (asI),
             .AW         (awI),
             .AC         (acI),
@@ -311,8 +313,8 @@ module sram_wrapper #(
             .CLK        (clk_i),
             .CEN        (~req_i),
             .RDWEN      (~we_i),
-            .DEEPSLEEP  (~set_retentive_ni), // Active high means deep sleep
-            .POWERGATE  (~pwrgate_ni),       // Invert pwrgate_ni for POWERGATE
+            .DEEPSLEEP  (1'b0),   // Always active
+            .POWERGATE  (1'b0),   // Always powered
             .AS         (asI),
             .AW         (awI),
             .AC         (acI),
@@ -351,8 +353,8 @@ module sram_wrapper #(
             .CLK        (clk_i),
             .CEN        (~req_i),
             .RDWEN      (~we_i),
-            .DEEPSLEEP  (~set_retentive_ni), // Active high means deep sleep
-            .POWERGATE  (~pwrgate_ni),       // Invert pwrgate_ni for POWERGATE
+            .DEEPSLEEP  (1'b0),   // Always active
+            .POWERGATE  (1'b0),   // Always powered
             .AS         (asI),
             .AW         (awI),
             .AC         (acI),
@@ -391,8 +393,8 @@ module sram_wrapper #(
             .CLK        (clk_i),
             .CEN        (~req_i),
             .RDWEN      (~we_i),
-            .DEEPSLEEP  (~set_retentive_ni), // Active high means deep sleep
-            .POWERGATE  (~pwrgate_ni),       // Invert pwrgate_ni for POWERGATE
+            .DEEPSLEEP  (1'b0),   // Always active
+            .POWERGATE  (1'b0),   // Always powered
             .AS         (asI),
             .AW         (awI),
             .AC         (acI),

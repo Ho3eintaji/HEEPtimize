@@ -113,6 +113,7 @@ FUSESOC_BUILD_DIR			= $(shell find $(BUILD_DIR) -type d -name 'epfl_heepatia_hee
 QUESTA_SIM_DIR				= $(FUSESOC_BUILD_DIR)/sim-modelsim
 QUESTA_SIM_RTL_GF22_DIR	= $(FUSESOC_BUILD_DIR)/sim_rtl_gf22-modelsim
 QUESTA_SIM_POSTSYNTH_DIR 	= $(FUSESOC_BUILD_DIR)/sim_postsynthesis-modelsim
+QUESTA_SIM_POSTSYNTH_DIR2 	= $(FUSESOC_BUILD_DIR)/sim_postsynthesis-modelsim
 QUESTA_SIM_POSTLAYOUT_DIR 	= $(FUSESOC_BUILD_DIR)/sim_postlayout-modelsim
 
 # Waves
@@ -505,7 +506,7 @@ questasim-gf22-gui: | $(QUESTA_SIM_RTL_GF22_DIR)/logs/
 questasim-postsynth-build: set-tb-sysclk $(DPI_LIBS)
 	$(FUSESOC) run --no-export --target sim_postsynthesis --tool modelsim --build $(FUSESOC_FLAGS) epfl:heepatia:heepatia \
 		$(FUSESOC_ARGS);
-	cd $(QUESTA_SIM_POSTSYNTH_DIR) ; make opt | tee fusesoc_questasim_postsynthesis.log
+	cd $(QUESTA_SIM_POSTSYNTH_DIR2) ; make opt | tee fusesoc_questasim_postsynthesis.log
 
 ## Questasim Postsynth run
 .PHONY: questasim-postsynth-run
