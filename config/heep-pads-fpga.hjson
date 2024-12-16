@@ -5,6 +5,30 @@
 // Peripherals configuration for core-v-mini-mcu.
 {
     pads: {
+        ref_clk: {
+            num: 1,
+            type: input
+        },
+        exit_value: {
+            num: 1,
+            type: output
+            driven_manually: True
+        },
+        fll_clk_div: {
+            num: 1,
+            type: output
+            driven_manually: True
+        },
+        ref_clk: {
+            num: 1,
+            type: input
+            driven_manually: True
+        },
+        bypass_fll: {
+            num: 1,
+            type: input
+            driven_manually: True
+        },
         rst: {
             num: 1,
             active: low,
@@ -99,10 +123,6 @@
             num: 1,
             type: inout
         },
-        i2s_sd: {
-            num: 1,
-            type: inout
-        },
         spi2_cs_0: {
             num: 1,
             type: bypass_inout
@@ -138,6 +158,10 @@
         i2c_sda: {
             num: 1,
             type: bypass_inout
+        }
+        i2s_sd: {
+            num: 1,
+            type: inout
         }
     }
 }
