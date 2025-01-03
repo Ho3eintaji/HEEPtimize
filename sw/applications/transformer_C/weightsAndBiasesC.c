@@ -1,5 +1,6 @@
 //
 // Created by alireza on 10/6/23.
+// NMC version by Francesco Poluzzi
 //
 #include "weightsAndBiasesC.h"
 #include <stdint.h>
@@ -10,9 +11,10 @@
 // The function organizes weights from the embedding layers, through transformer layers, to the final Multi-Layer Perceptron (MLP) head.
 void getWeights(quant_bit_width * weightVec[]){
 
-    int weightVectorIndex = 0;
-    weightVec[weightVectorIndex++] = to_patch_embedding_layer_norm1_weight;
-    weightVec[weightVectorIndex++] = to_patch_embedding_linear_weight;
+    int weightVectorIndex = 2;
+    // the first two weight vectors are saved  at the beginning in the ram buffer
+    // weightVec[weightVectorIndex++] = to_patch_embedding_layer_norm1_weight;
+    // weightVec[weightVectorIndex++] = to_patch_embedding_linear_weight;
     weightVec[weightVectorIndex++] = to_patch_embedding_layer_norm2_weight;
 
 
@@ -112,9 +114,10 @@ void getWeights(quant_bit_width * weightVec[]){
 
 // same as getWeights but for biases
 void getBiases(quant_bit_width * biasVec[]){
-    int biasVectorIndex = 0;
-    biasVec[biasVectorIndex++] = to_patch_embedding_layer_norm1_bias;
-    biasVec[biasVectorIndex++] = to_patch_embedding_linear_bias;
+    int biasVectorIndex = 2;
+    // the first two bias vectors are saved  at the beginning in the ram buffer
+    // biasVec[biasVectorIndex++] = to_patch_embedding_layer_norm1_bias;
+    // biasVec[biasVectorIndex++] = to_patch_embedding_linear_bias;
     biasVec[biasVectorIndex++] = to_patch_embedding_layer_norm2_bias;
 
     /* *************************** Layer 1 ***************************** */

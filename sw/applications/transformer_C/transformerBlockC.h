@@ -80,6 +80,7 @@ typedef struct {
 
 TransformerBlock* createTransformerBlock(size_t pre_seq_len, size_t input_dim, size_t head_hidden_size, size_t num_heads, size_t ff_size, int16_t** weightVector, int16_t** biasVector, int16_t* clsTokenVector, int16_t* posMatrix);
 void destroyTransformerBlock(TransformerBlock* transformerBlock);
-void computeFixedPoint(TransformerBlock* transformerBlock, size_t seq_len, int16_t* input, int16_t* input_normalized, int16_t* output, int16_t* intermediate, int16_t* qkv);
-
+void computeFixedPoint(TransformerBlock *transformerBlock, size_t seq_len, quant_bit_width *input,
+                       quant_bit_width *input_normalized, quant_bit_width *output,
+                       quant_bit_width *intermediate, quant_bit_width *qkv, quant_bit_width* ram_buffer);
 #endif //FVLLMONTITRANSFORMER_TRANSFORMERBLOCK_H

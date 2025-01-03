@@ -1,5 +1,6 @@
 //
 // Created by alireza on 10/6/23.
+// NMC version by Francesco Poluzzi
 //
 
 #include <stdio.h>
@@ -10,9 +11,10 @@
 #include "SYLT-FFT/fft.h"
 #include "weightsAndBiasesC.h"
 #include "transformerBlockC.h"
-#include "csr.h"
 #include "x-heep.h"
 #include "timer_sdk.h"
+#include "w25q128jw.h"
+#include "dma_sdk.h"
 #include "defines.h"
 
 #define FS_INITIAL 0x01
@@ -56,10 +58,7 @@ void transformerInference(quant_bit_width *transformerInput, quant_bit_width *tr
     quant_bit_width *posMatrix = getPosEmbedding();
     // create the transformer struct containing all the necessary information for inference
     TransformerBlock *selfatten = createTransformerBlock(D_SEQ, D_MODEL, D_Q, NUM_HEAD, D_FF, weightVec, biasVec, clsTokenVector, posMatrix);
-    #ifdef DEBUG_PRINTS
-        printf("Transformer Block created\n");
-    #endif
-    computeFixedPoint(selfatten, D_SEQ, transformerInput, input_normalized, transformerOutput, intermediate, qkv);
+    computeFixedPoint(selfatten, D_SEQ, transformerInput, input_normalized, transformerOutput, intermediate, qkv, ram_buffer);
 }
 
 quant_bit_width compute_log_amp(int32_t real, int32_t imag)
@@ -93,7 +92,7 @@ void initialize_stft(fft_complex_t *data, const quant_bit_width *raw_input_signa
 
 void stft_rearrange(quant_bit_width *rawInputSignal, quant_bit_width *stftVec, size_t patchHeight, size_t patchWidth)
 {
-    fft_complex_t data[512];
+    fft_complex_t *data = (fft_complex_t*) &ram_buffer[7216]; // 4096 Bytes
     int overlap = 64; // The overlap between consecutive windows for the STFT
     for (int ch = 0; ch < 20; ch++) // Each channel represents a different segment of the rawInputSignal
     {
@@ -125,6 +124,15 @@ void stft_rearrange(quant_bit_width *rawInputSignal, quant_bit_width *stftVec, s
 
 int main()
 {
+    // Initialize the DMA
+    dma_sdk_init();
+    // Pick the correct spi device based on simulation type
+    spi_host_t* spi = spi_flash;
+    // Init SPI host and SPI<->Flash bridge parameters
+    if (w25q128jw_init(spi) != FLASH_OK){
+        PRINTF("Error initializing SPI flash\n");
+        return 1;
+    } 
     quant_bit_width *stftVec = raw_signal;
     quant_bit_width *rawInputSignal = raw_signal + 160 * 15;
     quant_bit_width *out = raw_signal + 160 * 15 * 20;
@@ -133,7 +141,7 @@ int main()
     quant_bit_width *input_normalized = out + 4096;
     int32_t distances[2];
     #if defined(PRINT_INTERMEDIATE_CYCLES) || defined(PRINT_TOTAL_CYCLES) || defined(PRINT_RESULTS) || defined(PRINT_MATRICES_SIZES) || defined(DEBUG_PRINTS)
-        printf("Start\n");
+        PRINTF("Start\n");
     #endif
     // Divide input sequence in windows, perform fft on each window and store the results in columns of stftVec 
     #if defined(PRINT_INTERMEDIATE_CYCLES) || defined(PRINT_TOTAL_CYCLES)
@@ -143,27 +151,19 @@ int main()
     stft_rearrange(rawInputSignal, stftVec, 80, 5);
     #ifdef PRINT_INTERMEDIATE_CYCLES
         uint32_t fft_cycles = timer_stop();
-        printf("FFT cycles: %u\n", fft_cycles);
+        PRINTF("FFT cycles: %u\n", fft_cycles);
     #endif
     transformerInference(stftVec, out, input_normalized, qkv, intermediate);
     // calculate distances for classification
-    #ifdef PRINT_INTERMEDIATE_CYCLES
-        timer_cycles_init();
-        timer_start();
-    #endif
     prototype_distances(prototypes, out, distances, D_MODEL, 2);
-    #ifdef PRINT_INTERMEDIATE_CYCLES
-        uint32_t euclide_time = timer_stop();
-        printf("Euclidean  distances time: %u\n", euclide_time);
-    #endif
     #ifdef PRINT_TOTAL_CYCLES
        uint32_t total_cycles = timer_stop();
-         printf("Total cycles: %u\n", total_cycles);
+         PRINTF("Total cycles: %u\n", total_cycles);
     #endif
     #ifdef PRINT_RESULTS
-        printf("Distances : \n");
+        PRINTF("Distances : \n");
         for (int i = 0; i < 2; i++)
-            printf("From the prototype of class %d = %d\n", i, distances[i]);
+            PRINTF("From the prototype of class %d = %d\n", i, distances[i]);
         return 0;
     #endif
 }

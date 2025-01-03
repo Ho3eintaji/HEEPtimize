@@ -599,12 +599,12 @@ vivado-fpga-pgm:
 	@echo "### Programming the FPGA..."
 	$(MAKE) -C $(FUSESOC_BUILD_DIR)/$(TARGET)-vivado pgm
 
-# Flash ESL programmer
-.PHONY:flash-prog
-flash-prog:
-	@echo "### Programming the flash..."
-	cd $(XHEEP_DIR)/sw/vendor/yosyshq_icestorm/iceprog && make; \
-	./iceprog -d i:0x0403:0x6011 -I B $(ROOT_DIR)/$(BUILD_DIR)/sw/app-flash/main.hex;
+# # Flash ESL programmer
+# .PHONY:flash-prog
+# flash-prog:
+# 	@echo "### Programming the flash..."
+# 	cd $(XHEEP_DIR)/sw/vendor/yosyshq_icestorm/iceprog && make; \
+# 	./iceprog -d i:0x0403:0x6011 -I B $(ROOT_DIR)/$(BUILD_DIR)/sw/app-flash/main.hex;
 
 # ==============================================================================
 # EVE analysis

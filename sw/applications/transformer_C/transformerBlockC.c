@@ -1,10 +1,13 @@
 //
 // Created by alireza on 10/6/23.
+// NMC version by Francesco Poluzzi
 //
-
+// vscode-fold=1
 #include <stdio.h>
 #include "transformerBlockC.h"
 #include "timer_sdk.h"
+#include "w25q128jw.h"
+#include "core_v_mini_mcu.h"
 #include "defines.h"
 
 SingleHeadSelfAttn global_selfatten[NUM_LAYERS * NUM_HEAD];
@@ -49,9 +52,7 @@ TransformerBlock *createTransformerBlock(size_t pre_seq_len, size_t input_dim, s
             transformerBlock->selfatten[l * num_heads + n]->value_layer = &global_value_layer[l * num_heads + n];
 
             create_SingleHeadSelfAttn(transformerBlock->selfatten[l * num_heads + n], (pre_seq_len + 1), input_dim, head_hidden_size, weightVector + l * 17 + 4 + n * 3);
-            #ifdef DEBUG_PRINTS
-                printf("self attention %ld, len: %ld\n", l * num_heads + n, transformerBlock->selfatten[l * num_heads + n]->query_layer->input_size_);
-            #endif
+            //PRINTF("self attention %ld, len: %ld\n", l * num_heads + n, transformerBlock->selfatten[l * num_heads + n]->query_layer->input_size_);
         }
 
         transformerBlock->condense[l] = &global_condense[l];
@@ -77,172 +78,222 @@ TransformerBlock *createTransformerBlock(size_t pre_seq_len, size_t input_dim, s
 void destroyTransformerBlock(TransformerBlock *transformerBlock)
 {
     // Free dynamically allocated memory
-
     free(transformerBlock);
 }
 
 void computeFixedPoint(TransformerBlock *transformerBlock, size_t seq_len, quant_bit_width *input,
                        quant_bit_width *input_normalized, quant_bit_width *output,
-                       quant_bit_width *intermediate, quant_bit_width *qkv)
+                       quant_bit_width *intermediate, quant_bit_width *qkv, quant_bit_width* ram_buffer)
 {
     #ifdef PRINT_INTERMEDIATE_CYCLES
         timer_cycles_init();
         int normalize_time = 0;
         timer_start();
     #endif
-    printf("\nNormalize weights:\n");
-    int16_t *ptr = transformerBlock->addNorm.weight_;
-    for (int i = 0; i < 400; i++)
-    {
-        printf("%d ", *ptr);
-        ptr++;
-    }
-    printf("\nNormalize biases:\n");
-    ptr = transformerBlock->addNorm.bias_;
-    for (int i = 0; i < 400; i++)
-    {
-        printf("%d ", *ptr);
-        ptr++;
-    }
-    normalize(&transformerBlock->addNorm, input, input);
-    printf("\nNormalize output:\n");
-    ptr = input;
-    for (int i = 0; i < transformerBlock->addNorm.seq_len_*transformerBlock->addNorm.input_dim_; i++)
-    {
-        printf("%d ", *ptr);
-        ptr++;
-    }
+
+    // ram buffer is already initialized with weights of first normalization
+    transformerBlock->addNorm.weight_ = ram_buffer;
+    transformerBlock->addNorm.bias_ = ram_buffer+400;
+
+    normalize(&transformerBlock->addNorm, input, input); 
+
+    if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)transformerBlock->addNorm2.weight_), ram_buffer, 64) != FLASH_OK)return -1; // read addnorm2 in ram_buffer[0]
+
     #ifdef PRINT_INTERMEDIATE_CYCLES
         normalize_time = timer_stop();
-        printf("normalize time (1st): %d\n", normalize_time);
-
+        PRINTF("normalize time: %d\n", normalize_time);
         timer_start();
     #endif
-    // patch embedding layer : matmul to turn the input image into something the transformer can process (tokens)
-    computeDense(transformerBlock->patchEmbedding, seq_len, input, output);
+
+    // ram buffer is already initialized with patch emebdding weigths and biases
+    transformerBlock->patchEmbedding->weight = ram_buffer+800;
+    transformerBlock->patchEmbedding->bias = ram_buffer+800+6400;
+    computeDense(transformerBlock->patchEmbedding, seq_len, input, output);// patch embedding layer : matmul to turn the input image into something the transformer can process (tokens)
+    w25q128jw_wait_quad_dma_async(ram_buffer, 64);
+    if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)transformerBlock->token->pos_matrix_), ram_buffer+32, 1936*2 + 32) != FLASH_OK)return -1; // read pos_matrix and cls_token_vector
+
     #ifdef PRINT_INTERMEDIATE_CYCLES
         int dense_time = timer_stop();
-        printf("patch embedding (dense) time: %d\n", dense_time);
-
+        PRINTF("dense time: %d\n", dense_time);
         timer_start();
     #endif
+
+    transformerBlock->addNorm2.weight_ = ram_buffer;
+    transformerBlock->addNorm2.bias_ = ram_buffer+16;
     normalize(&transformerBlock->addNorm2, output, output);
+
     #ifdef PRINT_INTERMEDIATE_CYCLES
         normalize_time = timer_stop();
-        printf("normalize time(2nd): %d\n", normalize_time);
-
+        PRINTF("normalize time: %d\n", normalize_time);
         timer_start();
     #endif
+
+    transformerBlock->token->pos_matrix_ = ram_buffer+32;
+    transformerBlock->token->cls_token_vector_ = ram_buffer+32+1936;
+
+    w25q128jw_wait_quad_dma_async(ram_buffer+32, 1936*2 + 32); // wait for pos embeddings and cls tokens to be loaded
+
     //insert the cls token at the beginning of the sequence
     clsConcatenate(transformerBlock->token, output, input);
+    seq_len++;
+
     #ifdef PRINT_INTERMEDIATE_CYCLES
         int clsconc_time = timer_stop();
-        printf("clsConcatenate time: %d\n", clsconc_time);
-    #endif
-    seq_len++;
-    #ifdef PRINT_INTERMEDIATE_CYCLES
+        PRINTF("clsConcatenate time: %d\n", clsconc_time);
         timer_start();
     #endif
+
     // add the position embedding to the input sequence
     posEmbedding(transformerBlock->token, input);
+
     #ifdef PRINT_INTERMEDIATE_CYCLES
         int posemb_time = timer_stop();
-        printf("insert posEmbedding time: %d\n", posemb_time);
+        PRINTF("posEmbedding time: %d\n", posemb_time);
     #endif
+
     for (int l = 0; l < 4; l++) // loop through the 4 transformer layers
     {
+        #ifdef DEBUG_PRINTS
+            PRINTF("Starting transformer layer %d\n", l);
+        #endif
         #ifdef PRINT_INTERMEDIATE_CYCLES
             timer_start();
         #endif
-        normalize(&transformerBlock->transformer_layer_0_addNorm[l], input, input_normalized);
+        normalize(&transformerBlock->transformer_layer_0_addNorm[0], input, input_normalized);
+        if(l>0)w25q128jw_wait_quad_dma_async((uint32_t *)transformerBlock->feedForward1[0]->weight, 160); // wait for loading of ff2 of this layer to be finished
+        if(l<3){ // load successive layer
+            if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)transformerBlock->transformer_layer_0_addNorm[l+1].weight_), (uint32_t *)transformerBlock->transformer_layer_0_addNorm[0].weight_, 64) != FLASH_OK)return 1;
+        }
         #ifdef PRINT_INTERMEDIATE_CYCLES
             normalize_time = timer_stop();
-            printf("layer 1st normalize time[%d]: %d\n", l, normalize_time);
+            PRINTF("normalize time[%d]: %d\n", l, normalize_time);
         #endif
-        for (int n = 0; n < NUM_HEAD; n++)   // loop through the 4 heads in the multi-head attention mechanism
+        for (int n = 0; n < NUM_HEAD; n+=2)   // loop through the 4 heads in the multi-head attention mechanism, 2 at a time
         {
             #ifdef PRINT_INTERMEDIATE_CYCLES
+                timer_cycles_init();
                 timer_start();
             #endif
-            compute_SingleHeadSelfAttn(transformerBlock->selfatten[l * NUM_HEAD + n], input_normalized,
-                                       output + n * (seq_len * transformerBlock->head_hidden_size_), qkv, intermediate);
+            compute_SingleHeadSelfAttn(transformerBlock->selfatten[ n], input_normalized,
+                                    output + n * (seq_len * transformerBlock->head_hidden_size_), qkv, intermediate);
             #ifdef PRINT_INTERMEDIATE_CYCLES
                 int selfattn_time = timer_stop();
-                printf("single head self attention time[%d][%d]: %d\n", l, n, selfattn_time);
+                PRINTF("single head time[%d][%d]: %d\n", l, n, selfattn_time);
             #endif
-            // destroy_SingleHeadSelfAttn(transformerBlock->selfatten[l * NUM_HEAD + n]);
-        }
+            #ifdef PRINT_INTERMEDIATE_CYCLES
+                timer_cycles_init();
+                timer_start();
+            #endif
+            compute_SingleHeadSelfAttn(transformerBlock->selfatten[ n+1], input_normalized,
+                                    output + (n+1) * (seq_len * transformerBlock->head_hidden_size_), qkv, intermediate);
+            #ifdef PRINT_INTERMEDIATE_CYCLES
+                selfattn_time = timer_stop();
+                PRINTF("single head time[%d][%d]: %d\n", l, n+1, selfattn_time);
+            #endif
+            if(l<3){ // load 2 heads of successive layer from flash
+                if(n==0)w25q128jw_wait_quad_dma_async((uint32_t *)transformerBlock->transformer_layer_0_addNorm[0].weight_, 64); // wait for the first normalize weigths to be loaded
+                else w25q128jw_wait_quad_dma_async((uint32_t *)transformerBlock->selfatten[n]->query_layer->weight, 384*2); // wait for the previous 2 heads to be leaded for the next layer
+                if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)transformerBlock->selfatten[(l+1)*NUM_HEAD + n ]->query_layer->weight),(uint32_t *)transformerBlock->selfatten[n]->query_layer->weight, 384*2) != FLASH_OK)return 1;
+            }
+        }  
         #ifdef PRINT_INTERMEDIATE_CYCLES
             timer_start();
         #endif
         multihead_transpose(output, intermediate, seq_len, transformerBlock->head_hidden_size_, transformerBlock->num_heads_);
         #ifdef PRINT_INTERMEDIATE_CYCLES
             int transpose_time = timer_stop();
-            printf("transpose after self attention time[%d]: %d\n", l, transpose_time);
-
+            PRINTF("transpose time[%d]: %d\n", l, transpose_time);
             timer_start();
         #endif
-        computeDense(transformerBlock->condense[l], seq_len, intermediate, output);
+    
+        computeDense(transformerBlock->condense[0], seq_len, intermediate, output);
+
+        if(l<3){ // load successive layer from flash
+            w25q128jw_wait_quad_dma_async((uint32_t *)transformerBlock->selfatten[2]->query_layer->weight, 384*2); // wait for the previous dma transfer to be performed
+            if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)transformerBlock->condense[l+1]->weight),(uint32_t *)transformerBlock->condense[0]->weight, 272*2) != FLASH_OK)return 1;
+        }
+        else{ // load mlp head norm if final layer
+            if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)transformerBlock->mlp_head_norm.weight_), ram_buffer, 64) != FLASH_OK)return -1;
+            transformerBlock->mlp_head_norm.weight_ = ram_buffer;
+            transformerBlock->mlp_head_norm.bias_ = ram_buffer+16;
+        }
         #ifdef PRINT_INTERMEDIATE_CYCLES
             int condense_time = timer_stop();
-            printf("feed forward 1st dense time[%d]: %d\n", l, condense_time);
-
+            PRINTF("condense time[%d]: %d\n", l, condense_time);
             timer_start();
         #endif
         add(input, output, seq_len, transformerBlock->input_dim_);
         #ifdef PRINT_INTERMEDIATE_CYCLES
             int add_time = timer_stop();
-            printf("1st add time[%d]: %d\n", l, add_time);
-
+            PRINTF("add time[%d]: %d\n", l, add_time);
             timer_start();
         #endif
-        normalize(&transformerBlock->transformer_layer_1_addNorm[l], input, input_normalized);
+        normalize(&transformerBlock->transformer_layer_1_addNorm[0], input, input_normalized);
+        if(l<3){ // load successive layer
+            w25q128jw_wait_quad_dma_async((uint32_t *)transformerBlock->condense[0]->weight, 272*2);
+            if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)transformerBlock->transformer_layer_1_addNorm[l+1].weight_), (uint32_t *)transformerBlock->transformer_layer_1_addNorm[0].weight_, 64) != FLASH_OK)return 1;
+        }
+        else{ // load mlp head linear if final layer
+            w25q128jw_wait_quad_dma_async( ram_buffer, 64);
+            if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)transformerBlock->mlp_head_linear->weight), ram_buffer+32, 272*2) != FLASH_OK)return -1;
+            transformerBlock->mlp_head_linear->weight = ram_buffer+32;
+            transformerBlock->mlp_head_linear->bias = ram_buffer+32+256;
+        }
         #ifdef PRINT_INTERMEDIATE_CYCLES
             normalize_time = timer_stop();
-            printf("layer 2nd normalize time[%d]: %d\n", l, normalize_time);
-
+            PRINTF("normalize time[%d]: %d\n", l, normalize_time);
             timer_start();
         #endif
-        computeDense(transformerBlock->feedForward0[l], seq_len, input_normalized, intermediate);
+        computeDense(transformerBlock->feedForward0[0], seq_len, input_normalized, intermediate);
         #ifdef PRINT_INTERMEDIATE_CYCLES
             int dense_time = timer_stop();
-            printf("feed forward 2nd dense time[%d]: %d\n", l, dense_time);
-
+            PRINTF("dense time[%d]: %d\n", l, dense_time);
             timer_start();
         #endif
-        activation(transformerBlock->feedForward0[l], seq_len * transformerBlock->ff_size_, intermediate, intermediate);
+        activation(transformerBlock->feedForward0[0], seq_len * transformerBlock->ff_size_, intermediate, intermediate);
+        if(l<3){ // load successive layer from flash
+            w25q128jw_wait_quad_dma_async((uint32_t *)transformerBlock->transformer_layer_1_addNorm[0].weight_, 64);
+            if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)transformerBlock->feedForward0[l+1]->weight),(uint32_t *)transformerBlock->feedForward0[0]->weight, 68*2) != FLASH_OK)return 1;
+        }
         #ifdef PRINT_INTERMEDIATE_CYCLES
             int activation_time = timer_stop();
-            printf("activation (GeLu) time[%d]: %d\n", l, activation_time);
-
+            PRINTF("activation time[%d]: %d\n", l, activation_time);
             timer_start();
         #endif
-        computeDense(transformerBlock->feedForward1[l], seq_len, intermediate, output);
+        computeDense(transformerBlock->feedForward1[0], seq_len, intermediate, output);
+        if(l<3){ // load successive layer from flash
+            w25q128jw_wait_quad_dma_async((uint32_t *)transformerBlock->feedForward0[0]->weight, 68*2);
+            if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)transformerBlock->feedForward1[l+1]->weight),(uint32_t *)transformerBlock->feedForward1[0]->weight, 160) != FLASH_OK)return 1;
+        }
         #ifdef PRINT_INTERMEDIATE_CYCLES
             dense_time = timer_stop();
-            printf("feed forward 3rd dense time[%d]: %d\n", l, dense_time);
-
+            PRINTF("dense time[%d]: %d\n", l, dense_time);
             timer_start();
         #endif
         add(input, output, seq_len, transformerBlock->input_dim_);
         #ifdef PRINT_INTERMEDIATE_CYCLES
             add_time = timer_stop();
-            printf("2nd add time[%d]: %d\n", l, add_time);
+            PRINTF("add time[%d]: %d\n", l, add_time);
         #endif
     }
+    
     #ifdef PRINT_INTERMEDIATE_CYCLES
         timer_start();
     #endif
-    normalize(&transformerBlock->mlp_head_norm, input, input_normalized);
+
+    normalize(&transformerBlock->mlp_head_norm, input, input_normalized); 
+
     #ifdef PRINT_INTERMEDIATE_CYCLES
         normalize_time = timer_stop();
-        printf("final layer normalization time: %d\n", normalize_time);
-
+        PRINTF("normalize time: %d\n", normalize_time);
         timer_start();
     #endif
+
+    w25q128jw_wait_quad_dma_async(ram_buffer+32, 272*2);
     computeDense(transformerBlock->mlp_head_linear, 1, input_normalized, output);
+
     #ifdef PRINT_INTERMEDIATE_CYCLES
         dense_time = timer_stop();   
-        printf("final MLP dense time: %d\n", dense_time);
+        PRINTF("dense time: %d\n", dense_time);
     #endif
 }
