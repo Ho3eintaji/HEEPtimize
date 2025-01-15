@@ -9,7 +9,7 @@
 #include <stdint.h>
 // #include <stdlib.h>
 #include "math.h"
-#include "../param.h"
+#include "param.h"
 
 typedef struct {
     int seq_len_;
