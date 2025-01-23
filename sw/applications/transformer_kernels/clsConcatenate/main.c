@@ -3,26 +3,12 @@
 #include "core_v_mini_mcu.h"
 #include "tokenPosEmbeddingC.h"
 #include "defines.h"
+#include "data.h" // Include the generated header file
 
 #define PRINT
 
-#define SEQ_LEN 32
-#define INPUT_DIM 64
-
-#define INPUT_SIZE SEQ_LEN * INPUT_DIM
-
-// allocate in this section: (section(".xheep_data_interleaved")
-quant_bit_width __attribute__((section(".xheep_data_interleaved"))) input[INPUT_SIZE] = {0};
-quant_bit_width __attribute__((section(".xheep_data_interleaved"))) cls_token_vector[INPUT_DIM] = {0};
-
 int main() {
-    // Initialize input and cls_token_vector with some values
-    for (int i = 0; i < INPUT_SIZE; i++) {
-        input[i] = i; // Example initialization
-    }
-    for (int i = 0; i < INPUT_DIM; i++) {
-        cls_token_vector[i] = i; // Example initialization
-    }
+    // No need to read input data from files, data is already included in data.h
 
     TokenPosEmbedding tokenPosEmbedding;
     createTokenPosEmbedding(&tokenPosEmbedding, NULL, cls_token_vector, SEQ_LEN, INPUT_DIM, SEQ_LEN + 1);

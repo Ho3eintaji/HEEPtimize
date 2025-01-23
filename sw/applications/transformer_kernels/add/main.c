@@ -1,20 +1,16 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include "timer_sdk.h"
 #include "core_v_mini_mcu.h"
 #include "defines.h"
 #include "addNormC.h"
+#include "data.h" // Include the generated header file
 
 #define PRINT
-#define DATA_SIZE 64
-
-quant_bit_width __attribute__((section(".xheep_data_interleaved"))) inputA[DATA_SIZE] = {0};
-quant_bit_width __attribute__((section(".xheep_data_interleaved"))) inputB[DATA_SIZE] = {0};
+#define DATA_SIZE (SEQ_LEN * INPUT_DIM)
 
 int main() {
-    for (int i = 0; i < DATA_SIZE; i++) {
-        inputA[i] = i;
-        inputB[i] = 2;
-    }
+    // No need to read input data from files, data is already included in data.h
 
 #ifdef PRINT
     timer_cycles_init();
@@ -22,7 +18,7 @@ int main() {
     timer_start();
 #endif
 
-    add(inputA, inputB, 1, DATA_SIZE); // Call the add function
+    add(inputA, inputB, SEQ_LEN, INPUT_DIM); // Call the add function
 
 #ifdef PRINT
     time = timer_stop();
