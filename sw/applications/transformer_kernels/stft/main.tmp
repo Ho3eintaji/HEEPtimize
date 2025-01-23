@@ -1,0 +1,106 @@
+#include <stdio.h>
+#include "timer_sdk.h"
+#include "core_v_mini_mcu.h"
+#include "defines.h"
+// Include your STFT function header, e.g. "fft.h" or similar
+
+#define PRINT
+#define SEQ_LEN 256
+
+quant_bit_width __attribute__((section(".xheep_data_interleaved"))) input[SEQ_LEN] = {0};
+quant_bit_width __attribute__((section(".xheep_data_interleaved"))) output[SEQ_LEN] = {0};
+
+int main() {
+    for (int i = 0; i < SEQ_LEN; i++) {
+        input[i] = i; 
+    }
+
+#ifdef PRINT
+    timer_cycles_init();
+    int time = 0;
+    timer_start();
+#endif
+
+    // Call your STFT routine here, e.g. stft(input, output);
+
+#ifdef PRINT
+    time = timer_stop();
+    PRINTF("stft time: %d\n", time);
+#endif
+    return 0;
+}
+
+
+// #include <stdio.h>
+// #include "timer_sdk.h"
+// #include "core_v_mini_mcu.h"
+// #include "defines.h"
+// #include "fft.h"
+
+// #define PRINT
+// #define RAW_SIGNAL_SIZE 3072
+// #define STFT_VEC_SIZE 1600 // Adjust based on patchHeight and patchWidth
+// #define PATCH_HEIGHT 80
+// #define PATCH_WIDTH 5
+// #define OVERLAP 64
+
+// // External definitions (adjust paths as necessary)
+// extern quant_bit_width raw_signal[/* appropriate size */];
+// extern quant_bit_width hanning[256];
+// extern quant_bit_width ram_buffer[/* appropriate size */];
+
+// // Function to compute logarithmic amplitude
+// quant_bit_width compute_log_amp(int32_t real, int32_t imag);
+
+// // Initialize FFT data with Hanning window
+// void initialize_stft(fft_complex_t *data, const quant_bit_width *raw_input_signal) {
+//     for (int i = 0; i < 256; i++) {
+//         data[i].r = MUL_HQ(raw_input_signal[i], hanning[i]);
+//         data[i].i = 0;
+//     }
+//     for (int i = 256; i < 512; i++) {
+//         data[i].r = 0;
+//         data[i].i = 0;
+//     }
+// }
+
+// int main() {
+//     quant_bit_width *rawInputSignal = raw_signal + 160 * 15;
+//     quant_bit_width *stftVec = raw_signal; // Adjust based on actual memory layout
+//     fft_complex_t *data = (fft_complex_t*)&ram_buffer[7216]; // Adjust based on actual memory layout
+
+//     #ifdef PRINT
+//         timer_cycles_init();
+//         int time = 0;
+//         timer_start();
+//     #endif
+
+//     for (int ch = 0; ch < 20; ch++) {
+//         for (int time_step = 0; time_step < 15; time_step++) {
+//             quant_bit_width *rawSignalPtr = rawInputSignal + ch * 3072 + (256 - OVERLAP) * time_step;
+//             initialize_stft(data, rawSignalPtr);
+//             fft_fft(data, 9); // Perform FFT with 2^9 points
+
+//             quant_bit_width *stftVecPtr = stftVec + ch * 15 * 160 + (time_step / PATCH_WIDTH) * PATCH_WIDTH * PATCH_HEIGHT + (time_step % PATCH_WIDTH);
+//             for (int index = 0; index < PATCH_HEIGHT; index++) {
+//                 quant_bit_width stft_int = compute_log_amp(data[index].r, data[index].i);
+//                 *stftVecPtr = stft_int;
+//                 stftVecPtr += PATCH_WIDTH;
+//             }
+
+//             stftVecPtr += PATCH_HEIGHT * PATCH_WIDTH * 2;
+//             for (int index = PATCH_HEIGHT; index < 2 * PATCH_HEIGHT; index++) {
+//                 quant_bit_width stft_int = compute_log_amp(data[index].r, data[index].i);
+//                 *stftVecPtr = stft_int;
+//                 stftVecPtr += PATCH_WIDTH;
+//             }
+//         }
+//     }
+
+//     #ifdef PRINT
+//         time = timer_stop();
+//         PRINTF("stft time: %d\n", time);
+//     #endif
+
+//     return 0;
+// }
