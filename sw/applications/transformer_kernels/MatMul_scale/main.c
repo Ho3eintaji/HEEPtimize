@@ -9,17 +9,21 @@
 
 int main() {
 
-#ifdef PRINT
-    timer_cycles_init();
-    int time = 0;
-    timer_start();
-#endif
+    #ifdef DEBUG_PRINTS
+        PRINTF("Kernel: MatMul_scale, MAT_SIZE: %d, SHIFT_SCALE: %d\n", MAT_SIZE, SHIFT_SCALE);
+    #endif
 
-    MatMul_scale(input, SHIFT_SCALE, MAT_SIZE);
+    #ifdef PRINT
+        timer_cycles_init();
+        int time = 0;
+        timer_start();
+    #endif
 
-#ifdef PRINT
-    time = timer_stop();
-    PRINTF("MatMul_scale time: %d\n", time);
-#endif
+        MatMul_scale(input, SHIFT_SCALE, MAT_SIZE);
+
+    #ifdef PRINT
+        time = timer_stop();
+        PRINTF("MatMul_scale time: %d\n", time);
+    #endif
     return 0;
 }

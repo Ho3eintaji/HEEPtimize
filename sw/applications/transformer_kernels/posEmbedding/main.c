@@ -5,14 +5,16 @@
 #include "defines.h"
 #include "data.h"
 
-#define PRINT
-
 int main() {
+
+    #ifdef DEBUG_PRINTS
+        PRINTF("Kernel: posEmbedding, SEQ_LEN: %d, INPUT_DIM: %d\n", SEQ_LEN, INPUT_DIM);
+    #endif
 
     TokenPosEmbedding tokenPosEmbedding;
     createTokenPosEmbedding(&tokenPosEmbedding, pos_matrix, cls_token_vector, SEQ_LEN, INPUT_DIM, SEQ_LEN + 1);
 
-    #ifdef PRINT
+    #ifdef PRINT_TOTAL_CYCLES
         timer_cycles_init();
         int time = 0;
         timer_start();
@@ -20,7 +22,7 @@ int main() {
 
     posEmbedding(&tokenPosEmbedding, input);
 
-    #ifdef PRINT
+    #ifdef PRINT_TOTAL_CYCLES
         time = timer_stop();
         PRINTF("posEmbedding time: %d\n", time);
     #endif

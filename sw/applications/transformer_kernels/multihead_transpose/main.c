@@ -9,7 +9,11 @@
 
 int main() {
 
-    #ifdef PRINT
+    #ifdef DEBUG_PRINTS
+        PRINTF("Kernel: multihead_transpose, SEQ_LEN: %d, HEAD_HIDDEN_SIZE: %d, NUM_HEADS: %d\n", SEQ_LEN, HEAD_HIDDEN_SIZE, NUM_HEADS);
+    #endif
+    
+    #ifdef PRINT_TOTAL_CYCLES
         timer_cycles_init();
         int time = 0;
         timer_start();
@@ -17,7 +21,7 @@ int main() {
 
     multihead_transpose(input, output, SEQ_LEN, HEAD_HIDDEN_SIZE, NUM_HEADS);
 
-    #ifdef PRINT
+    #ifdef PRINT_TOTAL_CYCLES
         time = timer_stop();
         PRINTF("multihead_transpose time: %d\n", time);
     #endif

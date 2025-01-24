@@ -8,10 +8,14 @@
 #define PRINT
 
 int main() {
+    #ifdef DEBUG_PRINTS
+        PRINTF("Kernel: activation(gelu), DATA_SIZE: %d\n", DATA_SIZE);
+    #endif
+
     Dense dense;
     createDense(&dense, DATA_SIZE, DATA_SIZE, NULL, NULL); // Initialize Dense structure
 
-#ifdef PRINT
+#ifdef PRINT_TOTAL_CYCLES
     timer_cycles_init();
     int time = 0;
     timer_start();
@@ -19,7 +23,7 @@ int main() {
 
     activation(&dense, DATA_SIZE, input, output);
 
-#ifdef PRINT
+#ifdef PRINT_TOTAL_CYCLES
     time = timer_stop();
     PRINTF("activation time: %d\n", time);
 #endif

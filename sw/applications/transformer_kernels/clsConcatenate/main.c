@@ -8,12 +8,14 @@
 #define PRINT
 
 int main() {
-    // No need to read input data from files, data is already included in data.h
+    #ifdef DEBUG_PRINTS
+        PRINTF("Kernel: clsConcatenate, SEQ_LEN: %d, INPUT_DIM: %d\n", SEQ_LEN, INPUT_DIM);
+    #endif
 
     TokenPosEmbedding tokenPosEmbedding;
     createTokenPosEmbedding(&tokenPosEmbedding, NULL, cls_token_vector, SEQ_LEN, INPUT_DIM, SEQ_LEN + 1);
 
-    #ifdef PRINT
+    #ifdef PRINT_TOTAL_CYCLES
         timer_cycles_init();
         int time = 0;
         timer_start();
@@ -21,7 +23,7 @@ int main() {
 
     clsConcatenate(&tokenPosEmbedding, input, input);
 
-    #ifdef PRINT
+    #ifdef PRINT_TOTAL_CYCLES
         time = timer_stop();
         PRINTF("clsConcatenate time: %d\n", time);
     #endif

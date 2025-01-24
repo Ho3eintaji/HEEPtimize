@@ -1,19 +1,17 @@
 #include <stdio.h>
 #include "timer_sdk.h"
 #include "core_v_mini_mcu.h"
-#include "addNormC.h"
+#include "transposeC.h"
 #include "defines.h"
 #include "data.h"
+
+#define PRINT
 
 int main() {
 
     #ifdef DEBUG_PRINTS
-        PRINTF("Kernel: normalize, SEQ_LEN: %d, INPUT_DIM: %d\n", SEQ_LEN, INPUT_DIM);
+        PRINTF("Kernel: transpose, SEQ_LEN: %d, INPUT_DIM: %d\n", SEQ_LEN, INPUT_DIM);
     #endif
-
-    // Create AddNormalize structure
-    AddNormalize addNorm = createAddNormalize(SEQ_LEN, INPUT_DIM, weight, bias);
-
 
     #ifdef PRINT_TOTAL_CYCLES
         timer_cycles_init();
@@ -21,11 +19,11 @@ int main() {
         timer_start();
     #endif
 
-    normalize(&addNorm, input, input_normalized); 
-    
+    transpose_quant(input, output, SEQ_LEN, INPUT_DIM);
+
     #ifdef PRINT_TOTAL_CYCLES
         time = timer_stop();
-        PRINTF("normalize time: %d\n", time);
+        PRINTF("transpose time: %d\n", time);
     #endif
 
     return 0;
