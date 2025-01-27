@@ -30,6 +30,7 @@ int main() {
     add(inputA, inputB, SEQ_LEN, INPUT_DIM); // Call the add function
     vcd_disable();
 
+
     #ifdef PRINT_TOTAL_CYCLES
         time = timer_stop();
         PRINTF("add time: %d\n", time);
@@ -41,16 +42,14 @@ int main() {
         timer_start();
     #endif
 
+    vcd_enable();
     add_carus(inputA, inputB, SEQ_LEN, INPUT_DIM); // Call the add function
+    vcd_disable();
 
     #ifdef PRINT_TOTAL_CYCLES
         time = timer_stop();
         PRINTF("add carus time: %d\n", time);
     #endif
 
-<<<<<<< HEAD
-
-=======
->>>>>>> adding carus ones kernels for transformer
     return 0;
 }

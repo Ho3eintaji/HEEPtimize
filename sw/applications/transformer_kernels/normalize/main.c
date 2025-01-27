@@ -12,6 +12,7 @@ int main() {
         PRINTF("Kernel: normalize, SEQ_LEN: %d, INPUT_DIM: %d\n", SEQ_LEN, INPUT_DIM);
     #endif
 
+
     if (vcd_init() != 0) return 1;
     system_initialization();
     int time = 0;
@@ -29,7 +30,6 @@ int main() {
     vcd_enable();
     normalize(&addNorm, input, input_normalized); 
     vcd_disable();
-    // normalize_carus(&addNorm, input, input_normalized); 
     
     #ifdef PRINT_TOTAL_CYCLES
         time = timer_stop();
@@ -42,8 +42,9 @@ int main() {
         timer_start();
     #endif
 
-    // normalize(&addNorm, input, input_normalized); 
+    vcd_enable();
     normalize_carus(&addNorm, input, input_normalized); 
+    vcd_disable();
     
     #ifdef PRINT_TOTAL_CYCLES
         time = timer_stop();

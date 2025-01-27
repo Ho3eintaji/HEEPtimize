@@ -14,6 +14,7 @@ int main() {
         PRINTF("Kernel: dense, SEQ_LEN: %d, INPUT_DIM: %d, OUTPUT_DIM: %d\n", SEQ_LEN, INPUT_DIM, OUTPUT_DIM);
     #endif
 
+
     if (vcd_init() != 0) return 1;
     system_initialization();
     int time = 0;
@@ -27,7 +28,9 @@ int main() {
         time = 0;
         timer_start();
     #endif
+    vcd_enable();
     computeDense_carus(&dense, SEQ_LEN, input, output);
+    vcd_disable();
     #ifdef PRINT_TOTAL_CYCLES
         time = timer_stop();
         PRINTF("computeDense carus: %d\n", time);
