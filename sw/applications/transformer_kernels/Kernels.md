@@ -92,4 +92,27 @@
 - computeDense(transformerBlock->mlp_head_linear, 1, input_normalized, output);
 
 
+scl enable devtoolset-10 bash 
+source ~/.bashrc 
+source heepatia/scripts/env.sh 
+
+./run_simulations.sh softmax_121 "PROJECT=transformer_kernels/softmax PARAM_SEQ_LEN=121"
+
+./run_simulations.sh gelu_484 "PROJECT=transformer_kernels/gelu PARAM_DATA_SIZE=484"
+
+
+./run_simulations.sh MatMul_scale_121_16 "PROJECT=transformer_kernels/MatMul_scale PARAM_DATA_SIZE=1"
+
+./run_simulations.sh transpose_121_16 "PROJECT=transformer_kernels/transpose PARAM_SEQ_LEN=121 PARAM_INPUT_DIM=4"
+
+
+
+./run_simulations.sh multihead_transpose_121_4_4 "PROJECT=transformer_kernels/multihead_transpose PARAM_SEQ_LEN=121 PARAM_HEAD_HIDDEN_SIZE=4 PARAM_NUM_HEADS=4"
+./run_simulations.sh add_121_16 "PROJECT=transformer_kernels/add PARAM_SEQ_LEN=121 PARAM_INPUT_DIM=16"
+./run_simulations.sh MatMul_multiply_121_121_4 "PROJECT=transformer_kernels/MatMul_multiply PARAM_SEQ_LEN=121 PARAM_INPUT_DIM=121 PARAM_OUTPUT_DIM=4"
+./run_simulations.sh posEmbedding_120_16 "PROJECT=transformer_kernels/posEmbedding PARAM_SEQ_LEN=120 PARAM_INPUT_DIM=16"
+./run_simulations.sh normalize_121_16 "PROJECT=transformer_kernels/normalize PARAM_SEQ_LEN=121 PARAM_INPUT_DIM=16"
+./run_simulations.sh dense1_16_16 "PROJECT=transformer_kernels/dense PARAM_SEQ_LEN=1 PARAM_INPUT_DIM=16 PARAM_OUTPUT_DIM=16"
+
+
 

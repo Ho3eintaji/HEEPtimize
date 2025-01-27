@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "timer_sdk.h"
 #include "core_v_mini_mcu.h"
-#include "dense_layerC.h"
+#include "dense_layer.h"
 #include "defines.h"
 #include "data.h" // Include the generated header file
 #include "vcd_util.h"
@@ -15,6 +15,8 @@ int main() {
     #endif
 
     if (vcd_init() != 0) return 1;
+    system_initialization();
+    int time = 0;
 
     // Create Dense structure
     Dense dense;
@@ -22,7 +24,18 @@ int main() {
 
     #ifdef PRINT_TOTAL_CYCLES
         timer_cycles_init();
-        int time = 0;
+        time = 0;
+        timer_start();
+    #endif
+    computeDense_carus(&dense, SEQ_LEN, input, output);
+    #ifdef PRINT_TOTAL_CYCLES
+        time = timer_stop();
+        PRINTF("computeDense carus: %d\n", time);
+    #endif
+
+    #ifdef PRINT_TOTAL_CYCLES
+        timer_cycles_init();
+        time = 0;
         timer_start();
     #endif
 
@@ -32,8 +45,10 @@ int main() {
 
     #ifdef PRINT_TOTAL_CYCLES
         time = timer_stop();
-        PRINTF("computeDense time: %d\n", time);
+        PRINTF("computeDense cpu: %d\n", time);
     #endif
+
+
 
     return 0;
 }

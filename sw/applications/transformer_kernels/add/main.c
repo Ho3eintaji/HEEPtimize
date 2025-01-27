@@ -3,9 +3,10 @@
 #include "timer_sdk.h"
 #include "core_v_mini_mcu.h"
 #include "defines.h"
-#include "addNormC.h"
+#include "add.h"
 #include "data.h" // Include the generated header file
 #include "vcd_util.h"
+#include "dma_carus_transfers.h"
 
 #define PRINT
 #define DATA_SIZE (SEQ_LEN * INPUT_DIM)
@@ -17,6 +18,7 @@ int main() {
     #endif
 
     if (vcd_init() != 0) return 1;
+    system_initialization();
 
     #ifdef PRINT_TOTAL_CYCLES
         timer_cycles_init();
@@ -32,6 +34,20 @@ int main() {
         time = timer_stop();
         PRINTF("add time: %d\n", time);
     #endif
+
+    #ifdef PRINT_TOTAL_CYCLES
+        timer_cycles_init();
+        time = 0;
+        timer_start();
+    #endif
+
+    add_carus(inputA, inputB, SEQ_LEN, INPUT_DIM); // Call the add function
+
+    #ifdef PRINT_TOTAL_CYCLES
+        time = timer_stop();
+        PRINTF("add carus time: %d\n", time);
+    #endif
+
 
     return 0;
 }
