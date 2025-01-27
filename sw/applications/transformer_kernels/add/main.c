@@ -48,6 +48,9 @@ int main() {
         PRINTF("add carus time: %d\n", time);
     #endif
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> adding carus ones kernels for transformer
     return 0;
 }
