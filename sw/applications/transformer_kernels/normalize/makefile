@@ -5,7 +5,7 @@
 
 PARAM_SEQ_LEN ?= 128
 PARAM_INPUT_DIM ?= 64
-PARAM_OUTPUT_DIM ?= 64
+PARAM_OUTPUT_DIM ?= 16
 
 #####################
 # ----- RULES ----- #

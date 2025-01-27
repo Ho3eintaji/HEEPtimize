@@ -4,12 +4,15 @@
 #include "addNormC.h"
 #include "defines.h"
 #include "data.h"
+#include "vcd_util.h"
 
 int main() {
 
     #ifdef DEBUG_PRINTS
         PRINTF("Kernel: normalize, SEQ_LEN: %d, INPUT_DIM: %d\n", SEQ_LEN, INPUT_DIM);
     #endif
+
+    if (vcd_init() != 0) return 1;
 
     // Create AddNormalize structure
     AddNormalize addNorm = createAddNormalize(SEQ_LEN, INPUT_DIM, weight, bias);
@@ -21,7 +24,9 @@ int main() {
         timer_start();
     #endif
 
+    vcd_enable();
     normalize(&addNorm, input, input_normalized); 
+    vcd_disable();
     
     #ifdef PRINT_TOTAL_CYCLES
         time = timer_stop();

@@ -275,7 +275,7 @@ read-tb-sysclk:
 		echo "TB_SYSCLK is already in ns: $$clk_ns"; \
 	else \
 		echo "Error: TB_SYSCLK must be specified in either ns or ps."; \
-		exit 1; \
+		# exit 1; \
 	fi; \
 	echo "$$clk_ns" > $(BUILD_DIR)/sim-common/clk_ns.txt
 

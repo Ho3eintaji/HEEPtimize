@@ -4,8 +4,7 @@
 #include "transposeC.h"
 #include "defines.h"
 #include "data.h"
-
-#define PRINT
+#include "vcd_util.h"
 
 int main() {
 
@@ -13,13 +12,17 @@ int main() {
         PRINTF("Kernel: transpose, SEQ_LEN: %d, INPUT_DIM: %d\n", SEQ_LEN, INPUT_DIM);
     #endif
 
+    if (vcd_init() != 0) return 1;
+
     #ifdef PRINT_TOTAL_CYCLES
         timer_cycles_init();
         int time = 0;
         timer_start();
     #endif
 
+    vcd_enable();
     transpose_quant(input, output, SEQ_LEN, INPUT_DIM);
+    vcd_disable();
 
     #ifdef PRINT_TOTAL_CYCLES
         time = timer_stop();

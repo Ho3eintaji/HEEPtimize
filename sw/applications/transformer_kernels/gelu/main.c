@@ -4,6 +4,7 @@
 #include "defines.h"
 #include "dense_layerC.h"
 #include "data.h"
+#include "vcd_util.h"
 
 #define PRINT
 
@@ -11,6 +12,8 @@ int main() {
     #ifdef DEBUG_PRINTS
         PRINTF("Kernel: activation(gelu), DATA_SIZE: %d\n", DATA_SIZE);
     #endif
+
+    if (vcd_init() != 0) return 1;
 
     Dense dense;
     createDense(&dense, DATA_SIZE, DATA_SIZE, NULL, NULL); // Initialize Dense structure
@@ -21,7 +24,9 @@ int main() {
     timer_start();
 #endif
 
+    vcd_enable();
     activation(&dense, DATA_SIZE, input, output);
+    vcd_disable();
 
 #ifdef PRINT_TOTAL_CYCLES
     time = timer_stop();

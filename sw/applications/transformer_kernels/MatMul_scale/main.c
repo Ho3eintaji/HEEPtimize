@@ -4,8 +4,7 @@
 #include "defines.h"
 #include "matMulC.h"
 #include "data.h"
-
-#define PRINT
+#include "vcd_util.h"
 
 int main() {
 
@@ -13,13 +12,17 @@ int main() {
         PRINTF("Kernel: MatMul_scale, MAT_SIZE: %d, SHIFT_SCALE: %d\n", MAT_SIZE, SHIFT_SCALE);
     #endif
 
+    if (vcd_init() != 0) return 1;
+
     #ifdef PRINT
         timer_cycles_init();
         int time = 0;
         timer_start();
     #endif
 
+    vcd_enable();
         MatMul_scale(input, SHIFT_SCALE, MAT_SIZE);
+    vcd_disable();
 
     #ifdef PRINT
         time = timer_stop();
