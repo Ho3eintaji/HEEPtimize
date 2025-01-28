@@ -234,11 +234,11 @@ int main(void) {
 
 
     // } else if (POWER_TARGET == cpu) {
-        timer_cycles_init();
-        timer_start();
         // I want to give one tenth of carus load to cpu
         unsigned int a_cols_cpu = A_COLS / 9;
         unsigned int a_rows_cpu = A_ROWS / 2;
+        timer_cycles_init();
+        timer_start();
         vcd_enable();
         normalize(a_rows_cpu, a_cols_cpu, A, R_cpu);
         vcd_disable();
@@ -267,9 +267,9 @@ int main(void) {
     return 0;
 #endif
 
-    // printf("CPU: %u\n", cpu_cycles);
-    // printf("Carus: %u\n", carus_cycles);
-    // printf("Carus-CPU: %u\n", carus_cpu_cycles);
+    printf("CPU: %u\n", cpu_cycles);
+    printf("Carus: %u\n", carus_cycles);
+    printf("Carus-CPU: %u\n", carus_cpu_cycles);
 
     // // Optional verification checks
     // // ----------------------------
