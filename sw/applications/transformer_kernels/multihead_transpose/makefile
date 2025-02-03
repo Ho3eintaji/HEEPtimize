@@ -3,8 +3,8 @@
 # ----- CONFIGURATION ----- #
 #############################
 
-PARAM_SEQ_LEN ?= 32
-PARAM_HEAD_HIDDEN_SIZE ?= 64
+PARAM_SEQ_LEN ?= 121
+PARAM_HEAD_HIDDEN_SIZE ?= 4
 PARAM_NUM_HEADS ?= 4
 
 #####################
