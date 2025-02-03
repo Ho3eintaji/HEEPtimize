@@ -42,9 +42,9 @@
 /**                                                                        **/
 /****************************************************************************/
 
-#define CHECK_RESULTS
-#define PRINT_TIMING_DETAILS
-#define TIMER_ENABLED
+// #define CHECK_RESULTS
+// #define PRINT_TIMING_DETAILS
+// #define TIMER_ENABLED
 #define CGRA_COL_INPUT_SIZE 4
 
 #define CARUS_INSTANCE 0
@@ -91,17 +91,17 @@ static uint8_t              cgra_slot;
 // CGRA input and output buffers
 static int32_t cgra_input[CGRA_N_COLS][CGRA_COL_INPUT_SIZE]    __attribute__ ((aligned (4)));
 
-#ifdef CGRA
-    int32_t R_cgra[R_ROWS*R_COLS] __attribute__((section(".xheep_data_interleaved"))); 
-#endif
 
-#ifdef CPU
-    data_t R_cpu[R_ROWS*R_COLS] __attribute__((section(".xheep_data_interleaved")));
-#endif
+int32_t R_cgra[R_ROWS*R_COLS] __attribute__((section(".xheep_data_interleaved"))); 
+
+
+
+data_t R_cpu[R_ROWS*R_COLS] __attribute__((section(".xheep_data_interleaved")));
+
 
 /****************************************************************************/
 
-void main()
+int main(void)
 {
 #ifdef PRINT_TIMING_DETAILS
     printf("========================================\n");
@@ -120,7 +120,7 @@ void main()
     unsigned int b_cols = B_COLS;
 
     uint32_t a_rows_cpu = A_ROWS;
-    uint32_t a_cols_cpu = A_COLS;
+    uint32_t a_cols_cpu = A_COLS/2;
     uint32_t b_cols_cpu = B_COLS/9;
 
     uint32_t cpu_cycles = 0;
@@ -164,7 +164,7 @@ void main()
 
 #ifdef CARUS
     if (carus_init(0) != 0) return 1;
-    if (carus_load_kernel(0, carus_matmul, CARUS_MATMUL_SIZE, NULL) != 0) return 1;
+    if (carus_load_kernel(0, carus_matmul, CARUS_MATMUL_SIZE, 0) != 0) return 1;
     cfg.vl = VL;
     switch (ELEM_SIZE)
     {
@@ -196,15 +196,15 @@ void main()
         row_ptr = (data_t *)carus_vrf(0, CARUS_MATMUL_B_VREG + i);
         dma_copy((uint32_t)row_ptr, (uint32_t)(B + i * B_COLS), B_COLS * ELEM_SIZE, 0, dma_type, dma_type, 0);
     }
-    timer_cycles_init();
-    timer_start();
-    vcd_enable();
-    // Run the kernel
-    if (carus_run_kernel(0) != 0) return 1;
-    // Wait for the kernel to complete
-    if (carus_wait_done(0) != 0) return 1;
-    vcd_disable();
-    carus_compute_cycles = timer_stop();
+    // timer_cycles_init();
+    // timer_start();
+    // vcd_enable();
+    // // Run the kernel
+    // if (carus_run_kernel(0) != 0) return 1;
+    // // Wait for the kernel to complete
+    // if (carus_wait_done(0) != 0) return 1;
+    // vcd_disable();
+    // carus_compute_cycles = timer_stop();
 
 #endif // RUN_CARUS
 
@@ -216,97 +216,97 @@ void main()
     cgra_slot = cgra_get_slot(&cgra);
 
     // Col 0: &B[0][0], nItLoopColsC, &A[0][0], &C[0][3]
-    cgra_input[0][0] = &B[0];
+    cgra_input[0][0] = (int32_t)&B[0];
     cgra_input[0][1] = R_COLS/CGRA_N_ROWS;
-    cgra_input[0][2] = &A[0];
-    cgra_input[0][3] = &R_cgra[3];
+    cgra_input[0][2] = (int32_t)&A[0];
+    cgra_input[0][3] = (int32_t)&R_cgra[3];
     // Col 1: &C[1][0], &B[0][1], nItLoopsColsA, &A[1][0]
-    cgra_input[1][0] = &R_cgra[R_COLS];
-    cgra_input[1][1] = &B[1];
+    cgra_input[1][0] = (int32_t)&R_cgra[R_COLS];
+    cgra_input[1][1] = (int32_t)&B[1];
     cgra_input[1][2] = A_COLS;
-    cgra_input[1][3] = &A[A_COLS];
+    cgra_input[1][3] = (int32_t)&A[A_COLS];
     // Col 2: &A[2][0], &C[2][1], &B[0][2], nItLoopColsC
-    cgra_input[2][0] = &A[2*A_COLS];
-    cgra_input[2][1] = &R_cgra[2*R_COLS+1];
-    cgra_input[2][2] = &B[2];
+    cgra_input[2][0] = (int32_t)&A[2*A_COLS];
+    cgra_input[2][1] = (int32_t)&R_cgra[2*R_COLS+1];
+    cgra_input[2][2] = (int32_t)&B[2];
     cgra_input[2][3] = R_COLS/CGRA_N_ROWS;
     // Col 3: nItLoopRowsC, &A[3][0], &C[3][2], &B[0][3], 
     cgra_input[3][0] = R_ROWS/CGRA_N_COLS;
-    cgra_input[3][1] = &A[3*A_COLS];
-    cgra_input[3][2] = &R_cgra[3*R_COLS+2];
-    cgra_input[3][3] = &B[3];
+    cgra_input[3][1] = (int32_t)&A[3*A_COLS];
+    cgra_input[3][2] = (int32_t)&R_cgra[3*R_COLS+2];
+    cgra_input[3][3] = (int32_t)&B[3];
 
     // Set CGRA kernel L/S pointers
     for(int col_idx = 0 ; col_idx < CGRA_N_COLS ; col_idx++){
-      cgra_set_read_ptr ( &cgra, cgra_slot, (uint32_t) cgra_input[col_idx], col_idx );
+      cgra_set_read_ptr ( &cgra, cgra_slot, (int32_t) cgra_input[col_idx], col_idx );
     }
 
-    // oe-cgra, running the kernel
-    cgra_intr_flag = 0;
+    // // oe-cgra, running the kernel
+    // cgra_intr_flag = 0;
 
-    timer_cycles_init();
-    timer_start();
-    vcd_enable();
-    cgra_set_kernel( &cgra, cgra_slot, TRANSFORMER );
-    // Wait until CGRA is done
-    while(cgra_intr_flag==0) {wait_for_interrupt();}
-    vcd_disable();
+    // timer_cycles_init();
+    // timer_start();
+    // vcd_enable();
+    // cgra_set_kernel( &cgra, cgra_slot, TRANSFORMER );
+    // // Wait until CGRA is done
+    // while(cgra_intr_flag==0) {wait_for_interrupt();}
+    // vcd_disable();
 
-    cgra_compute_cycles = timer_stop();
+    // cgra_compute_cycles = timer_stop();
 
 #endif //CGRA
 
 #ifdef CPU
-    timer_cycles_init();
-    timer_start();
-    vcd_enable();
-    cpuMatMul(A, B, R_cpu, a_rows_cpu, a_cols_cpu, b_cols_cpu);
-    vcd_disable();
-    cpu_cycles = timer_stop();
+    // timer_cycles_init();
+    // timer_start();
+    // vcd_enable();
+    // cpuMatMul(A, B, R_cpu, a_rows_cpu, a_cols_cpu, b_cols_cpu);
+    // vcd_disable();
+    // cpu_cycles = timer_stop();
 #endif // RUN_CPU
 
 
 // if cpu and carus
-#ifdef CPU && CARUS
+#ifdef CPUUUUUU && CARUS
     // Run the kernel
-    timer_cycles_init();
-    timer_start();
-    if (carus_run_kernel(0) != 0) return 1;
-    vcd_enable();
-    cpuMatMul(A, B, R_cpu, a_rows_cpu, a_cols_cpu, b_cols_cpu);
-    if (carus_wait_done(0) != 0) return 1;
-    vcd_disable();
-    uint32_t cpu_carus_cycles = timer_stop();
+    // timer_cycles_init();
+    // timer_start();
+    // if (carus_run_kernel(0) != 0) return 1;
+    // vcd_enable();
+    // cpuMatMul(A, B, R_cpu, a_rows_cpu, a_cols_cpu, b_cols_cpu);
+    // if (carus_wait_done(0) != 0) return 1;
+    // vcd_disable();
+    // uint32_t cpu_carus_cycles = timer_stop();
 #endif
 
 // if cpu and cgra
-#ifdef CPU && CGRA
+#ifdef CPUUUU && CGRA
     // Run the kernel
-    timer_cycles_init();
-    timer_start();
+    // timer_cycles_init();
+    // timer_start();
 
-    // oe-cgra, running the kernel
-    cgra_intr_flag = 0;
-    cgra_set_kernel( &cgra, cgra_slot, TRANSFORMER );
-    vcd_enable();
-    cpuMatMul(A, B, R_cpu, a_rows_cpu, a_cols_cpu, B_COLS/8);
-    // Wait until CGRA is done
-    while(cgra_intr_flag==0) {wait_for_interrupt();}
-    vcd_disable();
-    uint32_t cpu_cgra_cycles = timer_stop();
+    // // oe-cgra, running the kernel
+    // cgra_intr_flag = 0;
+    // cgra_set_kernel( &cgra, cgra_slot, TRANSFORMER );
+    // vcd_enable();
+    // cpuMatMul(A, B, R_cpu, a_rows_cpu, a_cols_cpu, B_COLS/8);
+    // // Wait until CGRA is done
+    // while(cgra_intr_flag==0) {wait_for_interrupt();}
+    // vcd_disable();
+    // uint32_t cpu_cgra_cycles = timer_stop();
 #endif
 
-#ifdef CARUS && CGRA
-    // Run the kernel
-    timer_cycles_init();
-    timer_start();
-    if (carus_run_kernel(0) != 0) return 1;
-    cgra_intr_flag = 0;
-    cgra_set_kernel( &cgra, cgra_slot, TRANSFORMER );
-    vcd_enable();
-    if (carus_wait_done(0) != 0) return 1;
-    vcd_disable();
-    uint32_t carus_cgra_cycles = timer_stop();
+#ifdef CARUSS && CGRA
+    // // Run the kernel
+    // timer_cycles_init();
+    // timer_start();
+    // if (carus_run_kernel(0) != 0) return 1;
+    // cgra_intr_flag = 0;
+    // cgra_set_kernel( &cgra, cgra_slot, TRANSFORMER );
+    // vcd_enable();
+    // if (carus_wait_done(0) != 0) return 1;
+    // vcd_disable();
+    // uint32_t carus_cgra_cycles = timer_stop();
 #endif
 
 #ifdef CARUS && CPU && CGRA
@@ -334,13 +334,13 @@ void main()
 #endif
 
 
-    printf("CPU cycles: %u\n", cpu_cycles);
-    printf("CGRA cycles: %u\n", cgra_compute_cycles);
-    printf("Carus cycles: %u\n", carus_compute_cycles);
-    printf("Carus-CPU cycles: %u\n", cpu_carus_cycles);
-    printf("CGRA-CPU cycles: %u\n", cpu_cgra_cycles);
-    printf("Carus-CGRA cycles: %u\n", carus_cgra_cycles);
-    printf("Carus-CPU-CGRA cycles: %u\n", carus_cpu_cgra_cycles);
+    // printf("CPU cycles: %u\n", cpu_cycles);
+    // printf("CGRA cycles: %u\n", cgra_compute_cycles);
+    // printf("Carus cycles: %u\n", carus_compute_cycles);
+    // printf("Carus-CPU cycles: %u\n", cpu_carus_cycles);
+    // printf("CGRA-CPU cycles: %u\n", cpu_cgra_cycles);
+    // printf("Carus-CGRA cycles: %u\n", carus_cgra_cycles);
+    // printf("Carus-CPU-CGRA cycles: %u\n", carus_cpu_cgra_cycles);
 
 #ifdef CHECK_RESULTS
     // check carus, oe-cgra, and cput results to be the same as the golden result
@@ -377,57 +377,6 @@ void main()
 #endif
 
 return 0;
-
-
-
-
-  #ifdef PRINT_TIMING_DETAILS
-    printf("----------------------------------------\n");
-    printf("Matrix size: %u x %u * %u x %u\n", A_ROWS, A_COLS, A_COLS, B_COLS);
-    printf("----------------------------------------\n");
-    // Then details of carus
-    #ifdef RUN_CARUS
-    printf("NM-Carus\n");
-    printf("----------------------------------------\n");
-    printf("Initialization cycles: %u\n", carus_init_cycles);
-    printf("Load kernel cycles: %u\n", carus_load_cycles);
-    printf("Data move cycles: %u\n", carus_data_move_cycles);
-    printf("Compute cycles: %u\n", carus_compute_cycles);
-    printf("Total cycles: %u (load+mv+exe)\n", carus_cycles);
-    printf("----------------------------------------\n");
-    #endif
-    // Then details of caesar
-//     #ifdef RUN_CAESAR
-//     printf("NM-Caesar\n");
-//     printf("----------------------------------------\n");
-//     printf("Initialization cycles: %u\n", caesar_init_cycles);
-//     printf("Load kernel cycles: %u\n", caesar_load_cycles);
-//     printf("Data move cycles: %u\n", caesar_data_move_cycles);
-//     printf("Compute cycles: %u\n", caesar_compute_cycles);
-//     printf("Total cycles: %u (load+mv+exe)\n", caesar_cycles);
-//     printf("----------------------------------------\n");
-//     #endif
-    // Then details of oe-cgra
-    #ifdef RUN_CGRA
-    printf("OE-CGRA\n");
-    printf("----------------------------------------\n");
-    printf("Initialization cycles: %u\n", cgra_init_cycles);
-    printf("Load kernel cycles: %u\n", cgra_load_cycles);
-    printf("Data move cycles: %u\n", cgra_data_move_cycles);
-    printf("Compute cycles: %u\n", cgra_compute_cycles);
-    printf("Total cycles: %u (load+mv+exe)\n", cgra_cycles);
-    printf("----------------------------------------\n");
-    #endif
-    // Finally details of cpu
-    #ifdef RUN_CPU
-    printf("CPU\n");
-    printf("----------------------------------------\n");
-    printf("Compute cycles: %u\n", cpu_cycles);
-    printf("----------------------------------------\n"); 
-    #endif
-#endif
-  
-  return 0;
 }
 
 void cpuMatMul(data_t *A, data_t *B, data_t *R_cpu, unsigned int a_rows, unsigned int a_cols, unsigned int b_cols)

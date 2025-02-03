@@ -1,1 +1,5 @@
 output/*
+*.jpg
+*.pdf
+*.jpeg
+*.png

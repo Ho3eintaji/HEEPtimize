@@ -234,9 +234,11 @@ int main(void) {
 
 
     // } else if (POWER_TARGET == cpu) {
+
         // I want to give one tenth of carus load to cpu
-        unsigned int a_cols_cpu = A_COLS / 9;
-        unsigned int a_rows_cpu = A_ROWS / 2;
+        unsigned int a_cols_cpu = A_COLS / 10;
+        unsigned int a_rows_cpu = A_ROWS;
+
         timer_cycles_init();
         timer_start();
         vcd_enable();

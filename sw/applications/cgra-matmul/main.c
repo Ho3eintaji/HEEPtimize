@@ -50,7 +50,8 @@
 #include "rv_plic_regs.h"
 #include "hart.h"
 
-#include "timer_util.h"
+// #include "timer_util.h"
+#include "timer_sdk.h"
 
 #define PRINT_TIMING_DETAILS
 

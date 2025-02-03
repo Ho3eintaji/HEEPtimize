@@ -7,49 +7,52 @@
 #include "data.h" // Include the generated header file
 #include "vcd_util.h"
 #include "dma_carus_transfers.h"
+#include "vcd_util.h"
 
 #define PRINT
 #define DATA_SIZE (SEQ_LEN * INPUT_DIM)
 
 int main() {
     
-    #ifdef DEBUG_PRINTS
-        PRINTF("Kernel: add, SEQ_LEN: %d, INPUT_DIM: %d\n", SEQ_LEN, INPUT_DIM);
-    #endif
+    // #ifdef DEBUG_PRINTS
+    //     PRINTF("Kernel: add, SEQ_LEN: %d, INPUT_DIM: %d\n", SEQ_LEN, INPUT_DIM);
+    // #endif
 
     if (vcd_init() != 0) return 1;
     system_initialization();
+    if 
 
-    #ifdef PRINT_TOTAL_CYCLES
-        timer_cycles_init();
-        int time = 0;
-        timer_start();
-    #endif
+    // #ifdef PRINT_TOTAL_CYCLES
+    //     timer_cycles_init();
+    //     int time = 0;
+    //     timer_start();
+    // #endif
 
     vcd_enable();
     add(inputA, inputB, SEQ_LEN, INPUT_DIM); // Call the add function
     vcd_disable();
 
 
-    #ifdef PRINT_TOTAL_CYCLES
-        time = timer_stop();
-        PRINTF("add time: %d\n", time);
-    #endif
 
-    #ifdef PRINT_TOTAL_CYCLES
-        timer_cycles_init();
-        time = 0;
-        timer_start();
-    #endif
+    // #ifdef PRINT_TOTAL_CYCLES
+    //     time = timer_stop();
+    //     PRINTF("add time: %d\n", time);
+    // #endif
+
+    // #ifdef PRINT_TOTAL_CYCLES
+    //     timer_cycles_init();
+    //     time = 0;
+    //     timer_start();
+    // #endif
 
     vcd_enable();
     add_carus(inputA, inputB, SEQ_LEN, INPUT_DIM); // Call the add function
     vcd_disable();
 
-    #ifdef PRINT_TOTAL_CYCLES
-        time = timer_stop();
-        PRINTF("add carus time: %d\n", time);
-    #endif
+    // #ifdef PRINT_TOTAL_CYCLES
+    //     time = timer_stop();
+    //     PRINTF("add carus time: %d\n", time);
+    // #endif
 
     return 0;
 }
