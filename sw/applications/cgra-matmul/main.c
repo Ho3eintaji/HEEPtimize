@@ -52,6 +52,10 @@
 
 // #include "timer_util.h"
 #include "timer_sdk.h"
+#include "fast_intr_ctrl.h"
+#include "ext_irq.h"
+#include "dma_sdk.h"
+#include "vcd_util.h"
 
 #define PRINT_TIMING_DETAILS
 
@@ -139,7 +143,7 @@ void main()
   uint32_t cgra_load_cycles = 0;
   uint32_t cgra_data_move_cycles = 0;
   uint32_t cgra_compute_cycles = 0;
-  timer_init();
+  timer_cycles_init();
 
   // Enable and reset the CGRA performance counters
   cgra_perf_cnt_enable(&cgra, 1);
@@ -218,12 +222,15 @@ void main()
     // CGRA Execution
     // kcom_perfRecordStart(   &(kperf.time.cgra) );
     timer_start();
+    vcd_init();
+    vcd_enable();
     cgra_intr_flag = 0;
     cgra_set_kernel( &cgra, cgra_slot, TRANSFORMER );
     // Wait until CGRA is done
     while(cgra_intr_flag==0) {
       wait_for_interrupt();
     }
+    vcd_disable();
     // kcom_perfRecordStop(   &(kperf.time.cgra) );
     cgra_compute_cycles = timer_stop();
     cgra_cycles = cgra_init_cycles + cgra_load_cycles + cgra_data_move_cycles + cgra_compute_cycles;
