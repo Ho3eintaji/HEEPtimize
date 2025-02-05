@@ -1,0 +1,43 @@
+* gsm2_3x3 - Bug found on 15/06/23 - The gsm kernel gets values from an array and finds the maximum absolute value. At some point the maximum value so far is subtracted from the last computed absolute value. If the difference is negative (i.e. the maximum is still the largest value), the new value is assigned as the new max (contrary of what should happen). This is solved by inverting the subtraction or inverting the BSFA operands. Stands on gsm_3x3_v1
+
+* strsearch_4x4 - Bug found on 28/04/23 - Wrong memory accesses. Also resulted in buf-ix on CGRA RTL. stringsearch_4x4_v3 works ok with CGRA-X-HEEP from  commit 625acb1 and HEEPocrates from commit 32aa89de.
+  
+* Notes for Kernels:
+Loop length depends on the II, should be adjusted if multiple loop iteration are mapped in the kernel.
+
+Bitcount:
+Node 31: refers to the variable 'x' in the C code
+
+ReberseBits:
+Node 36: refers to the variable 'index' in the C code
+Node 37: refers to the variable 'NumBits' in the C code
+
+GSM:
+Node 31: contains the loop length
+Node 42: contains the address of d
+Node 27: contains the constant -32768
+Node 29: contains the constant 32767
+
+SHA1:
+Node 37: contains the loop length
+Node 48: contains the address of W
+
+SHA2:
+Node 44: contains the constant 1518500249
+Node 48: contains the loop length
+Node 59: contains the address of W
+
+sqrt:
+Node 21: contains the constant 16384
+Node 23: contains the loop length
+Node 34: contains *in_ptr
+
+strsearch:
+Livein 46 at time 0 on PE 15 is loading: patlen -1
+
+Livein 44 at time 0 on PE 14 is loading: lowervec[pat[patlen - 1]]
+Livein 45 at time 0 on PE 1 is loading: patlen
+Livein 41 at time 0 on PE 13 is loading skip2
+Livein 42 at time 0 on PE 7 is loading: &pat
+
+Livein 47 at time 0 on PE 10 is loading: &lowervec
