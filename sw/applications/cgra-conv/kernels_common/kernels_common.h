@@ -52,8 +52,8 @@
 /****************************************************************************/
 
 /* Operation Configurations */
-#define ENABLE_PRINTF           0
-#define ENABLE_DEBUG_PRINTF     0
+#define ENABLE_PRINTF           1
+#define ENABLE_DEBUG_PRINTF     1
 
 #define PRINT_ITERATION_VALUES  0
 #define PRINT_KERNEL_STATS      0
@@ -61,20 +61,20 @@
 #define PRINT_LATEX             0
 #define PRINT_TABBED            0
 #define PRINT_PLOT              0
-#define PRINT_RESULTS           0
+#define PRINT_RESULTS           1
 #define PRINT_CGRA_RESULTS      0
 
 #define REPEAT_FIRST_INPUT      1
 
 #define WATCHDOG_CYCLES         0
 
-#define ANALYZE_EVERYTHING      0
+#define ANALYZE_EVERYTHING      1
 
-#define EXECUTE_SOFTWARE        0
-#define MEASUREMENTS            0
-#define MEASURE_DEVIATION       0
-#define MEASURE_REPORTED        0
-#define MEASURE_RATIO           0
+#define EXECUTE_SOFTWARE        1
+#define MEASUREMENTS            1
+#define MEASURE_DEVIATION       1
+#define MEASURE_REPORTED        1
+#define MEASURE_RATIO           1
 
 #define PERFORM_RES_CHECK       0
 
