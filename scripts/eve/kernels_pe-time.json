@@ -90,7 +90,8 @@
       }
     }
   },
-  "conv2d": {
+  "conv2d_fxp": {},
+  "conv2d_int": {
     "cpu": {
       "int32": {
         "8x100_f8": 60525,
