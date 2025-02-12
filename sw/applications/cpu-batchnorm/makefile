@@ -7,7 +7,7 @@
 # ----- CONFIGURATION ----- #
 #############################
 
-KERNEL_PARAMS 		?= int32 --vector_num 28 --vector_len 200 --decimal_bits 12 --seed 8 --fxp False
+KERNEL_PARAMS 		?= int16 --vector_num 28 --vector_len 16 --decimal_bits 12 --seed 8 --fxp True
 
 #####################
 # ----- RULES ----- #

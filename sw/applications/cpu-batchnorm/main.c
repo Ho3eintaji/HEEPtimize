@@ -16,14 +16,14 @@ data_t R_cpu[A_SIZE] __attribute__((section(".xheep_data_interleaved"))); // Res
 // Fixed-point normalization function
 void normalize_fixed(int16_t seq_len, int16_t input_dim, int16_t *input, int16_t *output) {
     for (int i = 0; i < seq_len; i++) {
-        int16_t *in_ptr = input + i * input_dim;
-        int16_t *out_ptr = output + i * input_dim;
+        data_t *in_ptr = input + i * input_dim;
+        data_t *out_ptr = output + i * input_dim;
         int sum = 0;
         for (int j = 0; j < input_dim; j++) {
             sum += in_ptr[j];
         }
-        int16_t mean = (int16_t)((float)sum / input_dim);
-        int64_t variance = 0;
+        data_t mean = (int16_t)((float)sum / input_dim);
+        data_t_double variance = 0;
         for (int j = 0; j < input_dim; j++) {
             variance += MUL_HQ((in_ptr[j] - mean), (in_ptr[j] - mean));
         }
@@ -32,10 +32,10 @@ void normalize_fixed(int16_t seq_len, int16_t input_dim, int16_t *input, int16_t
         variance_float /= (1 << Q);
         float sd = sqrtf(variance_float);
         float sd_inv = 1.0f / (sd + 0.00001f);
-        int16_t sd_inv_int = (int16_t)(sd_inv * (1 << Q));
+        data_t sd_inv_int = (int16_t)(sd_inv * (1 << Q));
         for (int j = 0; j < input_dim; j++) {
-            int16_t norm = (int16_t)MUL((in_ptr[j] - mean), sd_inv_int);
-            out_ptr[j] = (int16_t)(MUL(norm, W[j]) + B[j]);
+            data_t norm = (data_t)MUL((in_ptr[j] - mean), sd_inv_int);
+            out_ptr[j] = (data_t)(MUL(norm, W[j]) + B[j]);
         }
     }
 }
@@ -66,9 +66,9 @@ void normalize_fixed(int16_t seq_len, int16_t input_dim, int16_t *input, int16_t
 // }
 
 // Helper: integer square root (using a simple iterative method)
-static inline int16_t isqrt(int32_t num) {
-    int32_t res = 0;
-    int32_t bit = 1L << 30;
+static inline data_t isqrt(data_t_double num) {
+    data_t_double res = 0;
+    data_t_double bit = 1L << 30;
     while (bit > num)
         bit >>= 2;
     while (bit != 0) {
@@ -80,30 +80,30 @@ static inline int16_t isqrt(int32_t num) {
         }
         bit >>= 2;
     }
-    return (int16_t)res;
+    return (data_t)res;
 }
 
 // Efficient integer normalization using fixed-point arithmetic (no float in inner loop)
-void normalize_int(int16_t seq_len, int16_t input_dim, int16_t *input, int16_t *output) {
+void normalize_int(data_t seq_len, data_t input_dim, data_t *input, data_t *output) {
     for (int i = 0; i < seq_len; i++) {
-        int16_t *in_ptr = input + i * input_dim;
-        int16_t *out_ptr = output + i * input_dim;
+        data_t *in_ptr = input + i * input_dim;
+        data_t *out_ptr = output + i * input_dim;
         int sum = 0;
         for (int j = 0; j < input_dim; j++) {
             sum += in_ptr[j];
         }
-        int16_t mean = sum / input_dim;
+        data_t mean = sum / input_dim;
         int variance = 0;
         for (int j = 0; j < input_dim; j++) {
-            int16_t diff = in_ptr[j] - mean;
+            data_t diff = in_ptr[j] - mean;
             variance += diff * diff;
         }
         variance /= input_dim;
-        int16_t sd = isqrt(variance);  // integer sqrt approximation
-        int16_t sd_inv_int = sd ? ((1 << Q) / sd) : (1 << Q);
+        data_t sd = isqrt(variance);  // integer sqrt approximation
+        data_t sd_inv_int = sd ? ((1 << Q) / sd) : (1 << Q);
         for (int j = 0; j < input_dim; j++) {
-            int16_t norm = MUL((in_ptr[j] - mean), sd_inv_int);
-            out_ptr[j] = (int16_t)(MUL(norm, W[j]) + B[j]);
+            data_t norm = MUL((in_ptr[j] - mean), sd_inv_int);
+            out_ptr[j] = (data_t)(MUL(norm, W[j]) + B[j]);
         }
     }
 }
