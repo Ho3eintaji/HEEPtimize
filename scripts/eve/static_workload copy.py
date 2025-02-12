@@ -3,25 +3,15 @@ import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 from apps import TSD, EpilepticSeizureConv2DArchitecture, LCT_conv  # Import the applications
-from timing_helper import get_cycles   # Import get_cycles (and related helpers if needed)
 
 # Default file paths
 DEFAULT_POWER_JSON = 'transformer-power.json'
-# Updated default timing file to use new kernels_pe-time.json
-DEFAULT_TIMING_JSON = 'kernels_pe-time.json'
+DEFAULT_TIMING_JSON = 'tsd-time.json'
 
 # Frequency in Hz (100 MHz)
 frequency = 100e6  # 100 MHz
 cycle_time_ns = 10  # Each cycle is 10 ns
 
-# Add kernel mapping for power lookups
-powers_kernel_mapping = {
-    "matmul_int": "matmul",
-    "matmul_fxp": "matmul",
-    "conv2d_int": "conv2d",
-    "conv2d_fxp": "conv2d"
-    # add more mappings if needed
-}
 
 def visualize_results(results):
     workload_names = list(results.keys())
@@ -72,57 +62,76 @@ def visualize_results(results):
     plt.tight_layout()
     plt.savefig("workload_comparison.png")
 
-def calculate_energy(kernel, size, pe, voltage, datatype, timing_data, power_data):
-    cycles, estimated = get_cycles(kernel, size, pe, datatype, timing_data)
-    time_ns = cycles * cycle_time_ns
+def calculate_energy(kernel, size, pe, voltage, timing_data, power_data):
+    # Get the number of cycles
+    n_cycles = timing_data[kernel][size][pe]
+    
+    # Calculate time in seconds
+    time_ns = n_cycles * cycle_time_ns
     time_s = time_ns * 1e-9
-    # Map kernel name for power data lookup if necessary
-    power_kernel = powers_kernel_mapping.get(kernel, kernel)
-    power_mW = power_data[power_kernel][pe][voltage]["total"]
+    
+    # Get the power in mW
+    power_mW = power_data[kernel][pe][voltage]["total"]
+    
+    # Calculate energy in mJ (power in mW * time in seconds)
     energy_mJ = power_mW * time_s
-    if estimated:
-        print(f"Note: Estimated cycles of {cycles} for {kernel} ({size}) on {pe} with {datatype}")
+    
     return energy_mJ, time_ns
 
-# Fix generate_workload_from_app: check group existence rather than key membership for candidate_pe
 def generate_workload_from_app(app, pe_priority, voltage, timing_data):
     workload = []
+
     for kernel_info in app:
         kernel = kernel_info["kernel"]
         size = kernel_info["shape"]
         repeat = kernel_info["repeat"]
         data_type = kernel_info["dataType"]
+
+        # Determine the processing element (PE) based on priority
         pe = None
         for candidate_pe in pe_priority:
-            # Check if the group exists and contains any size keys
-            if timing_data.get(kernel, {}).get(candidate_pe, {}).get(data_type, {}):
+            if candidate_pe in timing_data.get(kernel, {}).get(size, {}):
                 pe = candidate_pe
                 break
+
         if pe is None:
-            raise ValueError(f"No valid PE found for kernel {kernel} with size {size} and datatype {data_type}")
-        workload.append((kernel, size, pe, voltage, repeat, data_type))
+            raise ValueError(f"No valid PE found for kernel {kernel} with size {size}")
+
+        # Add the workload entry
+        workload.append((kernel, size, pe, voltage, repeat))
+
     return workload
 
 def calculate_total_energy_and_time(workload, power_data, timing_data):
-    total_energy = 0
-    total_time_ns = 0
-    for kernel, size, pe, voltage, num_repeats, datatype in workload:
-        try:
-            cycles, estimated = get_cycles(kernel, size, pe, datatype, timing_data)
-        except ValueError:
-            raise ValueError(f"Invalid kernel/pe/datatype combination: {kernel}, {pe}, {datatype}")
-        time_ns = cycles * cycle_time_ns
-        power_kernel = powers_kernel_mapping.get(kernel, kernel)
-        if power_kernel in power_data and pe in power_data[power_kernel] and voltage in power_data[power_kernel][pe]:
-            power_mW = power_data[power_kernel][pe][voltage]["total"]
+    total_energy = 0  # Total energy in mJ
+    total_time_ns = 0  # Total time in nanoseconds
+
+    for kernel, size, pe, voltage, num_repeats in workload:
+        # Get the number of cycles for the kernel
+        if kernel in timing_data and size in timing_data[kernel] and pe in timing_data[kernel][size]:
+            n_cycles = timing_data[kernel][size][pe]
+        else:
+            raise ValueError(f"Invalid kernel, size, or PE: {kernel}, {size}, {pe}")
+
+        # Calculate the time in nanoseconds
+        time_ns = n_cycles * cycle_time_ns
+        
+        # Get the power in mW
+        if kernel in power_data and pe in power_data[kernel] and voltage in power_data[kernel][pe]:
+            power_mW = power_data[kernel][pe][voltage]["total"]
         else:
             raise ValueError(f"Invalid kernel, PE, or voltage: {kernel}, {pe}, {voltage}")
+
+        # Calculate the energy in mJ (power in mW * time in seconds)
         energy_mJ = power_mW * (time_ns * 1e-9)
+        
+        # Multiply by the number of repetitions
         total_energy += energy_mJ * num_repeats
         total_time_ns += time_ns * num_repeats
-        if estimated:
-            print(f"Note: Estimated cycles of {cycles} for {kernel} ({size}) on {pe} with {datatype}")
+    
+    # Convert total time to milliseconds
     total_time_ms = total_time_ns * 1e-6
+
     return total_energy, total_time_ms
 
 def parse_arguments():
@@ -162,14 +171,14 @@ def main():
 
     # Generate workloads with different policies
     workload_cpu = generate_workload_from_app(app, pe_priority=["cpu"], voltage="0.80V", timing_data=timing_data)
-    # workload_cpu_carus = generate_workload_from_app(app, pe_priority=["carus", "cpu"], voltage="0.80V", timing_data=timing_data)
-    # workload_cpu_cgra = generate_workload_from_app(app, pe_priority=["cgra", "cpu"], voltage="0.80V", timing_data=timing_data)
+    workload_cpu_carus = generate_workload_from_app(app, pe_priority=["carus", "cpu"], voltage="0.80V", timing_data=timing_data)
+    workload_cpu_cgra = generate_workload_from_app(app, pe_priority=["cgra", "cpu"], voltage="0.80V", timing_data=timing_data)
     
     # Calculate total energy and time for each workload
     results = {
         "CPU Only": calculate_total_energy_and_time(workload_cpu, power_data, timing_data),
-        # "Carus + CPU": calculate_total_energy_and_time(workload_cpu_carus, power_data, timing_data),
-        # "CGRA + CPU": calculate_total_energy_and_time(workload_cpu_cgra, power_data, timing_data),
+        "Carus + CPU": calculate_total_energy_and_time(workload_cpu_carus, power_data, timing_data),
+        "CGRA + CPU": calculate_total_energy_and_time(workload_cpu_cgra, power_data, timing_data),
     }
 
     # Print results
