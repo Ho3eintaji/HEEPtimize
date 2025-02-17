@@ -37,7 +37,7 @@ TSD = [
       "kernel": "clsConcatenate",
       "shape": "120x16",
       "repeat": 1,
-      "dataType": DATA_TYPE_TSD
+      "dataType": "int32"
     },
     {
       # "kernel": "posEmbedding",
@@ -68,13 +68,13 @@ TSD = [
       "kernel": "transpose",
       "shape": "121x4",
       "repeat": 16,
-      "dataType": DATA_TYPE_TSD
+      "dataType": "int32"
     },
     {
       "kernel": "mm_scale",
       "shape": "121x4",
       "repeat": 16,
-      "dataType": DATA_TYPE_TSD
+      "dataType": "int32"
     },
     {
       "kernel": "matmul",
@@ -98,7 +98,7 @@ TSD = [
       "kernel": "mh_transpose",
       "shape": "121x4x4",
       "repeat": 4,
-      "dataType": DATA_TYPE_TSD
+      "dataType": "int32"
     },
     {
       "kernel": "matmul",
@@ -140,7 +140,7 @@ TSD = [
       "kernel": "gelu",
       "shape": "121x4",
       "repeat": 4,
-      "dataType": DATA_TYPE_TSD
+      "dataType": "int32"
     },
     {
       "kernel": "matmul",
@@ -174,7 +174,7 @@ TSD = [
     },
     {
       "kernel": "add",
-      "shape": "1x16",
+      "shape": "16",
       "repeat": 1,
       "dataType": DATA_TYPE_TSD
     }
@@ -231,12 +231,6 @@ SeizConv2D = [
       "dataType": DATA_TYPE_SeizConv2D
     },
     {
-      "kernel": "gap",
-      "shape": "6x250",
-      "repeat": 1,
-      "dataType": DATA_TYPE_SeizConv2D
-    },
-    {
       "kernel": "matmul",
       "shape": "1x1500x2",
       "repeat": 1,
@@ -289,8 +283,8 @@ LCT_conv = [
     },
     # (Flatten (3*63,128) and) posEembedding (addition) on I(189, 128) --> output: (189, 128)
     {
-      "kernel": "posEmbedding",
-      "shape": "189x128",
+      "kernel": "add",
+      "shape": "24192",
       "repeat": 1,
       "dataType": DATA_TYPE_LCT
     }

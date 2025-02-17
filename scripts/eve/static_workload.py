@@ -2,25 +2,27 @@ import json
 import argparse
 import matplotlib.pyplot as plt
 import numpy as np
-from apps import TSD, EpilepticSeizureConv2DArchitecture, LCT_conv  # Import the applications
+from apps import TSD, SeizConv2D, LCT_conv  
 from timing_helper import get_cycles   # Import get_cycles (and related helpers if needed)
 
-# Default file paths
+DEFAULT_APP = 'SeizConv2D'
+VOLTAGE = "0.90V"
+FREQ_MHZ = 100
+
 DEFAULT_POWER_JSON = 'transformer-power.json'
-# Updated default timing file to use new kernels_pe-time.json
 DEFAULT_TIMING_JSON = 'kernels_pe-time.json'
 
+
 # Frequency in Hz (100 MHz)
-frequency = 100e6  # 100 MHz
-cycle_time_ns = 10  # Each cycle is 10 ns
+frequency = FREQ_MHZ * 1e6
+cycle_time_ns = 1 / frequency * 1e9  # Each cycle is 10 ns
+
 
 # Add kernel mapping for power lookups
 powers_kernel_mapping = {
-    "matmul_int": "matmul",
-    "matmul_fxp": "matmul",
-    "conv2d_int": "conv2d",
-    "conv2d_fxp": "conv2d"
-    # add more mappings if needed
+    "conv2d": "matmul",
+    "relu": "matmul"
+
 }
 
 def visualize_results(results):
@@ -103,6 +105,36 @@ def generate_workload_from_app(app, pe_priority, voltage, timing_data):
         workload.append((kernel, size, pe, voltage, repeat, data_type))
     return workload
 
+# New function to generate workload based on minimal energy consumption per kernel
+def generate_energy_efficient_workload(app, voltage, timing_data, power_data):
+    workload = []
+    for kernel_info in app:
+        kernel = kernel_info["kernel"]
+        size = kernel_info["shape"]
+        repeat = kernel_info["repeat"]
+        data_type = kernel_info["dataType"]
+        power_kernel = powers_kernel_mapping.get(kernel, kernel)
+        best_energy = None
+        best_candidate = None
+        for candidate_pe, candidate_data in power_data.get(power_kernel, {}).items():
+            if voltage not in candidate_data:
+                continue
+            try:
+                cycles, estimated = get_cycles(kernel, size, candidate_pe, data_type, timing_data)
+            except Exception:
+                continue
+            time_ns = cycles * cycle_time_ns
+            time_s = time_ns * 1e-9
+            power_mW = candidate_data[voltage]["total"]
+            energy = power_mW * time_s
+            if best_energy is None or energy < best_energy:
+                best_energy = energy
+                best_candidate = candidate_pe
+        if best_candidate is None:
+            raise ValueError(f"No valid energy efficient PE found for kernel {kernel}")
+        workload.append((kernel, size, best_candidate, voltage, repeat, data_type))
+    return workload
+
 def calculate_total_energy_and_time(workload, power_data, timing_data):
     total_energy = 0
     total_time_ns = 0
@@ -132,7 +164,7 @@ def parse_arguments():
     parser.add_argument('--timing', type=str, default=DEFAULT_TIMING_JSON,
                         help=f"Path to timing JSON file (default: {DEFAULT_TIMING_JSON})")
     parser.add_argument('--app', type=str, choices=['TSD', 'EpilepticSeizureConv2DArchitecture', 'LCT_conv'],
-                        default='TSD', help="Application to run (default: TSD)")
+                        default=DEFAULT_APP, help="Application to run (default: TSD)")
     return parser.parse_args()
 
 def main():
@@ -153,28 +185,32 @@ def main():
     # Select the application based on the argument
     if args.app == 'TSD':
         app = TSD
-    elif args.app == 'EpilepticSeizureConv2DArchitecture':
-        app = EpilepticSeizureConv2DArchitecture
+    elif args.app == 'SeizConv2D':
+        app = SeizConv2D
     elif args.app == 'LCT_conv':
         app = LCT_conv
     else:
         raise ValueError(f"Invalid application: {args.app}")
 
     # Generate workloads with different policies
-    workload_cpu = generate_workload_from_app(app, pe_priority=["cpu"], voltage="0.80V", timing_data=timing_data)
-    # workload_cpu_carus = generate_workload_from_app(app, pe_priority=["carus", "cpu"], voltage="0.80V", timing_data=timing_data)
-    # workload_cpu_cgra = generate_workload_from_app(app, pe_priority=["cgra", "cpu"], voltage="0.80V", timing_data=timing_data)
+    workload_cpu = generate_workload_from_app(app, pe_priority=["cpu"], voltage=VOLTAGE, timing_data=timing_data)
+    workload_cpu_carus = generate_workload_from_app(app, pe_priority=["carus", "cpu"], voltage=VOLTAGE, timing_data=timing_data)
+    workload_cpu_cgra = generate_workload_from_app(app, pe_priority=["cgra", "cpu"], voltage=VOLTAGE, timing_data=timing_data)
+    workload_energy_efficient = generate_energy_efficient_workload(app, VOLTAGE, timing_data, power_data)
     
     # Calculate total energy and time for each workload
     results = {
         "CPU Only": calculate_total_energy_and_time(workload_cpu, power_data, timing_data),
-        # "Carus + CPU": calculate_total_energy_and_time(workload_cpu_carus, power_data, timing_data),
-        # "CGRA + CPU": calculate_total_energy_and_time(workload_cpu_cgra, power_data, timing_data),
+        "Carus + CPU": calculate_total_energy_and_time(workload_cpu_carus, power_data, timing_data),
+        "CGRA + CPU": calculate_total_energy_and_time(workload_cpu_cgra, power_data, timing_data),
+        "Energy Efficient": calculate_total_energy_and_time(workload_energy_efficient, power_data, timing_data)
     }
+
+    print(workload_cpu_carus)
 
     # Print results
     for workload_name, (energy, time) in results.items():
-        print(f"{workload_name}: Energy = {energy:.2f} mJ, Time = {time:.2f} ms")
+        print(f"{workload_name}: Energy = {energy:.3f} mJ, Time = {time:.2f} ms")
 
     # Visualize the results
     visualize_results(results)
