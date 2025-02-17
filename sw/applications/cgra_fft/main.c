@@ -50,20 +50,20 @@ uint16_t NumberOfBitsNeeded (uint16_t powerOfTwo);
  * --------------------------------------------------------------------------*/
 
 // FFT radix-2 variables
-fxp RealOut_fft0_fxp[FFT_SIZE] __attribute__ ((aligned (4))) = { 0 };
-fxp ImagOut_fft0_fxp[FFT_SIZE] __attribute__ ((aligned (4))) = { 0 };
+fxp RealOut_fft0_fxp[FFT_SIZE] __attribute__ ((aligned (4))) __attribute__((section(".xheep_data_interleaved"))) = { 0 };
+fxp ImagOut_fft0_fxp[FFT_SIZE] __attribute__ ((aligned (4))) __attribute__((section(".xheep_data_interleaved"))) = { 0 };
 
 #ifdef CGRA_100_PERCENT
-  fxp RealOut_fft1_fxp[FFT_SIZE] __attribute__ ((aligned (4))) = { 0 };
-  fxp ImagOut_fft1_fxp[FFT_SIZE] __attribute__ ((aligned (4))) = { 0 };
+  fxp RealOut_fft1_fxp[FFT_SIZE] __attribute__ ((aligned (4))) __attribute__((section(".xheep_data_interleaved"))) = { 0 };
+  fxp ImagOut_fft1_fxp[FFT_SIZE] __attribute__ ((aligned (4))) __attribute__((section(".xheep_data_interleaved"))) = { 0 };
 #endif
 
-fxp RealOut_fxp_exp[FFT_SIZE] __attribute__ ((aligned (4))) = { 0 };
-fxp ImagOut_fxp_exp[FFT_SIZE] __attribute__ ((aligned (4))) = { 0 };
+fxp RealOut_fxp_exp[FFT_SIZE] __attribute__ ((aligned (4))) __attribute__((section(".xheep_data_interleaved"))) = { 0 };
+fxp ImagOut_fxp_exp[FFT_SIZE] __attribute__ ((aligned (4))) __attribute__((section(".xheep_data_interleaved"))) = { 0 };
 
 #ifdef REAL_FFT
-  fxp re_tmp[FFT_SIZE/2+1] __attribute__ ((aligned (4))) = { 0 };
-  fxp im_tmp[FFT_SIZE/2+1] __attribute__ ((aligned (4))) = { 0 };
+  fxp re_tmp[FFT_SIZE/2+1] __attribute__ ((aligned (4))) __attribute__((section(".xheep_data_interleaved"))) = { 0 };
+  fxp im_tmp[FFT_SIZE/2+1] __attribute__ ((aligned (4))) __attribute__((section(".xheep_data_interleaved"))) = { 0 };
 #endif // REAL_FFT
 
 // one dim per core x n input values (data ptrs, constants, ...)
