@@ -65,9 +65,9 @@ void conv2D()
 
     for (l = 0; l < N_output; l++)//N_output = 1
     {
-        for (k = 0; k < 1; k++) // N_filter = 16
+        for (k = 0; k < N_filter; k++) // N_filter = 16
         {
-            for (r = 0; r < 1; r++) //row_output = 14
+            for (r = 0; r < row_output; r++) //row_output = 14
             {
                 for (c = 0; c < col_output; c++) //col_output = 14
                 {

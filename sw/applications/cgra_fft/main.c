@@ -90,9 +90,18 @@ static void handler_irq_cgra( uint32_t int_id )
  *                     main
  * --------------------------------------------------------------------------*/
 int main(void) {
+  
+  timer_cycles_init();
+  timer_start();
+  uint32_t t1, t2, t1_total, t2_total;
 
   PRINTF("Init CGRA context memory...\n");
+  t1 = timer_get_cycles();
   cgra_cmem_init(cgra_imem_bitstream, cgra_kmem_bitstream);
+  uint32_t t_cgra_init = timer_get_cycles() - t1;
+  #ifdef PRINT_TIME
+    PRINTF("Time to init CGRA context memory: %d\n", t2 - t1);
+  #endif
   PRINTF("\rdone\n");
 
   // Init the PLIC
@@ -133,6 +142,9 @@ int main(void) {
   //
   //////////////////////////////////////////////////////////
 #ifdef CPLX_FFT
+
+  t1_total = timer_get_cycles();
+  t1 = timer_get_cycles();
   
   cgra_perf_cnt_enable(&cgra, 1);
   uint16_t numBits = NumberOfBitsNeeded ( FFT_SIZE );
@@ -141,8 +153,6 @@ int main(void) {
   // STEP 1: bit reverse
   // PRINTF("Run input bit reverse reordering on %d points on CGRA...\n", FFT_SIZE);
 
-  timer_cycles_init();
-  timer_start();
   // Select request slot of CGRA (2 slots)
   uint32_t cgra_slot = cgra_get_slot(&cgra);
   column_idx = 0;
@@ -176,6 +186,9 @@ int main(void) {
   // Launch CGRA kernel
   cgra_set_kernel(&cgra, cgra_slot, CGRA_FTT_BITREV_ID);
 
+  uint32_t t_bitrev_launch = timer_get_cycles() - t1;
+  
+
 #ifdef CGRA_100_PERCENT
   cgra_slot = cgra_get_slot(&cgra);
   column_idx = 0;
@@ -210,14 +223,19 @@ int main(void) {
   cgra_set_kernel(&cgra, cgra_slot, CGRA_FTT_BITREV_ID);
 #endif // CGRA_100_PERCENT
 
+t1 = timer_get_cycles();
+
   // Wait CGRA is done
   cgra_intr_flag=0;
   while(cgra_intr_flag==0) {
     wait_for_interrupt();
   }
+  uint32_t t_bitrev_exe = timer_get_cycles() - t1;
 
   // Step 2: complex-valued FFT computation
   // PRINTF("Run a complex FFT of %d points on CGRA...\n", FFT_SIZE);
+
+  t1 = timer_get_cycles();
 
   cgra_slot = cgra_get_slot(&cgra);
   column_idx = 0;
@@ -242,6 +260,8 @@ int main(void) {
   #else
     cgra_set_kernel(&cgra, cgra_slot, CGRA_FTT_CPLX_ID);
   #endif
+
+  uint32_t t_fft_launch = timer_get_cycles() - t1;
 
 #ifdef CGRA_100_PERCENT
   cgra_slot = cgra_get_slot(&cgra);
@@ -269,11 +289,14 @@ int main(void) {
   #endif
 #endif // CGRA_100_PERCENT
 
+t1 = timer_get_cycles();
+
   // Wait CGRA is done
   cgra_intr_flag=0;
   while(cgra_intr_flag==0) {
     wait_for_interrupt();
   }
+  uint32_t t_fft_exe = timer_get_cycles() - t1;
   // // Complete the interrupt
   // plic_res = dif_plic_irq_complete(&rv_plic, 0, &intr_num);
   // if (plic_res != kDifPlicOk || intr_num != CGRA_INTR) {
@@ -282,8 +305,20 @@ int main(void) {
   // }
 #endif // CPLX_FFT
 
-uint32_t fft_cycles = timer_stop();
-printf("FFT cycles: %d\n", fft_cycles);
+uint32_t t_fft_total = timer_get_cycles() - t1_total;
+
+#ifdef PRINT_TIME
+  PRINTF("Time to init bitsream: %d\n", t_cgra_init);
+  PRINTF("====================================\n");
+  PRINTF("Time to run complex FFT on CGRA: %d\n", t_fft_total);
+  PRINTF("  - bit reverse launch: %d\n", t_bitrev_launch);
+  PRINTF("  - bit reverse execution: %d\n", t_bitrev_exe);
+  PRINTF("  - FFT launch: %d\n", t_fft_launch);
+  PRINTF("  - FFT execution: %d\n", t_fft_exe);
+  PRINTF("====================================\n");
+#endif // PRINT_TIME
+
+
 
 
 
