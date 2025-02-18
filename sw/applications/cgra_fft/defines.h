@@ -6,7 +6,7 @@
  *                     Application defines
  * --------------------------------------------------------------------------*/
 
-#define FFT_SIZE (512)
+#define FFT_SIZE (1024)
 
 // Choose complex or real values FFT
 #define CPLX_FFT
@@ -22,6 +22,9 @@
 
 // Define this to print more information
 #define DEBUG
+
+// Define this to use the CPU FFT implementation
+#define CPU_FFT
 
 // Use PRINTF instead of PRINTF to remove print by default
 #ifdef DEBUG

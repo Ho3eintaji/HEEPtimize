@@ -16,6 +16,8 @@
 #include "defines.h"
 #include "fft_data.h"
 
+#include "timer_sdk.h"
+
 #ifdef CPLX_FFT
   #if FFT_SIZE==512
     #include "fft_factors_512_32b_int.h"
@@ -44,6 +46,7 @@
  * --------------------------------------------------------------------------*/
 uint16_t ReverseBits (uint16_t index, uint16_t numBits);
 uint16_t NumberOfBitsNeeded (uint16_t powerOfTwo);
+void cpu_fft_radix2(fxp *real, fxp *imag, int n);
 
 /* --------------------------------------------------------------------------
  *                     Global variables
@@ -136,7 +139,10 @@ int main(void) {
   int8_t column_idx;
 
   // STEP 1: bit reverse
-  PRINTF("Run input bit reverse reordering on %d points on CGRA...\n", FFT_SIZE);
+  // PRINTF("Run input bit reverse reordering on %d points on CGRA...\n", FFT_SIZE);
+
+  timer_cycles_init();
+  timer_start();
   // Select request slot of CGRA (2 slots)
   uint32_t cgra_slot = cgra_get_slot(&cgra);
   column_idx = 0;
@@ -211,7 +217,7 @@ int main(void) {
   }
 
   // Step 2: complex-valued FFT computation
-  PRINTF("Run a complex FFT of %d points on CGRA...\n", FFT_SIZE);
+  // PRINTF("Run a complex FFT of %d points on CGRA...\n", FFT_SIZE);
 
   cgra_slot = cgra_get_slot(&cgra);
   column_idx = 0;
@@ -276,9 +282,16 @@ int main(void) {
   // }
 #endif // CPLX_FFT
 
+uint32_t fft_cycles = timer_stop();
+printf("FFT cycles: %d\n", fft_cycles);
+
+
+
 #ifdef REAL_FFT
   printf("REAL FFT KERNEL DEPRECATED FOR CURRENT CGRA ARCHITECTURE")
 #endif // REAL_FFT
+
+
 
 #ifdef CHECK_ERRORS
 
@@ -286,8 +299,8 @@ int main(void) {
   for (int i=0; i<FFT_SIZE; i++) {
     if(RealOut_fft0_fxp[i] != exp_output_real[i] ||
         ImagOut_fft0_fxp[i] != exp_output_imag[i]) {
-          printf("Real[%d] (out/expected) %08x != %08x)\n", i, RealOut_fft0_fxp[i], exp_output_real[i]);
-          printf("Imag[%d] (out/expected) %08x != %08x)\n", i, ImagOut_fft0_fxp[i], exp_output_imag[i]);
+          printf("Real[%d] (CGRA/expected) %08x != %08x)\n", i, RealOut_fft0_fxp[i], exp_output_real[i]);
+          printf("Imag[%d] (CGRA/expected) %08x != %08x)\n", i, ImagOut_fft0_fxp[i], exp_output_imag[i]);
         errors++;
       }
   }
@@ -332,5 +345,68 @@ uint16_t NumberOfBitsNeeded (uint16_t powerOfTwo)
   for (i=0;; i++) {
     if (powerOfTwo & (1 << i))
       return i;
+  }
+}
+
+
+// --- CPU FFT Implementation ---
+void cpu_fft_radix2(fxp *real, fxp *imag, int n) {
+  if (n < 2) {
+      // Base case: nothing to do for n = 1
+      return;
+  }
+
+  int numBits = NumberOfBitsNeeded(n);
+
+  // Bit-reversal permutation
+  for (int i = 0; i < n; i++) {
+      int j = ReverseBits(i, numBits);
+      if (j > i) {
+          // Swap real and imaginary parts
+          fxp temp_real = real[i];
+          fxp temp_imag = imag[i];
+          real[i] = real[j];
+          imag[i] = imag[j];
+          real[j] = temp_real;
+          imag[j] = temp_imag;
+      }
+  }
+
+  // Cooley-Tukey algorithm
+  for (int s = 1; s <= numBits; s++) {
+      int m = 1 << s;       // Butterfly size (2, 4, 8, ..., n)
+      int half_m = m >> 1;  // m/2
+
+      for (int k = 0; k < n; k += m) {
+          for (int j = 0; j < half_m; j++) {
+              // Calculate twiddle factor index (using lookup table)
+              int twiddle_index = j * (FFT_SIZE / m);
+
+              fxp w_real, w_imag;
+
+              //important part for handling 512, 1024, ... FFT sizes
+              if (twiddle_index < FFT_SIZE / 2) {
+                  w_real = f_real[twiddle_index];
+                  w_imag = f_imag[twiddle_index];
+              }
+              else
+              {
+                  w_real = f_real[twiddle_index - FFT_SIZE / 2];
+                  w_imag = -f_imag[twiddle_index - FFT_SIZE / 2];
+              }
+
+              // Butterfly operation
+              fxp t_real = fxp_mult(w_real, real[k + j + half_m]) - fxp_mult(w_imag, imag[k + j + half_m]);
+              fxp t_imag = fxp_mult(w_real, imag[k + j + half_m]) + fxp_mult(w_imag, real[k + j + half_m]);
+
+              fxp u_real = real[k + j];
+              fxp u_imag = imag[k + j];
+
+              real[k + j] = u_real + t_real;
+              imag[k + j] = u_imag + t_imag;
+              real[k + j + half_m] = u_real - t_real;
+              imag[k + j + half_m] = u_imag - t_imag;
+          }
+      }
   }
 }

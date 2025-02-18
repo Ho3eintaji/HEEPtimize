@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
 #include <math.h>
 #include "timer_sdk.h"
 #include "core_v_mini_mcu.h"
@@ -11,8 +13,8 @@
 #define PATCH_HEIGHT 80
 #define PATCH_WIDTH 5
 #define OVERLAP 64
-#define NUM_CHANNELS 20 //20
-#define NUM_TIME_STEPS 15
+#define NUM_CHANNELS 1 //20
+#define NUM_TIME_STEPS 5 //15
 
 #define FFT_SIZE 512 
 #define HANNING_SIZE 256
@@ -47,6 +49,12 @@ quant_bit_width __attribute__((section(".xheep_data_interleaved"))) ram_buffer[2
 void initialize_stft(fft_complex_t *data, const quant_bit_width *raw_input_signal);
 quant_bit_width compute_log_amp(int32_t real, int32_t imag);
 void stft_rearrange(quant_bit_width *rawInputSignal, quant_bit_width *stftVec, size_t patchHeight, size_t patchWidth);
+void accuracy_test(int num_samples);
+quant_bit_width compute_log_amp_optimized(int32_t real, int32_t imag);
+quant_bit_width compute_log_amp_approx(int32_t real, int32_t imag) ;
+void accuracy_test(int num_samples);
+
+
 
 int main() {
     // // Initialize rawInputSignal with some values
@@ -61,6 +69,7 @@ int main() {
     #endif
 
     stft_rearrange(rawInputSignal, stftVec, PATCH_HEIGHT, PATCH_WIDTH);
+    accuracy_test(1000);
 
     #ifdef PRINT
         time = timer_stop();
@@ -93,26 +102,208 @@ quant_bit_width compute_log_amp(int32_t real, int32_t imag) {
     return stft_int;
 }
 
+static const int32_t log_lut[256] = {
+    0, 454, 907, 1358, 1808, 2256, 2703, 3148, // ... fill all 256 entries
+};
+quant_bit_width compute_log_amp_optimized(int32_t real, int32_t imag) {
+    // Scale real and imag
+    real = MUL_HQ(real, 25) >> (NUM_FRACTION_BITS - 9);
+    imag = MUL_HQ(imag, 25) >> (NUM_FRACTION_BITS - 9);
+    
+    // Compute squared magnitude
+    int32_t real2 = (MUL_LONG(real, real) >> NUM_FRACTION_BITS);
+    int32_t imag2 = (MUL_LONG(imag, imag) >> NUM_FRACTION_BITS);
+    int32_t sqmag = real2 + imag2;
+
+    // Handle near-zero magnitude to avoid log(0)
+    if (sqmag == 0) {
+        return (quant_bit_width)(logf(1e-10f) * (1 << NUM_FRACTION_BITS));
+    }
+
+    // Fixed-point square root of sqmag (Q30.16 -> Q15.16)
+    uint32_t sqrt_val = 0;
+    uint32_t bit = 1UL << 30; // Start with the highest possible bit
+    while (bit > sqmag) bit >>= 2;
+    while (bit != 0) {
+        if (sqmag >= sqrt_val + bit) {
+            sqmag -= sqrt_val + bit;
+            sqrt_val = (sqrt_val >> 1) + bit;
+        } else {
+            sqrt_val >>= 1;
+        }
+        bit >>= 2;
+    }
+    uint32_t magnitude = sqrt_val;
+
+    // Normalize magnitude to [1, 2) range and compute log
+    int clz = __builtin_clz(magnitude);
+    int exponent = 31 - clz;
+    uint32_t mantissa = (magnitude << clz) >> (24 - exponent); // Adjust for 8-bit LUT index
+    uint8_t lut_index = (mantissa >> 16) & 0xFF; // Use upper 8 bits
+
+    // Calculate log(amp) using LUT and exponent
+    int32_t log_amp = (exponent - 16) * 45426; // 45426 ≈ log(2) in Q15.16
+    log_amp += log_lut[lut_index];
+
+    return (quant_bit_width)log_amp;
+}
+
+// Fast Log Approximation using bitwise operations and a lookup table (optional)
+quant_bit_width compute_log_amp_approx(int32_t real, int32_t imag) {
+    real = MUL_HQ(real, 25) >> (NUM_FRACTION_BITS - 9);
+    imag = MUL_HQ(imag, 25) >> (NUM_FRACTION_BITS - 9);
+    int32_t real2 = MUL_LONG(real, real) >> NUM_FRACTION_BITS;
+    int32_t imag2 = MUL_LONG(imag, imag) >> NUM_FRACTION_BITS;
+    int32_t sum_sq = (real2 + imag2) >> NUM_FRACTION_BITS;
+
+    //  Approximation for sqrt and log.
+    if (sum_sq == 0) return 0; // Handle zero case
+
+    // 1. Fast Square Root Approximation (Newton-Raphson single iteration)
+    int32_t approx_sqrt = (sum_sq + (1 << NUM_FRACTION_BITS)) >> 1; // Initial guess: average
+    approx_sqrt = (approx_sqrt + (sum_sq / approx_sqrt)) >> 1;       // One Newton-Raphson iteration
+    //Could improve this with another iteration or a lookup table for refinement
+
+    // 2. Fast Log2 Approximation (using bit manipulation)
+    //    This part assumes NUM_FRACTION_BITS is set for your fixed-point representation.
+    int leading_zeros = __builtin_clz(approx_sqrt);
+    int exponent = (31 - leading_zeros) - NUM_FRACTION_BITS; // Integer part
+    int mantissa = (approx_sqrt << leading_zeros) & 0x7FFFFFFF;   // Fractional part
+
+    // You can further refine mantissa using a small lookup table if higher precision is needed.
+    // For a very rough approximation, we can use the top bits of the mantissa directly.
+
+    // Combine exponent and mantissa (adjust scaling as needed)
+    quant_bit_width log_approx = (exponent << NUM_FRACTION_BITS) + (mantissa >> (31 - NUM_FRACTION_BITS));
+
+    return log_approx;
+}
+
+
 void stft_rearrange(quant_bit_width *rawInputSignal, quant_bit_width *stftVec, size_t patchHeight, size_t patchWidth) {
     fft_complex_t *data = (fft_complex_t*) &ram_buffer[0];
+    uint32_t t1, t2;
     int overlap = OVERLAP;
     for (int ch = 0; ch < NUM_CHANNELS; ch++) {
         for (int time_step = 0; time_step < NUM_TIME_STEPS; time_step++) {
+            timer_cycles_init();
+            timer_start();
+            t1 = timer_get_cycles();
             quant_bit_width *rawSignalPtr = rawInputSignal + ch * 3072 + (HANNING_SIZE - overlap) * time_step;
+            t2 = timer_get_cycles();
+            PRINTF("Time to calculate rawSignalPtr: %d\n", t2 - t1);
+            timer_cycles_init();
+            timer_start();
+            t1 = timer_get_cycles();
             initialize_stft(data, rawSignalPtr);
+            t2 = timer_get_cycles();
+            PRINTF("Time to initialize stft: %d\n", t2 - t1);
+            timer_cycles_init();
+            timer_start();
+            t1 = timer_get_cycles();
             fft_fft(data, 9);
+            t2 = timer_get_cycles();
+            PRINTF("Time to perform FFT: %d\n", t2 - t1);
+            t1 = timer_get_cycles();
             quant_bit_width *stftVecPtr = stftVec + ch * NUM_TIME_STEPS * PATCH_HEIGHT * PATCH_WIDTH + (time_step / patchWidth) * patchWidth * patchHeight + (time_step % patchWidth);
+            t2 = timer_get_cycles();
+            PRINTF("Time to calculate stftVecPtr: %d\n", t2 - t1);
+            timer_cycles_init();
+            timer_start();
+            t1 = timer_get_cycles();
             for (int index = 0; index < patchHeight; index++) {
                 quant_bit_width stft_int = compute_log_amp(data[index].r, data[index].i);
                 *stftVecPtr = stft_int;
                 stftVecPtr += patchWidth;
             }
+            t2 = timer_get_cycles();
+            PRINTF("Time to calculate first half of compute_log_amp original: %lu\n", t2 - t1);
+
+            timer_cycles_init();
+            timer_start();
+            t1 = timer_get_cycles();
+            for (int index = 0; index < patchHeight; index++) {
+                quant_bit_width stft_int = compute_log_amp_approx(data[index].r, data[index].i);
+                *stftVecPtr = stft_int;
+                stftVecPtr += patchWidth;
+            }
+            t2 = timer_get_cycles();
+            PRINTF("Time to calculate first half of compute_log_amp approx: %lu\n", t2 - t1);
+
+
+            timer_cycles_init();
+            timer_start();
+            t1 = timer_get_cycles();
+            for (int index = 0; index < patchHeight; index++) {
+                quant_bit_width stft_int = compute_log_amp_optimized(data[index].r, data[index].i);
+                *stftVecPtr = stft_int;
+                stftVecPtr += patchWidth;
+            }
+            t2 = timer_get_cycles();
+            PRINTF("Time to calculate first half of compute_log_amp optimized: %lu\n", t2 - t1);
+
+            timer_cycles_init();
+            timer_start();
+            t1 = timer_get_cycles();
             stftVecPtr += patchHeight * patchWidth * 2;
             for (int index = patchHeight; index < 2 * patchHeight; index++) {
                 quant_bit_width stft_int = compute_log_amp(data[index].r, data[index].i);
                 *stftVecPtr = stft_int;
                 stftVecPtr += patchWidth;
             }
+            t2 = timer_get_cycles();
+            PRINTF("Time to calculate second half of compute_log_amp: %d\n", t2 - t1);
         }
     }
+}
+
+void accuracy_test(int num_samples)
+{
+    int64_t sumSqError_approx = 0;    // Sum of squared errors for compute_log_amp_approx
+    int64_t sumSqError_opt    = 0;    // Sum of squared errors for compute_log_amp_optimized
+    int32_t maxAbsError_approx = 0;
+    int32_t maxAbsError_opt    = 0;
+
+    for (int i = 0; i < num_samples; i++) {
+        // Generate random test real/imag in a reasonable range
+        int32_t real = (int32_t)((rand() & 0xFFFF) - 32768);
+        int32_t imag = (int32_t)((rand() & 0xFFFF) - 32768);
+
+        // Compute "reference" value using the original compute_log_amp
+        quant_bit_width ref = compute_log_amp(real, imag);
+
+        // Compute approximate versions
+        quant_bit_width val_approx = compute_log_amp_approx(real, imag);
+        quant_bit_width val_opt    = compute_log_amp_optimized(real, imag);
+
+        // Compute integer error
+        int32_t diff_approx = val_approx - ref;
+        int32_t diff_opt    = val_opt    - ref;
+
+        // Accumulate sum of squared errors (in integer domain)
+        sumSqError_approx += (int64_t)diff_approx * (int64_t)diff_approx;
+        sumSqError_opt    += (int64_t)diff_opt * (int64_t)diff_opt;
+
+        // Track max absolute error
+        if (abs(diff_approx) > maxAbsError_approx) {
+            maxAbsError_approx = abs(diff_approx);
+        }
+        if (abs(diff_opt) > maxAbsError_opt) {
+            maxAbsError_opt = abs(diff_opt);
+        }
+    }
+
+    // Compute integer-based MSE (without floating-point operations)
+    int32_t mse_approx = (int32_t)(sumSqError_approx / num_samples);
+    int32_t mse_opt    = (int32_t)(sumSqError_opt / num_samples);
+
+    // Print as integers
+    printf("\nAccuracy Test Results (N=%d):\n", num_samples);
+    printf("Approx vs. Reference:\n");
+    printf("    MSE  = %d\n", mse_approx);
+    printf("    MaxAbsErr = %d\n", maxAbsError_approx);
+
+    printf("Optimized vs. Reference:\n");
+    printf("    MSE  = %d\n", mse_opt);
+    printf("    MaxAbsErr = %d\n", maxAbsError_opt);
 }
