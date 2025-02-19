@@ -80,14 +80,20 @@ int main() {
 }
 
 void initialize_stft(fft_complex_t *data, const quant_bit_width *raw_input_signal) {
+    uint32_t t1 = timer_get_cycles();
     for (int i = 0; i < HANNING_SIZE; i++) {
         data[i].r = (MUL_HQ(raw_input_signal[i], hanning[i]));
         data[i].i = 0;
     }
+    uint32_t t_hanning = timer_get_cycles() - t1;
+    t1 = timer_get_cycles();
     for (int i = HANNING_SIZE; i < FFT_SIZE; i++) {
         data[i].r = 0;
         data[i].i = 0;
     }
+    uint32_t t_zero = timer_get_cycles() - t1;
+    PRINTF("Time to apply hanning: %d\n", t_hanning);
+    PRINTF("Time to zero pad: %d\n", t_zero);
 }
 
 quant_bit_width compute_log_amp(int32_t real, int32_t imag) {
@@ -192,6 +198,7 @@ void stft_rearrange(quant_bit_width *rawInputSignal, quant_bit_width *stftVec, s
             quant_bit_width *rawSignalPtr = rawInputSignal + ch * 3072 + (HANNING_SIZE - overlap) * time_step;
             t2 = timer_get_cycles();
             PRINTF("Time to calculate rawSignalPtr: %d\n", t2 - t1);
+            
             timer_cycles_init();
             timer_start();
             t1 = timer_get_cycles();

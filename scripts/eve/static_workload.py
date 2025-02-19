@@ -2,15 +2,17 @@ import json
 import argparse
 import matplotlib.pyplot as plt
 import numpy as np
-from apps import TSD, SeizConv2D, LCT_conv  
+from apps import create_SeizConv2D , create_TSD, create_LCT
 from timing_helper import get_cycles   # Import get_cycles (and related helpers if needed)
 
-DEFAULT_APP = 'SeizConv2D'
+DEFAULT_APP = 'TSD'
 VOLTAGE = "0.90V"
 FREQ_MHZ = 100
 
 DEFAULT_POWER_JSON = 'transformer-power.json'
 DEFAULT_TIMING_JSON = 'kernels_pe-time.json'
+
+app = create_SeizConv2D()
 
 
 # Frequency in Hz (100 MHz)
@@ -163,8 +165,6 @@ def parse_arguments():
                         help=f"Path to power JSON file (default: {DEFAULT_POWER_JSON})")
     parser.add_argument('--timing', type=str, default=DEFAULT_TIMING_JSON,
                         help=f"Path to timing JSON file (default: {DEFAULT_TIMING_JSON})")
-    parser.add_argument('--app', type=str, choices=['TSD', 'EpilepticSeizureConv2DArchitecture', 'LCT_conv'],
-                        default=DEFAULT_APP, help="Application to run (default: TSD)")
     return parser.parse_args()
 
 def main():
@@ -182,16 +182,6 @@ def main():
         print(f"Error: {e}")
         return
 
-    # Select the application based on the argument
-    if args.app == 'TSD':
-        app = TSD
-    elif args.app == 'SeizConv2D':
-        app = SeizConv2D
-    elif args.app == 'LCT_conv':
-        app = LCT_conv
-    else:
-        raise ValueError(f"Invalid application: {args.app}")
-
     # Generate workloads with different policies
     workload_cpu = generate_workload_from_app(app, pe_priority=["cpu"], voltage=VOLTAGE, timing_data=timing_data)
     workload_cpu_carus = generate_workload_from_app(app, pe_priority=["carus", "cpu"], voltage=VOLTAGE, timing_data=timing_data)
@@ -206,11 +196,10 @@ def main():
         "Energy Efficient": calculate_total_energy_and_time(workload_energy_efficient, power_data, timing_data)
     }
 
-    print(workload_cpu_carus)
-
     # Print results
     for workload_name, (energy, time) in results.items():
         print(f"{workload_name}: Energy = {energy:.3f} mJ, Time = {time:.2f} ms")
+
 
     # Visualize the results
     visualize_results(results)
