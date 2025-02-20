@@ -5,14 +5,13 @@ import numpy as np
 from apps import create_SeizConv2D , create_TSD, create_LCT
 from timing_helper import get_cycles   # Import get_cycles (and related helpers if needed)
 
-DEFAULT_APP = 'TSD'
 VOLTAGE = "0.90V"
 FREQ_MHZ = 100
 
 DEFAULT_POWER_JSON = 'transformer-power.json'
 DEFAULT_TIMING_JSON = 'kernels_pe-time.json'
 
-app = create_SeizConv2D()
+app = create_TSD()
 
 
 # Frequency in Hz (100 MHz)
