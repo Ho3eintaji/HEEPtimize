@@ -1,18 +1,23 @@
-#include "kernels_common/kernels_common.h"
+#include <stdio.h>
+#include <stdint.h>
+#include <math.h>  // For fabs()
+// #include "kernels_common/kernels_common.h"
+#include "cgra_kernels_common.h"
 #include "data.h"
 #include "timer_sdk.h"
-#include "conv_wc.h"
+#include "conv_wp.h"
 #include "conv_oc.h"
 #include "conv_im2c_oc.h"
 #include "conv_im2c_ic.h"
 
 // void __attribute__((optimize("Ofast"))) conv2D();
 void conv2D();
+uint32_t check(double tolerance);
 
 static kcom_kernel_t *kernels[] = {
-      &conv_wc_kernel,
-      &conv_oc_kernel,
-      &conv_im2c_oc_kernel,
+      &conv_wp_kernel,
+    //   &conv_oc_kernel,
+    //   &conv_im2c_oc_kernel,
       // &conv_im2c_ic_kernel, //this one is not working
 };
 
@@ -33,16 +38,29 @@ void main()
             
             kcom_load(kernel);
             /* Load (of inputs). */
-            kernel->config(0);
-            /* CGRA Execution */
-            kcom_perfRecordIntrSet(&(kperf.time.cgra));
+
             timer_cycles_init();
             timer_start();
-            kcom_launchKernel(kernel_id);
-            kcom_waitingForIntr();
+
+            // put if kernel name is conv_wp
+            if (strcmp(kernel->name, "conv_wp") == 0){
+
+                for(int output_channel = 0; output_channel < N_filter; output_channel++){
+                    for(int input_channel = 0; input_channel < C_input; input_channel++){
+                        kernel->config(input_channel,output_channel);
+                        /* CGRA Execution */
+                        kcom_perfRecordIntrSet(&(kperf.time.cgra));
+                        kcom_launchKernel(kernel_id);
+                        kcom_waitingForIntr();
+                    }
+                }
+            }
+            // else if it is conv_oc
+            else if (strcmp(kernel->name, "conv_oc") == 0){
+            }
+
             time = timer_stop();
             printf("cgra-%s: %d\n", kernel->name, time);
-
       }
 
       // include sw time
@@ -52,44 +70,78 @@ void main()
       time = timer_stop();
       printf("cpu: %d\n", time);
 
+      check(2.0);
 
 	return 0;
 }
 
 void conv2D()
 {
-    int32_t l, r, c, k, i, j, w, t;
-    int32_t S;
-    int32_t coeff;
-    int32_t data;
-
-    for (l = 0; l < N_output; l++)//N_output = 1
+  int32_t l, r, c, k, i, j, w, t;
+  int32_t S;
+  int32_t coeff;
+  int32_t data;
+  for (l = 0; l < N_output; l++)
+  {
+    for (k = 0; k < N_filter; k++)
     {
-        for (k = 0; k < N_filter; k++) // N_filter = 16
+      for (r = 0; r < row_output; r++)
+      {
+        for (c = 0; c < col_output; c++)
         {
-            for (r = 0; r < row_output; r++) //row_output = 14
+          S = 0;
+          for (w = 0; w < C_filter; w++)
+          {
+            for (i = -FILT_HALF_x; i <= FILT_HALF_x; i++)
             {
-                for (c = 0; c < col_output; c++) //col_output = 14
-                {
-                    S = 0;
-                    for (i = 0; i < row_filter; i++)
-                    {
-                        for (j = 0; j < col_filter; j++)
-                        {
-                            for (w = 0; w < C_filter; w++)
-                            {
-                                data    = input[l][r+i][c+j][w];
-                                coeff   = filter[k][i][j][w];
-                                S        += coeff*data;
-                            }
-                        }
+              for (j = -FILT_HALF_y; j <= FILT_HALF_y; j++)
+              {
+                coeff = filter[k][w][i + FILT_HALF_x][j + FILT_HALF_y];
+
+                data = input[l][w][r + i + FILT_HALF_x][c + j + FILT_HALF_y];
+                S += coeff * data;
+              }
+            }
+          }
+          CPU_output[l][k][r][c] = S;
+        }
+      }
+    }
+  }
+
+}
+
+uint32_t check(double tolerance)
+{
+    uint32_t errors = 0;
+    uint32_t not_tolerated_errors = 0;
+
+    for (int l = 0; l < N_filter; l++) {
+        uint32_t filter_errors = 0;
+
+        for (int i = 0; i < row_output; i++) {
+            for (int j = 0; j < col_output; j++) {
+                int expected = CPU_output[0][l][i][j];
+                int obtained = CGRA_output[l][i][j];
+
+                if (expected != obtained) {
+                  errors++;
+                    // Compute percentage error
+                    double error_percentage = fabs((double)(expected - obtained) / expected) * 100.0;
+
+                    if (error_percentage > tolerance) {
+                      not_tolerated_errors++;
+                        printf("Error @ %d %d: Expected %d, got %d (Error: %f)\n", i, j, expected, obtained, error_percentage);
                     }
-                    CPU_output[l][k][r][c] = S;
                 }
             }
         }
     }
+    printf("Total errors: %d, Not tolerated errors: %d\n", errors, not_tolerated_errors);
+
+    return not_tolerated_errors;
 }
+
 
 void  im2col_conv(int32_t *in, int out_row, int out_col, int output_channel)
 {

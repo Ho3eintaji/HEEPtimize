@@ -4,7 +4,8 @@
 
 #include <stdint.h>
 #include <stdint.h>
-#include "kernels_common/kernels_common.h"
+// #include "kernels_common/kernels_common.h"
+#include "cgra_kernels_common.h"
 #include "data.h"
 
 #define IN_VAR_DEPTH_OC    8

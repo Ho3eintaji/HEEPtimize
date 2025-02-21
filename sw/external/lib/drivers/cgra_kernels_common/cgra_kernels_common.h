@@ -26,8 +26,8 @@
 *
 */
 
-#ifndef _KERNEL_COMMON_H
-#define _KERNEL_COMMON_H
+#ifndef _CGRA_KERNEL_COMMON_H
+#define _CGRA_KERNEL_COMMON_H
 
 /****************************************************************************/
 /**                                                                        **/
@@ -141,7 +141,7 @@ typedef struct
     uint8_t     col_n;
     uint8_t     in_n;
     uint8_t     out_n;
-    void        ( *config ) ( int32_t );
+    void        ( *config ) (int input_ch, int output_ch);
     void        ( *func )   ( int32_t );
     uint32_t    ( *check )  ( int32_t );
     int8_t      name[ KERNEL_NAME_LENGTH_MAX ];
@@ -251,7 +251,7 @@ __attribute__((optimize("O0"))) void kcom_waitingForIntr();
 
 
 
-#endif /* _KERNEL_COMMON_H*/
+#endif /* _CGRA_KERNEL_COMMON_H*/
 /****************************************************************************/
 /**                                                                        **/
 /**                                EOF                                     **/

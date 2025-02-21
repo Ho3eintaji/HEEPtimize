@@ -27,7 +27,7 @@
 *
 */
 
-#define _KERNELS_COMMON_C
+#define _CGRA_KERNELS_COMMON_C
 
 /****************************************************************************/
 /**                                                                        **/
@@ -35,12 +35,12 @@
 /**                                                                        **/
 /****************************************************************************/
 
-#include "kernels_common.h"
+#include "cgra_kernels_common.h"
 
 // For GPIO managing
-#include "gpio.h"
-#include "pad_control.h"
-#include "pad_control_regs.h"
+// #include "gpio.h"
+// #include "pad_control.h"
+// #include "pad_control_regs.h"
 
 // For interrupt handling
 #include "csr.h"
@@ -71,8 +71,8 @@
 /**                                                                        **/
 /****************************************************************************/
 
-inline __attribute__((always_inline)) void pinHigh( uint8_t pin );
-inline __attribute__((always_inline)) void pinLow(  uint8_t pin );
+// inline __attribute__((always_inline)) void pinHigh( uint8_t pin );
+// inline __attribute__((always_inline)) void pinLow(  uint8_t pin );
 
 uint64_t    getTime_cy();
 void        timeStart(    kcom_time_diff_t    *perf );
@@ -97,15 +97,18 @@ static uint32_t z1 = RANDOM_SEED, \
                 z3 = RANDOM_SEED, \
                 z4 = RANDOM_SEED;
 
-// Controlling a pin
-static gpio_t  gpio;
+// // Controlling a pin
+// static gpio_t  gpio;
 
 // Timer
 static rv_timer_t          timer;
 
-// Plic controller variables
+// // Plic controller variables
+// static dif_plic_params_t    rv_plic_params;
+// static dif_plic_t           rv_plic;
+// static dif_plic_result_t    plic_res;
+// static dif_plic_irq_id_t    intr_num;
 volatile bool               cgra_intr_flag;
-
 static cgra_t               cgra;
 static uint8_t              cgra_slot;
 // To stop the counter inside the interupt handler
@@ -117,11 +120,41 @@ static kcom_time_diff_t     *cgraPerf;
 /**                                                                        **/
 /****************************************************************************/
 
+// void plic_interrupt_init(dif_plic_irq_id_t irq) {
+//     // Init the PLIC
+//     rv_plic_params.base_addr = mmio_region_from_addr((uintptr_t)RV_PLIC_START_ADDRESS);
+//     plic_res = dif_plic_init(rv_plic_params, &rv_plic);
+//     if (plic_res != kDifPlicOk) {
+//         PRINTF("PLIC init failed\n;");
+//     }
+
+//     // Set CGRA priority to 1 (target threshold is by default 0) to trigger an interrupt to the target (the processor)
+//     plic_res = dif_plic_irq_set_priority(&rv_plic, irq, 1);
+//     if (plic_res != kDifPlicOk) {
+//         PRINTF("Set interrupt priority to 1 failed\n");
+//     }
+
+//     plic_res = dif_plic_irq_set_enabled(&rv_plic, irq, 0, kDifPlicToggleEnabled);
+//     if (plic_res != kDifPlicOk) {
+//         PRINTF("Enable interrupt failed\n");
+//     }
+
+//     // Enable interrupt on processor side
+//     // Enable global interrupt for machine-level interrupts
+//     CSR_SET_BITS(CSR_REG_MSTATUS, 0x8);
+//     // Set mie.MEIE bit to one to enable machine-level external interrupts
+//     const uint32_t mask = 1 << 11;//IRQ_EXT_ENABLE_OFFSET;
+//     CSR_SET_BITS(CSR_REG_MIE, mask);
+// }
+void handler_irq_cgra(uint32_t id) {
+  cgra_intr_flag = 1;
+}
+
 void plic_interrupt_init() {
-    // Init the PLIC
     plic_Init();
     plic_irq_set_priority(CGRA_INTR, 1);
     plic_irq_set_enabled(CGRA_INTR, kPlicToggleEnabled);
+    plic_assign_external_irq_handler( CGRA_INTR, (void *) &handler_irq_cgra);
 
     // Enable interrupt on processor side
     // Enable global interrupt for machine-level interrupts
@@ -132,13 +165,22 @@ void plic_interrupt_init() {
     cgra_intr_flag = 0;
 }
 
+// void handler_irq_external(void) {
+//     // Claim/clear interrupt
+//     plic_res = dif_plic_irq_claim(&rv_plic, 0, &intr_num);
+//     if (plic_res == kDifPlicOk && intr_num == CGRA_INTR) {
+//         kcom_perfRecordStop( cgraPerf );
+//         cgra_intr_flag = 1;
+//     }
+
+//     // Complete the interrupt
+//     plic_res = dif_plic_irq_complete(&rv_plic, 0, &intr_num);
+//     if (plic_res != kDifPlicOk || intr_num != CGRA_INTR) {
+//         PRINTF("CGRA interrupt complete failed\n");
+//     }
+// }
 // Interrupt controller variables
-void handler_irq_ext(uint32_t id) {
-  if( id == CGRA_INTR) {
-    kcom_perfRecordStop( cgraPerf );
-    cgra_intr_flag = 1;
-  }
-}
+
 
 /* MISCELANEOUS */
 
@@ -174,15 +216,15 @@ void kcom_subtractDead( kcom_time_t *time, kcom_time_t dead )
 void kcom_newVCDfile()
 {
 #if CTRL_VCD_W_PIN
-    pinHigh( PIN_TO_NEW_VCD );
-    pinLow(  PIN_TO_NEW_VCD );
+    // pinHigh( PIN_TO_NEW_VCD );
+    // pinLow(  PIN_TO_NEW_VCD );
 #endif
 }
 
 void kcom_perfRecordStart( kcom_time_diff_t *perf )
 {
 #if CTRL_VCD_W_PIN
-    pinHigh( PIN_TO_CTRL_VCD );
+    // pinHigh( PIN_TO_CTRL_VCD );
 #endif //CTRL_VCD_W_PIN
 
 #if ENABLE_TIME_MEASURE
@@ -193,7 +235,7 @@ void kcom_perfRecordStart( kcom_time_diff_t *perf )
 void kcom_perfRecordStop( kcom_time_diff_t *perf )
 {
 #if CTRL_VCD_W_PIN
-    pinLow( PIN_TO_CTRL_VCD );
+    // pinLow( PIN_TO_CTRL_VCD );
 #endif //CTRL_VCD_W_PIN
 
 #if ENABLE_TIME_MEASURE
@@ -218,7 +260,6 @@ void kcom_populateRun( kcom_run_t *run, kcom_perf_t *perf, uint32_t it_idx )
 #endif //EXECUTE_SOFTWARE
     (run[ it_idx ]).conf        = 0;
     (run[ it_idx ]).cgra        = perf->time.cgra.spent_cy;
-    (run[ it_idx ]).loading_result = perf->time.loading_result.spent_cy;
     (run[ it_idx ]).repo        = perf->cols_max.cyc_act + perf->cols_max.cyc_stl;
 #if MEASURE_RATIO
     (run[ it_idx ]).repo_conf   = 0;
@@ -243,7 +284,7 @@ void kcom_extractConfTime( kcom_run_t *run, uint32_t it_n )
         run[i].conf         = run[0].conf;
         // run[i].repo_conf    = run[0].repo_conf;
     }
-#endif //REPEAT_FIRST_INPUT
+#else
     kcom_param_t avg        = 0;
     kcom_param_t repo_avg   = 0;
     for( uint32_t i = 1; i < it_n; i++ )
@@ -261,6 +302,7 @@ void kcom_extractConfTime( kcom_run_t *run, uint32_t it_n )
 
     run[0].cgra         = run[0].cgra - avg;
     run[0].repo         = run[0].repo - repo_avg;
+#endif //REPEAT_FIRST_INPUT
 #endif //ENABLE_TIME_MEASURE
 }
 
@@ -352,7 +394,7 @@ void kcom_printPerf( kcom_perf_t *perf )
 #if PRINT_COLUMN_STATS
     PRINTF("\n===========\n COLUMN STATS BELOW \n===========\n");
     PRINTF("Col\tAct\tStl\n");
-    for(int8_t col_idx = 0 ; col_idx < CGRA_MAX_COLS ; col_idx++)
+    for(int8_t col_idx = 0 ; col_idx < CGRA_N_COLS ; col_idx++)
     {
         PRINTF("%01d\t%03d\t%03d\n", col_idx, perf->cols[col_idx].cyc_act, perf->cols[col_idx].cyc_stl );
     }
@@ -410,7 +452,6 @@ void kcom_printKernelStats( kcom_stats_t *stats  )
     PRINTF("CONF\t%d\t%0d.%01d\n", stats->avg.conf, stats->stdev.conf/CGRA_STAT_PERCENT_MULTIPLIER,stats->stdev.conf%CGRA_STAT_PERCENT_MULTIPLIER);
     PRINTF("REPO\t%d\t%0d.%01d\n", stats->avg.repo, stats->stdev.repo/CGRA_STAT_PERCENT_MULTIPLIER,stats->stdev.repo%CGRA_STAT_PERCENT_MULTIPLIER);
     PRINTF("CGRA\t%d\t%0d.%01d\n", stats->avg.cgra, stats->stdev.cgra/CGRA_STAT_PERCENT_MULTIPLIER,stats->stdev.cgra%CGRA_STAT_PERCENT_MULTIPLIER);
-    PRINTF("LOADING OUTPUT\t%d\t%0d.%01d\n", stats->avg.loading_result, stats->stdev.loading_result/CGRA_STAT_PERCENT_MULTIPLIER,stats->stdev.loading_result%CGRA_STAT_PERCENT_MULTIPLIER);
 #if MEASURE_RATIO
     PRINTF("St/A\t%0d.%01d%%\t%0d.%01d\n", stats->avg.cyc_ratio/10,stats->avg.cyc_ratio%10, stats->stdev.cyc_ratio/CGRA_STAT_PERCENT_MULTIPLIER,stats->stdev.cyc_ratio%CGRA_STAT_PERCENT_MULTIPLIER);
     PRINTF("CG/S\t%0d%%\t-\n",(stats->avg.cgra*CGRA_STAT_PERCENT_MULTIPLIER/stats->avg.sw));
@@ -436,16 +477,16 @@ void kcom_printSummary( kcom_stats_t *stats  )
 
 void kcom_init()
 {
-    pinInit();
+    // pinInit();-
     timerInit();
-    plic_interrupt_init( CGRA_INTR );
+    plic_interrupt_init( );
 }
 
 void kcom_load( kcom_kernel_t *ker )
 {
     cgra_cmem_init(ker->imem, ker->kmem );
 
-    cgra.base_addr = mmio_region_from_addr((uintptr_t)CGRA_PERIPH_START_ADDRESS);
+    cgra.base_addr = mmio_region_from_addr((uintptr_t)OECGRA_CONFIG_REGS_START_ADDRESS);
     // Select request slot of CGRA
     cgra_slot = cgra_get_slot(&cgra);
     cgra_perf_cnt_enable(&cgra, 1);
@@ -482,37 +523,37 @@ __attribute__((optimize("O0"))) void kcom_waitingForIntr()
 /**                                                                        **/
 /****************************************************************************/
 
-inline __attribute__((always_inline)) void pinHigh( uint8_t pin )
-{
-    gpio_write(&gpio, pin, true );
-}
+// inline __attribute__((always_inline)) void pinHigh( uint8_t pin )
+// {
+//     gpio_write(&gpio, pin, true );
+// }
 
-inline __attribute__((always_inline)) void pinLow( uint8_t pin )
-{
-    gpio_write(&gpio, pin, false );
-}
+// inline __attribute__((always_inline)) void pinLow( uint8_t pin )
+// {
+//     gpio_write(&gpio, pin, false );
+// }
 
-void pinInit()
-{
-#if CTRL_VCD_W_PIN
-    gpio_result_t gpio_res;
-    gpio_params_t gpio_params;
-    pad_control_t pad_control;
+// void pinInit()
+// {
+// #if CTRL_VCD_W_PIN
+//     gpio_result_t gpio_res;
+//     gpio_params_t gpio_params;
+//     pad_control_t pad_control;
 
-    pad_control.base_addr = mmio_region_from_addr((uintptr_t)PAD_CONTROL_START_ADDRESS);
-    gpio_params.base_addr = mmio_region_from_addr((uintptr_t)GPIO_START_ADDRESS);
+//     pad_control.base_addr = mmio_region_from_addr((uintptr_t)PAD_CONTROL_START_ADDRESS);
+//     gpio_params.base_addr = mmio_region_from_addr((uintptr_t)GPIO_START_ADDRESS);
 
-    gpio_init(gpio_params, &gpio);
+//     gpio_init(gpio_params, &gpio);
 
-    gpio_write(&gpio, PIN_TO_NEW_VCD, false);
-    gpio_write(&gpio, PIN_TO_CTRL_VCD, false);
+//     gpio_write(&gpio, PIN_TO_NEW_VCD, false);
+//     gpio_write(&gpio, PIN_TO_CTRL_VCD, false);
 
-    gpio_output_set_enabled(&gpio, PIN_TO_NEW_VCD, true);
-    gpio_output_set_enabled(&gpio, PIN_TO_CTRL_VCD, true);
+//     gpio_output_set_enabled(&gpio, PIN_TO_NEW_VCD, true);
+//     gpio_output_set_enabled(&gpio, PIN_TO_CTRL_VCD, true);
 
-    pad_control_set_mux(&pad_control, (ptrdiff_t)(PAD_CONTROL_PAD_MUX_I2C_SDA_REG_OFFSET), 1);
-#endif
-}
+//     pad_control_set_mux(&pad_control, (ptrdiff_t)(PAD_CONTROL_PAD_MUX_I2C_SDA_REG_OFFSET), 1);
+// #endif
+// }
 
 void timerInit()
 {
