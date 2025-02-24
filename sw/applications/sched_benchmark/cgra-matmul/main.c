@@ -37,7 +37,7 @@
 
 #define CGRA_COL_INPUT_SIZE 4
 #define CHECK_RESULTS
-// #define PRINT_SOME_RESULTS
+// #define DEBUG
 
 /****************************************************************************/
 /**                      PROTOTYPES OF LOCAL FUNCTIONS                     **/
@@ -98,17 +98,37 @@ int main(void)
     } 
 
     // move data from A and B which are in flash to A_ram and B_ram which are in ram
+    t1 = timer_get_cycles();
     if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)A), A_ram, A_ROWS*A_COLS*ELEM_SIZE) != FLASH_OK)return -1;
-    if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)B), B_ram, B_ROWS*B_COLS*ELEM_SIZE) != FLASH_OK)return -1;
+    uint32_t t_dma1 = timer_get_cycles() - t1;
 
-#ifdef PRINT_SOME_RESULTS
+    t1 = timer_get_cycles();
+    w25q128jw_wait_quad_dma_async(A_ram, A_ROWS*A_COLS*ELEM_SIZE);
+    uint32_t t_dma_wait1 = timer_get_cycles() - t1;
+
+    t1 = timer_get_cycles();
+    if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)B), B_ram, B_ROWS*B_COLS*ELEM_SIZE) != FLASH_OK)return -1;
+    uint32_t t_dma2 = timer_get_cycles() - t1;
+
+    t1 = timer_get_cycles();
+    w25q128jw_wait_quad_dma_async(B_ram, B_ROWS*B_COLS*ELEM_SIZE);
+    uint32_t t_dma_wait2 = timer_get_cycles() - t1;
+
+#ifdef DEBUG
+    PRINTF("DMA read time for A: %d\n", t_dma1);
+    PRINTF("DMA wait time for A: %d\n", t_dma_wait1);
+    PRINTF("DMA read time for B: %d\n", t_dma2);
+    PRINTF("DMA wait time for B: %d\n", t_dma_wait2);
+#endif // DEBUG
+
+#ifdef DEBUG
     //print some values from begining and from end of A_ram and B_ram to check if the values are correct
     //Printing first and last element of both
     PRINTF("A_ram[0] = %x\n", A_ram[0]);
     PRINTF("A_ram[%d] = %x\n", A_ROWS*A_COLS-1, A_ram[A_ROWS*A_COLS-1]);
     PRINTF("B_ram[0] = %x\n", B_ram[0]);
     PRINTF("B_ram[%d] = %x\n", B_ROWS*B_COLS-1, B_ram[B_ROWS*B_COLS-1]);
-#endif // PRINT_SOME_RESULTS
+#endif // DEBUG
 
 
     // Enable fast interrupts for DMA and PLIC
@@ -176,12 +196,12 @@ int main(void)
     t2 = timer_get_cycles();
     t_cpu = t2 - t1;
 
-#ifdef PRINT_SOME_RESULTS
+#ifdef DEBUG
     PRINTF("CGRA|gold R[0]: %x\n", R_cgra[0]);
     PRINTF("CPU|gold R[0]: %x\n", R_cpu[0]);
     PRINTF("CGRA|gold R[%d]: %x\n", R_ROWS*R_COLS-1, R_cgra[R_ROWS*R_COLS-1]);
     PRINTF("CPU|gold R[%d]: %x\n", R_ROWS*R_COLS-1, R_cpu[R_ROWS*R_COLS-1]);
-#endif // PRINT_SOME_RESULTS
+#endif // DEBUG
 
 
 
