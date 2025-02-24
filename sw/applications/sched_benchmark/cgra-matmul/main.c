@@ -37,7 +37,7 @@
 
 #define CGRA_COL_INPUT_SIZE 4
 #define CPU
-#define CHECK_RESULTS
+// #define CHECK_RESULTS
 
 /****************************************************************************/
 /**                      PROTOTYPES OF LOCAL FUNCTIONS                     **/
@@ -76,6 +76,9 @@ data_t R_cpu[R_ROWS*R_COLS] __attribute__((section(".xheep_data_interleaved")));
 int32_t flash_test_array[4] __attribute__((section(".xheep_data_flash_only"))) = {10, 20, 30, 40};
 
 
+// ram buffers
+int32_t A_ram [A_ROWS*A_COLS] __attribute__((section(".xheep_data_interleaved"))) = {0};
+int32_t B_ram [B_ROWS*B_COLS] __attribute__((section(".xheep_data_interleaved"))) = {0};
 
 /****************************************************************************/
 
@@ -99,22 +102,18 @@ int main(void)
         return 1;
     } 
 
-    /*
-     Data is stored in flash memory, so we need to copy it to RAM before using it.
-     Also I need to change datagen to save data in flash.
-     Start with a simple data storage in flash to get and have it identical in ram.
-     Then implement the copy function for the data.
-     then implement the tiling for the data.
-    */
 
-    // Flash test: copy array from flash to RAM and print a value
-    int32_t ram_buffer[4] = {0};
-    if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)flash_test_array), ram_buffer, 4*4) != FLASH_OK)return -1; // read addnorm2 in ram_buffer[0]
-    for (int i = 0; i < 4; i++){
-        // print ram_buffer[i] to check if the value is correct
-        PRINTF("ram_buffer[%d] = %d\n", i, ram_buffer[i]);
-    }
+    // move data from A and B which are in flash to A_ram and B_ram which are in ram
+    if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)A), A_ram, A_ROWS*A_COLS*ELEM_SIZE) != FLASH_OK)return -1;
+    if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)B), B_ram, B_ROWS*B_COLS*ELEM_SIZE) != FLASH_OK)return -1;
 
+    //print some values from begining and from end of A_ram and B_ram to check if the values are correct
+    //Printing first and last element of both
+    PRINTF("A_ram[0] = %x\n", A_ram[0]);
+    PRINTF("A_ram[%d] = %x\n", A_ROWS*A_COLS-1, A_ram[A_ROWS*A_COLS-1]);
+    PRINTF("B_ram[0] = %x\n", B_ram[0]);
+    PRINTF("B_ram[%d] = %x\n", B_ROWS*B_COLS-1, B_ram[B_ROWS*B_COLS-1]);
+    PRINTF("====================================\n");
 
 
     // Enable fast interrupts for DMA and PLIC
@@ -142,25 +141,25 @@ int main(void)
 
     // Configure CGRA registers:
     // Col 0: &B[0][0], nItLoopColsC, &A[0][0], &C[0][3]
-    cgra_input[0][0] = (int32_t)&B[0];
+    cgra_input[0][0] = (int32_t)&B_ram[0];
     cgra_input[0][1] = R_COLS/CGRA_N_ROWS;
-    cgra_input[0][2] = (int32_t)&A[0];
+    cgra_input[0][2] = (int32_t)&A_ram[0];
     cgra_input[0][3] = (int32_t)&R_cgra[3];
     // Col 1: &C[1][0], &B[0][1], nItLoopsColsA, &A[1][0]
     cgra_input[1][0] = (int32_t)&R_cgra[R_COLS];
-    cgra_input[1][1] = (int32_t)&B[1];
+    cgra_input[1][1] = (int32_t)&B_ram[1];
     cgra_input[1][2] = A_COLS;
-    cgra_input[1][3] = (int32_t)&A[A_COLS];
+    cgra_input[1][3] = (int32_t)&A_ram[A_COLS];
     // Col 2: &A[2][0], &C[2][1], &B[0][2], nItLoopColsC
-    cgra_input[2][0] = (int32_t)&A[2*A_COLS];
+    cgra_input[2][0] = (int32_t)&A_ram[2*A_COLS];
     cgra_input[2][1] = (int32_t)&R_cgra[2*R_COLS+1];
-    cgra_input[2][2] = (int32_t)&B[2];
+    cgra_input[2][2] = (int32_t)&B_ram[2];
     cgra_input[2][3] = R_COLS/CGRA_N_ROWS;
     // Col 3: nItLoopRowsC, &A[3][0], &C[3][2], &B[0][3]
     cgra_input[3][0] = R_ROWS/CGRA_N_COLS;
-    cgra_input[3][1] = (int32_t)&A[3*A_COLS];
+    cgra_input[3][1] = (int32_t)&A_ram[3*A_COLS];
     cgra_input[3][2] = (int32_t)&R_cgra[3*R_COLS+2];
-    cgra_input[3][3] = (int32_t)&B[3];
+    cgra_input[3][3] = (int32_t)&B_ram[3];
 
     // Set CGRA read pointers for each column
     for(int col_idx = 0; col_idx < CGRA_N_COLS; col_idx++){
@@ -179,10 +178,19 @@ int main(void)
 #ifdef CPU
     t1 = timer_get_cycles();
     // Run CPU matrix multiplication
-    cpuMatMul(A, B, R_cpu, A_ROWS, A_COLS, B_COLS);
+    cpuMatMul(A_ram, B_ram, R_cpu, A_ROWS, A_COLS, B_COLS);
     t2 = timer_get_cycles();
     t_cpu = t2 - t1;
 #endif 
+
+    PRINTF("CGRA|gold R[0]: %x\n", R_cgra[0]);
+    PRINTF("CGRA|gold R[%d]: %x\n", R_ROWS*R_COLS-1, R_cgra[R_ROWS*R_COLS-1]);
+#ifdef CPU
+    PRINTF("CPU|gold R[0]: %x\n", R_cpu[0]);
+    PRINTF("CPU|gold R[%d]: %x\n", R_ROWS*R_COLS-1, R_cpu[R_ROWS*R_COLS-1]);
+#endif // CPU
+
+
 
 #ifdef CHECK_RESULTS
     // check carus, oe-cgra, and cput results to be the same as the golden result

@@ -123,10 +123,16 @@ def main():
     # -- Generate random inputs --
     if args.seed is not None:
         np.random.seed(args.seed)
+    
+    # Scaling factor to reduce the random range
+    range_scaling = 0.01  # Adjust this value to control the range
+    # Calculate the range based on sew and scaling
+    random_range = int((2**(sew-1)) * range_scaling)
+
     # Matrix A [m x n]
-    A = np.random.randint(-2**(sew-1), 2**(sew-1), size=(M, N), dtype=dtype)
+    A = np.random.randint(-random_range, random_range, size=(M, N), dtype=dtype)
     # Matrix B [n x p], where p = col(B)
-    B = np.random.randint(-2**(sew-1), 2**(sew-1), size=(N, P), dtype=dtype)
+    B = np.random.randint(-random_range, random_range, size=(N, P), dtype=dtype)
     # Golden output [m x p]
     R = np.matmul(A, B)
 
@@ -139,7 +145,7 @@ def main():
     header_gen.add_input_matrix('A', A)
     header_gen.add_input_matrix('B', B)
     header_gen.add_output_matrix('R', R)
-    header_gen.add_attribute('section(".xheep_data_interleaved")')
+    header_gen.add_attribute('section(".xheep_data_flash_only")')
     header_gen.write_header(out_dir, data_header)
     print('- generated header file in \'' + out_dir + '/' + data_header + '\'.')
 
