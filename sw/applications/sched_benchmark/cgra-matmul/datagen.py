@@ -125,7 +125,7 @@ def main():
         np.random.seed(args.seed)
     
     # Scaling factor to reduce the random range
-    range_scaling = 0.01  # Adjust this value to control the range
+    range_scaling = 1  # Adjust this value to control the range
     # Calculate the range based on sew and scaling
     random_range = int((2**(sew-1)) * range_scaling)
 
