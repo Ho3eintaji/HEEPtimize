@@ -10,13 +10,19 @@
 #include <stdint.h>
 // #include <stdlib.h>
 #include "math.h"
-#include "param.h"
-// #include "dma_carus_transfers.h"
-// #include "defines_transformer_nmc.h"
-#include "defines.h"
+#include "../param.h"
 
+typedef struct {
+    int seq_len_;
+    int input_dim_;
+    quant_bit_width *weight_;
+    quant_bit_width *bias_;
+} AddNormalize;
+
+
+AddNormalize createAddNormalize(int seq_len, int input_dim, quant_bit_width *weight, quant_bit_width *bias);
+void normalize(AddNormalize *addNorm, quant_bit_width *input, quant_bit_width *input_normalized);
 void add(quant_bit_width *input, quant_bit_width *to_be_added, int seq_len, int input_dim);
-
 void add_carus(quant_bit_width *input, quant_bit_width *to_be_added, int seq_len, int input_dim);
 
 #endif //FVLLMONTITRANSFORMER_ADDNORMC_H
