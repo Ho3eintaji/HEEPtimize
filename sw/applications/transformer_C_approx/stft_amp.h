@@ -3,6 +3,8 @@
 
 #include <stdio.h>
 #include "../param.h"
+#include <math.h>
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -14,8 +16,6 @@ quant_bit_width compute_log_amp_fp(int32_t real, int32_t imag);
 quant_bit_width compute_log_amp_fxp_lut(int32_t real, int32_t imag);
 quant_bit_width compute_log_amp_fxp_approx(int32_t real, int32_t imag);
 
-void init_log2_lut(void);
-quant_bit_width compute_log_amp_fxp(int32_t real, int32_t imag);
 
 #ifdef __cplusplus
 }

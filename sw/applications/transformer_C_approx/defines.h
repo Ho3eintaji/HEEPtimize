@@ -11,19 +11,18 @@
 #define SM_FP 0
 #define SM_SOFTERMAX 1
 #define SM_FIXED 2
-#define SM_IMPL SM_FP
+#define SM_IMPL SM_FIXED
 
 // GeLU implementation (two versions: FP and PWL)
 #define GELU_FP 0
 #define GELU_PWL 1
-#define GELU_IMPL GELU_FP
+#define GELU_IMPL GELU_PWL
 
 // Logarithm of amplitude implementation
 #define LOG_AMP_FP 0
 #define LOG_AMP_FXP_LUT 1
 #define LOG_AMP_FXP_APPROX 2
-#define LOG_AMP_FXP 3 
-#define LOG_AMP_IMPL LOG_AMP_FXP
+#define LOG_AMP_IMPL LOG_AMP_FXP_APPROX
 
 /* By default, PRINTFs are activated for FPGA and disabled for simulation. */
 #define PRINTF_IN_FPGA  1

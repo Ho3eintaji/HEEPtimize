@@ -5,33 +5,30 @@
 #include "../param.h"
 #include <stdint.h>
 #include <limits.h>
+#include <stdbool.h> // For bool
 
-// last one
-#define LUT_SIZE 1024  // Power of 2, larger is more accurate
-#define LUT_SHIFT 10   // log2(LUT_SIZE), for indexing
-#define SQRT_ITERATIONS 5 // Number of Newton-Raphson iterations
-static int32_t log2_lut[LUT_SIZE];
-// ---  log(2) for base conversion (Q(NUM_FRACTION_BITS)) ---
-static int32_t LOG2_TO_LOG_SCALE; // Will be initialized in init_log2_lut
+// Use a 513-entry LUT (can be adjusted)
+#define LUT_SIZE 513
+static int16_t log_lut[LUT_SIZE]; // int16_t LUT
+void init_log_lut() {
+    for (int i = 0; i < LUT_SIZE; ++i) {
+        double x = 1.0 + (double)i / 256.0;
+        log_lut[i] = (int16_t)round(log(x) * (1 << NUM_FRACTION_BITS)); // Q12
+    }
+}
 
-
-static const int32_t log_lut[256] = {
-    0, 454, 907, 1358, 1808, 2256, 2703, 3148, // ... fill all 256 entries
-};
 
 
 
 // Function to compute the logarithm of the amplitude
 quant_bit_width compute_log_amp(int32_t real, int32_t imag)
-{
+{    
     #if LOG_AMP_IMPL == LOG_AMP_FP
-    compute_log_amp_fp(real, imag);
+    return compute_log_amp_fp(real, imag);
     #elif LOG_AMP_IMPL == LOG_AMP_FXP_LUT
-    compute_log_amp_fxp_lut(real, imag);
+    return compute_log_amp_fxp_lut(real, imag);
     #elif LOG_AMP_IMPL == LOG_AMP_FXP_APPROX
-    compute_log_amp_fxp_approx(real, imag);
-    #elif LOG_AMP_IMPL == LOG_AMP_FXP
-    compute_log_amp_fxp(real, imag);
+    return compute_log_amp_fxp_approx(real, imag);
     #endif
 }
 
@@ -49,46 +46,59 @@ quant_bit_width compute_log_amp_fp(int32_t real, int32_t imag)
     return stft_int;
 }
 
-// an alternative impl, using fixed-point arithmetic and a lookup table
 quant_bit_width compute_log_amp_fxp_lut(int32_t real, int32_t imag) {
-    // Scale real and imag
+    // Static LUT and initialization flag
+    static int16_t log_lut[LUT_SIZE];
+    static bool lut_initialized = false;
+
+    // Initialize LUT only once
+    if (!lut_initialized) {
+        for (int i = 0; i < LUT_SIZE; ++i) {
+            double x = 1.0 + (double)i / 256.0;
+            log_lut[i] = (int16_t)round(log(x) * (1 << NUM_FRACTION_BITS)); // Q12
+        }
+        lut_initialized = true;
+    }
+
     real = MUL_HQ(real, 25) >> (NUM_FRACTION_BITS - 9);
     imag = MUL_HQ(imag, 25) >> (NUM_FRACTION_BITS - 9);
-    
-    // Compute squared magnitude
+
     int32_t real2 = (MUL_LONG(real, real) >> NUM_FRACTION_BITS);
     int32_t imag2 = (MUL_LONG(imag, imag) >> NUM_FRACTION_BITS);
     int32_t sqmag = real2 + imag2;
 
-    // Handle near-zero magnitude to avoid log(0)
+
     if (sqmag == 0) {
-        return (quant_bit_width)(logf(1e-10f) * (1 << NUM_FRACTION_BITS));
+        return (quant_bit_width)(-23 * (1 << NUM_FRACTION_BITS)); // Q12, -94208
     }
 
-    // Fixed-point square root of sqmag (Q30.16 -> Q15.16)
-    uint32_t sqrt_val = 0;
-    uint32_t bit = 1UL << 30; // Start with the highest possible bit
-    while (bit > sqmag) bit >>= 2;
-    while (bit != 0) {
-        if (sqmag >= sqrt_val + bit) {
-            sqmag -= sqrt_val + bit;
-            sqrt_val = (sqrt_val >> 1) + bit;
-        } else {
-            sqrt_val >>= 1;
-        }
-        bit >>= 2;
-    }
-    uint32_t magnitude = sqrt_val;
+    // Newton-Raphson with adjusted scaling and iterations
+    uint32_t x = (uint32_t)sqmag << 4; // Q16.4 - Less aggressive scaling
+    uint32_t guess;
 
-    // Normalize magnitude to [1, 2) range and compute log
-    int clz = __builtin_clz(magnitude);
+    int clz = __builtin_clz(x);
     int exponent = 31 - clz;
-    uint32_t mantissa = (magnitude << clz) >> (24 - exponent); // Adjust for 8-bit LUT index
-    uint8_t lut_index = (mantissa >> 16) & 0xFF; // Use upper 8 bits
+    guess = 1 << (exponent / 2);
 
-    // Calculate log(amp) using LUT and exponent
-    int32_t log_amp = (exponent - 16) * 45426; // 45426 ≈ log(2) in Q15.16
-    log_amp += log_lut[lut_index];
+    for (int i = 0; i < 5; ++i) {
+        uint32_t div = x / guess;
+        guess = (guess + div) >> 1;
+    }
+     uint32_t magnitude = guess;
+
+    // Normalization, mantissa, and LUT index
+    clz = __builtin_clz(magnitude);
+    exponent = 31 - clz;
+    uint32_t normalized = magnitude << clz;
+    uint32_t mantissa = (normalized >> 3) & 0x01FFFFFF; //shift by 3 = 12(NUM_FRACTION_BITS) - 9 (LUT index)
+    // Linear interpolation
+    uint16_t lut_index = (mantissa >> 16); // Top 9 bits
+    uint16_t alpha = mantissa & 0xFFFF;  // Fractional part
+
+    int32_t log_mantissa = ((int32_t)log_lut[lut_index] * (int32_t)(0x10000 - alpha) + (int32_t)log_lut[lut_index + 1] * (int32_t)alpha) >> 16;
+
+    // Combine exponent and mantissa.  log(2) * 2^12 = 2841
+    int32_t log_amp = (exponent - 14) * 2841 + log_mantissa;  // Adjust exponent bias: 16-4+12-9-1=14
 
     return (quant_bit_width)log_amp;
 }
