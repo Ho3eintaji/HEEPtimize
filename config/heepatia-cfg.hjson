@@ -55,8 +55,6 @@
         },
     },
 
-
-
     // External peripherals
     ext_periph: {
         fll: {

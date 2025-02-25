@@ -8,8 +8,8 @@
         }
         data: {
             type: interleaved
-            num: 2
-            size: 16
+            num: 8
+            size: 64
         }
         data_interleaved: {
             auto_section: auto
