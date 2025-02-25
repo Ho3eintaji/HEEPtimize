@@ -55,8 +55,6 @@ void cpuMatMul(data_t *A, data_t *B, data_t *C, unsigned int A_rows, unsigned in
 // Launch cgra matmul
 void cgraMatMulRun(uint32_t *A, uint32_t *B, uint32_t *C, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols);
 
-int copy_r_ram_to_r_cgra(void);
-
 
 /****************************************************************************/
 /**                           GLOBAL VARIABLES                             **/
@@ -72,45 +70,15 @@ static uint8_t    cgra_slot;
 // CGRA input buffer
 static int32_t cgra_input[CGRA_N_COLS][CGRA_COL_INPUT_SIZE] __attribute__ ((aligned (4)));
 
+// CGRA output buffer
+int32_t R_cgra[R_ROWS*R_COLS] __attribute__((section(".xheep_data_interleaved"))); 
+
 // // CPU output buffer
 // data_t R_cpu[R_ROWS*R_COLS] __attribute__((section(".xheep_data_interleaved")));
 
-// ram buffers (in 512KB section of memory)
-int32_t A_ram [A_ROWS*A_COLS] = {0}; 
-int32_t B_ram [B_ROWS*B_COLS] = {0};
-int32_t * R_ram [R_ROWS*R_COLS] = {0};
-
-// CGRA buffer
-int32_t A_cgra[A_ROWS*A_COLS] __attribute__((section(".xheep_data_interleaved"))) = {0};
-int32_t B_cgra[B_ROWS*B_COLS] __attribute__((section(".xheep_data_interleaved"))) = {0};
-int32_t R_cgra[R_ROWS*R_COLS] __attribute__((section(".xheep_data_interleaved"))) = {0};
-
-int32_t R_cgra2[R_ROWS*R_COLS] __attribute__((section(".xheep_data_interleaved"))) = {0};
-
-dma_config_flags_t run_dma_signext_trans(dma_trans_t *trans)
-    {
-    dma_config_flags_t res1, res2, res3;
-
-    res1 = dma_validate_transaction(trans, DMA_ENABLE_REALIGN, DMA_PERFORM_CHECKS_INTEGRITY);
-    if(res1 != DMA_CONFIG_OK)
-    {
-        printf("Error in dma_validate_transaction 0x%x \n",res1);
-    }
-
-    res2 = dma_load_transaction(trans);
-    if(res2 != DMA_CONFIG_OK)
-    {
-        printf("Error in dma_load_transaction 0x%x \n",res2);
-    }
-
-    res3 |= dma_launch(trans);
-    if(res3 != DMA_CONFIG_OK)
-    {
-        printf("Error in dma_launch 0x%x \n",res3);
-    }
-    return res1|res2|res3;
-    } 
-
+// ram buffers
+int32_t A_ram [A_ROWS*A_COLS] __attribute__((section(".xheep_data_interleaved"))) = {0};
+int32_t B_ram [B_ROWS*B_COLS] __attribute__((section(".xheep_data_interleaved"))) = {0};
 
 /****************************************************************************/
 
@@ -128,46 +96,41 @@ int main(void)
     if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)B), B_ram, B_ROWS*B_COLS*ELEM_SIZE) != FLASH_OK)return -1;
     w25q128jw_wait_quad_dma_async(B_ram, B_ROWS*B_COLS*ELEM_SIZE);
 
-    
-
-    // move data from ram buffer to CGRA memory
-    dma_sdk_init(); //TODO: Generally it should not be required, but for some reason it is required here and stuck without it
-    dma_copy((uint32_t)B_cgra, (uint32_t)B_ram, sizeof(B_ram), 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
-    dma_copy((uint32_t)A_cgra, (uint32_t)A_ram, sizeof(A_ram), 2, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
-        // TODO: I have a weird issue, so i dont use async version of dma_copy
-
     /* CGRA matmul bitstream loading */
     cgra_cmem_init(cgra_imem_bitstream, cgra_kmem_bitstream);
     cgra.base_addr = mmio_region_from_addr((uintptr_t)OECGRA_CONFIG_REGS_START_ADDRESS);
     cgra_slot = cgra_get_slot(&cgra);
 
-    /* Running matmul on CGRA */
     t1 = timer_get_cycles();
-    cgraMatMulRun(A_cgra, B_cgra, R_cgra, A_ROWS, A_COLS, B_COLS);
+    cgraMatMulRun(A_ram, B_ram, R_cgra, A_ROWS, A_COLS, B_COLS);
     while(cgra_intr_flag == 0) { wait_for_interrupt(); }
     t_cgra =  timer_get_cycles() - t1;
 
+    // t1 = timer_get_cycles();
+    // cpuMatMul(A_ram, B_ram, R_cpu, A_ROWS, A_COLS, B_COLS);
+    // t_cpu = timer_get_cycles() - t1;
+
 #ifdef DEBUG
-    PRINTF("CGRA mem|gold R[0]: %x\n", R_cgra[0]);
-    PRINTF("CGRA mem|gold R[%d]: %x\n", R_ROWS*R_COLS-1, R_cgra[R_ROWS*R_COLS-1]);
+    PRINTF("CGRA|gold R[0]: %x\n", R_cgra[0]);
+    // PRINTF("CPU|gold R[0]: %x\n", R_cpu[0]);
+    PRINTF("CGRA|gold R[%d]: %x\n", R_ROWS*R_COLS-1, R_cgra[R_ROWS*R_COLS-1]);
+    // PRINTF("CPU|gold R[%d]: %x\n", R_ROWS*R_COLS-1, R_cpu[R_ROWS*R_COLS-1]);
+#endif // DEBUG
+
+// #ifdef CHECK_RESULTS
+//     // check carus, oe-cgra, and cput results to be the same as the golden result
+//     for (unsigned int i = 0; i < R_ROWS; i++) {
+//         for (unsigned int j = 0; j < R_COLS; j++) {
+//             if (R_cpu[i*R_COLS+j] != R_cgra[i*R_COLS+j]) {
+//                 PRINTF("CPU|CGRA R[%u,%u]: %x %x\n", i, j, R_cpu[i*R_COLS+j], R_cgra[i*R_COLS+j]);
+//                 return -1;
+//             }
+//         }
+//     }
+// #endif // CHECK RESULTS
+
     PRINTF("CGRA cycles: %u\n", t_cgra);
-#endif // DEBUG
-
-    /* Putting back results on flash */
-    // move data from R
-    dma_sdk_init();
-    // dma_copy((uint32_t)R_ram, (uint32_t)R_cgra, sizeof(R_cgra), 0, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
-    copy_r_ram_to_r_cgra();
-
-#ifdef DEBUG
-    PRINTF("CGRA ram|gold R[0]: %x\n", R_ram[0]);
-    PRINTF("CGRA ram|gold R[%d]: %x\n", R_ROWS*R_COLS-1, R_ram[R_ROWS*R_COLS-1]);
-#endif // DEBUG
-
-
-
-    
-
+    // PRINTF("CPU cycles: %u\n", t_cpu);
 
 return 0;
 }
@@ -256,61 +219,7 @@ void cgraMatMulRun(uint32_t *A, uint32_t *B, uint32_t *C, uint32_t A_rows, uint3
 
 }
 
-int copy_r_ram_to_r_cgra(void)
-{
-    dma_data_type_t dma_type = DMA_DATA_TYPE_WORD;        // Adjust as needed
-    dma_data_type_t dma_type_dest = DMA_DATA_TYPE_WORD;   // Adjust as needed
-
-    int DMA_CHANNEL = 0;
-
-    dma_target_t tgt_src_R = {
-        .ptr = (uint8_t *)R_ram,
-        .inc_d1_du = 1,
-        .inc_d2_du = 1,       // Usually 1 for simple 1D copy
-        .type = dma_type,
-        .trig = DMA_TRIG_MEMORY,
-    };
-
-    dma_target_t tgt_dst_R = {
-        .ptr = (uint8_t *) &R_cgra[0],
-        .inc_d1_du = 1,
-        .inc_d2_du = 1,       // Adjust if you need 2D increments
-        .type = dma_type_dest,
-        .trig = DMA_TRIG_MEMORY,
-    };
-
-    dma_trans_t trans_R = {
-        .src = &tgt_src_R,
-        .dst = &tgt_dst_R,
-        .size_d1_du = R_SIZE, // R_SIZE in data elements
-        .size_d2_du = 1,      // 1 if 1D copy; adjust if needed
-        .src_addr = NULL,
-        .mode = DMA_TRANS_MODE_SINGLE,
-        .dim = DMA_DIM_CONF_1D, // or DMA_DIM_CONF_2D if needed
-        .win_du = 0,
-        .sign_ext = 1,         // Enable sign extension
-        .end = DMA_TRANS_END_INTR,
-        .channel = DMA_CHANNEL,
-    };
-
-    timer_cycles_init();
-    timer_start();
-
-    if (run_dma_signext_trans(&trans_R) != 0)
-    {
-        printf("Error! DMA transaction failed\n");
-        return 1;
-    }
-    DMA_WAIT(DMA_CHANNEL)
-
-    uint32_t dma_cycles = timer_stop();
-    printf("DMA copy cycles: %u\n", dma_cycles);
-
-    return 0;
-}
-
 
 /****************************************************************************/
 /**                                 EOF                                    **/
 /****************************************************************************/
-
