@@ -82,6 +82,8 @@ void stft_rearrange(quant_bit_width *rawInputSignal, quant_bit_width *stftVec, s
 {
     fft_complex_t *data = (fft_complex_t*) &ram_buffer[7216]; // 4096 Bytes
     int overlap = 64; // The overlap between consecutive windows for the STFT
+    uint32_t time;
+    static uint32_t time_tot = 0;
     for (int ch = 0; ch < 20; ch++) // Each channel represents a different segment of the rawInputSignal
     {
         for (int time_step = 0; time_step < 15; time_step++) // 15 time steps (or frames) for each channel. Each frame represents a time window on which the FFT will be performed
@@ -92,6 +94,7 @@ void stft_rearrange(quant_bit_width *rawInputSignal, quant_bit_width *stftVec, s
             fft_fft(data, 9); // Perform the FFT
             // starting position in the output stftVec where the results of the current FFT should be stored:
             quant_bit_width *stftVecPtr = stftVec + ch * 15 * 160 + (time_step / patchWidth) * patchWidth * patchHeight + (time_step % patchWidth);
+            time = timer_get_cycles();
             for (int index = 0; index < patchHeight; index++) //  first half of the frequency bins
             {
                 quant_bit_width stft_int = compute_log_amp(data[index].r, data[index].i);// logarithmic amplitude (amplitude in dB)
@@ -106,6 +109,10 @@ void stft_rearrange(quant_bit_width *rawInputSignal, quant_bit_width *stftVec, s
                 *stftVecPtr = stft_int;
                 stftVecPtr += patchWidth;
             }
+            #ifdef PRINT_LOGAMP_CYCLES
+                time_tot += timer_get_cycles() - time;
+                PRINTF("Log Amp cycles: %u\n", time_tot);
+            #endif
         }
     }
 }

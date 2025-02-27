@@ -7,22 +7,27 @@
 // #define DEBUG_PRINTS
 #define PRINT_RESULTS // does not interfere with cycle count
 
+// #define PRINT_LOGAMP_CYCLES
+// #define PRINT_GELU_CYCLES
+#define PRINT_SOFTMAX_CYCLES
+
 // Softmax implementation
 #define SM_FP 0
 #define SM_SOFTERMAX 1
 #define SM_FIXED 2
-#define SM_IMPL SM_FIXED
+#define SM_ConSmax 3
+#define SM_IMPL SM_ConSmax
 
 // GeLU implementation (two versions: FP and PWL)
 #define GELU_FP 0
 #define GELU_PWL 1
-#define GELU_IMPL GELU_PWL
+#define GELU_IMPL GELU_FP
 
 // Logarithm of amplitude implementation
 #define LOG_AMP_FP 0
 #define LOG_AMP_FXP_LUT 1
 #define LOG_AMP_FXP_APPROX 2
-#define LOG_AMP_IMPL LOG_AMP_FXP_APPROX
+#define LOG_AMP_IMPL LOG_AMP_FP
 
 /* By default, PRINTFs are activated for FPGA and disabled for simulation. */
 #define PRINTF_IN_FPGA  1

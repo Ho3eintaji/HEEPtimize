@@ -155,8 +155,19 @@ void compute_SingleHeadSelfAttn(SingleHeadSelfAttn* self_attn, int16_t* input, i
             printf("\n");
         }
     #endif
+    
     // scale from zero to 1 the output of the matrix multiplication
+    #ifdef PRINT_SOFTMAX_CYCLES
+        static uint32_t tt = 0;
+        static uint32_t tt_tot = 0;
+        tt = timer_get_cycles();
+    #endif
     computeSoftmax(intermediate, self_attn->pre_seq_len);
+    #ifdef PRINT_SOFTMAX_CYCLES
+        tt_tot += timer_get_cycles() - tt;
+        PRINTF("Softmax cycles: %u\n", tt_tot);
+    #endif
+
     #ifdef PRINT_INTERMEDIATE_CYCLES
         int softmax_time = timer_stop();
         PRINTF("softmax time: %d\n", softmax_time);

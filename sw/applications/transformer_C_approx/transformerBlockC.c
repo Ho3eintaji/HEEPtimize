@@ -250,7 +250,20 @@ void computeFixedPoint(TransformerBlock *transformerBlock, size_t seq_len, quant
             PRINTF("dense time[%d]: %d\n", l, dense_time);
             timer_start();
         #endif
+        
+        #ifdef PRINT_GELU_CYCLES
+            static uint32_t time = 0;
+            static uint32_t time_tot = 0;
+            time = timer_get_cycles();
+        #endif
+
         activation(transformerBlock->feedForward0[0], seq_len * transformerBlock->ff_size_, intermediate, intermediate);
+
+        #ifdef PRINT_GELU_CYCLES
+        time_tot += timer_get_cycles() - time;
+        PRINTF("GELU cycles: %u\n", time_tot);
+        #endif
+
         if(l<3){ // load successive layer from flash
             w25q128jw_wait_quad_dma_async((uint32_t *)transformerBlock->transformer_layer_1_addNorm[0].weight_, 64);
             if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)transformerBlock->feedForward0[l+1]->weight),(uint32_t *)transformerBlock->feedForward0[0]->weight, 68*2) != FLASH_OK)return 1;
