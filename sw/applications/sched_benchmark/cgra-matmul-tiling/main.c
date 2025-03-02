@@ -43,8 +43,8 @@
 /**                      PROTOTYPES OF LOCAL FUNCTIONS                     **/
 /****************************************************************************/
 
-// Intialize system
-void init_system(void);
+// // Intialize system
+// void init_system(void);
 
 // Handler for the CGRA interruption
 static void handler_irq_cgra(uint32_t id);
@@ -75,42 +75,15 @@ static int32_t cgra_input[CGRA_N_COLS][CGRA_COL_INPUT_SIZE] __attribute__ ((alig
 // // CPU output buffer
 // data_t R_cpu[R_ROWS*R_COLS] __attribute__((section(".xheep_data_interleaved")));
 
-// ram buffers (in 512KB section of memory)
+// Putting data in cache 
 int32_t A_ram [A_ROWS*A_COLS] = {0}; 
 int32_t B_ram [B_ROWS*B_COLS] = {0};
-int32_t * R_ram [R_ROWS*R_COLS] = {0};
+int32_t R_ram [R_ROWS*R_COLS] = {1};
 
 // CGRA buffer
 int32_t A_cgra[A_ROWS*A_COLS] __attribute__((section(".xheep_data_interleaved"))) = {0};
 int32_t B_cgra[B_ROWS*B_COLS] __attribute__((section(".xheep_data_interleaved"))) = {0};
 int32_t R_cgra[R_ROWS*R_COLS] __attribute__((section(".xheep_data_interleaved"))) = {0};
-
-int32_t R_cgra2[R_ROWS*R_COLS] __attribute__((section(".xheep_data_interleaved"))) = {0};
-
-dma_config_flags_t run_dma_signext_trans(dma_trans_t *trans)
-    {
-    dma_config_flags_t res1, res2, res3;
-
-    res1 = dma_validate_transaction(trans, DMA_ENABLE_REALIGN, DMA_PERFORM_CHECKS_INTEGRITY);
-    if(res1 != DMA_CONFIG_OK)
-    {
-        printf("Error in dma_validate_transaction 0x%x \n",res1);
-    }
-
-    res2 = dma_load_transaction(trans);
-    if(res2 != DMA_CONFIG_OK)
-    {
-        printf("Error in dma_load_transaction 0x%x \n",res2);
-    }
-
-    res3 |= dma_launch(trans);
-    if(res3 != DMA_CONFIG_OK)
-    {
-        printf("Error in dma_launch 0x%x \n",res3);
-    }
-    return res1|res2|res3;
-    } 
-
 
 /****************************************************************************/
 
@@ -119,8 +92,35 @@ int main(void)
 
     uint32_t t1, t2, t_cgra, t_cpu;
     
-    // Initialization
-    init_system();
+    /* ============================== 
+    * ====== Initialization =========
+    * ============================== */
+
+    // Initialize the DMA
+    dma_sdk_init();
+    // Pick the correct spi device based on simulation type
+    spi_host_t* spi = spi_flash;
+    // Init SPI host and SPI<->Flash bridge parameters
+    if (w25q128jw_init(spi) != FLASH_OK){
+        PRINTF("Error initializing SPI flash\n");
+        return 1;
+    } 
+
+    // init_system();
+    if (vcd_init() != 0) return 1;
+    timer_cycles_init();
+    timer_start();
+
+    // Enable fast interrupts for DMA and PLIC
+    if (enable_fast_interrupt(kDma_fic_e, true) != kFastIntrCtrlOk_e) return 1;
+
+    plic_Init();
+    if (ext_irq_init() != 0) return 1;
+
+    plic_irq_set_priority(CGRA_INTR, 1);
+    plic_irq_set_enabled(CGRA_INTR, kPlicToggleEnabled);
+    plic_assign_external_irq_handler(CGRA_INTR, (void *) &handler_irq_cgra);
+    cgra_intr_flag = 0;
 
     // move data from A and B which are in flash to A_ram and B_ram which are in ram
     if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)A), A_ram, A_ROWS*A_COLS*ELEM_SIZE) != FLASH_OK)return -1;
@@ -128,13 +128,10 @@ int main(void)
     if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)B), B_ram, B_ROWS*B_COLS*ELEM_SIZE) != FLASH_OK)return -1;
     w25q128jw_wait_quad_dma_async(B_ram, B_ROWS*B_COLS*ELEM_SIZE);
 
-    
-
     // move data from ram buffer to CGRA memory
     dma_sdk_init(); //TODO: Generally it should not be required, but for some reason it is required here and stuck without it
     dma_copy((uint32_t)B_cgra, (uint32_t)B_ram, sizeof(B_ram), 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
     dma_copy((uint32_t)A_cgra, (uint32_t)A_ram, sizeof(A_ram), 2, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
-        // TODO: I have a weird issue, so i dont use async version of dma_copy
 
     /* CGRA matmul bitstream loading */
     cgra_cmem_init(cgra_imem_bitstream, cgra_kmem_bitstream);
@@ -147,27 +144,11 @@ int main(void)
     while(cgra_intr_flag == 0) { wait_for_interrupt(); }
     t_cgra =  timer_get_cycles() - t1;
 
-#ifdef DEBUG
-    PRINTF("CGRA mem|gold R[0]: %x\n", R_cgra[0]);
-    PRINTF("CGRA mem|gold R[%d]: %x\n", R_ROWS*R_COLS-1, R_cgra[R_ROWS*R_COLS-1]);
-    PRINTF("CGRA cycles: %u\n", t_cgra);
-#endif // DEBUG
+    dma_copy((uint32_t)A_ram, (uint32_t)R_cgra, sizeof(R_cgra), 0, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+    //TODO: there is a weird bug that i can not copy to R_ram, so i copy to A_ram
 
-    /* Putting back results on flash */
-    // move data from R
-    dma_sdk_init();
-    // dma_copy((uint32_t)R_ram, (uint32_t)R_cgra, sizeof(R_cgra), 0, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
-    copy_r_ram_to_r_cgra();
-
-#ifdef DEBUG
-    PRINTF("CGRA ram|gold R[0]: %x\n", R_ram[0]);
-    PRINTF("CGRA ram|gold R[%d]: %x\n", R_ROWS*R_COLS-1, R_ram[R_ROWS*R_COLS-1]);
-#endif // DEBUG
-
-
-
-    
-
+    PRINTF("R_ram[0]: %x\n", A_ram[0]);
+    PRINTF("R_ram[%d]: %x\n", R_ROWS*R_COLS-1, A_ram[R_ROWS*R_COLS-1]);   
 
 return 0;
 }
@@ -184,39 +165,10 @@ void cpuMatMul(data_t *A, data_t *B, data_t *C, unsigned int A_rows, unsigned in
     }
 }
 
-
 // Interrupt controller variables
 static void handler_irq_cgra(uint32_t id) {
   cgra_intr_flag = 1;
 }
-
-// Intialize system
-void init_system(void){
-    if (vcd_init() != 0) return 1;
-    timer_cycles_init();
-    timer_start();
-
-    // Enable fast interrupts for DMA and PLIC
-    if (enable_fast_interrupt(kDma_fic_e, true) != kFastIntrCtrlOk_e) return 1;
-
-    plic_Init();
-    if (ext_irq_init() != 0) return 1;
-
-    plic_irq_set_priority(CGRA_INTR, 1);
-    plic_irq_set_enabled(CGRA_INTR, kPlicToggleEnabled);
-    plic_assign_external_irq_handler(CGRA_INTR, (void *) &handler_irq_cgra);
-    cgra_intr_flag = 0;
-    
-    // Initialize the DMA
-    dma_sdk_init();
-    // Pick the correct spi device based on simulation type
-    spi_host_t* spi = spi_flash;
-    // Init SPI host and SPI<->Flash bridge parameters
-    if (w25q128jw_init(spi) != FLASH_OK){
-        PRINTF("Error initializing SPI flash\n");
-        return 1;
-    } 
-} 
 
 //cgra Matmul
 void cgraMatMulRun(uint32_t *A, uint32_t *B, uint32_t *C, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols)
@@ -255,60 +207,6 @@ void cgraMatMulRun(uint32_t *A, uint32_t *B, uint32_t *C, uint32_t A_rows, uint3
     cgra_set_kernel(&cgra, cgra_slot, TRANSFORMER);
 
 }
-
-int copy_r_ram_to_r_cgra(void)
-{
-    dma_data_type_t dma_type = DMA_DATA_TYPE_WORD;        // Adjust as needed
-    dma_data_type_t dma_type_dest = DMA_DATA_TYPE_WORD;   // Adjust as needed
-
-    int DMA_CHANNEL = 0;
-
-    dma_target_t tgt_src_R = {
-        .ptr = (uint8_t *)R_ram,
-        .inc_d1_du = 1,
-        .inc_d2_du = 1,       // Usually 1 for simple 1D copy
-        .type = dma_type,
-        .trig = DMA_TRIG_MEMORY,
-    };
-
-    dma_target_t tgt_dst_R = {
-        .ptr = (uint8_t *) &R_cgra[0],
-        .inc_d1_du = 1,
-        .inc_d2_du = 1,       // Adjust if you need 2D increments
-        .type = dma_type_dest,
-        .trig = DMA_TRIG_MEMORY,
-    };
-
-    dma_trans_t trans_R = {
-        .src = &tgt_src_R,
-        .dst = &tgt_dst_R,
-        .size_d1_du = R_SIZE, // R_SIZE in data elements
-        .size_d2_du = 1,      // 1 if 1D copy; adjust if needed
-        .src_addr = NULL,
-        .mode = DMA_TRANS_MODE_SINGLE,
-        .dim = DMA_DIM_CONF_1D, // or DMA_DIM_CONF_2D if needed
-        .win_du = 0,
-        .sign_ext = 1,         // Enable sign extension
-        .end = DMA_TRANS_END_INTR,
-        .channel = DMA_CHANNEL,
-    };
-
-    timer_cycles_init();
-    timer_start();
-
-    if (run_dma_signext_trans(&trans_R) != 0)
-    {
-        printf("Error! DMA transaction failed\n");
-        return 1;
-    }
-    DMA_WAIT(DMA_CHANNEL)
-
-    uint32_t dma_cycles = timer_stop();
-    printf("DMA copy cycles: %u\n", dma_cycles);
-
-    return 0;
-}
-
 
 /****************************************************************************/
 /**                                 EOF                                    **/
