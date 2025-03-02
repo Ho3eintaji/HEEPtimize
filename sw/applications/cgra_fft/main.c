@@ -71,7 +71,7 @@ fxp ImagOut_fxp_exp[FFT_SIZE] __attribute__ ((aligned (4))) __attribute__((secti
 
 // one dim per core x n input values (data ptrs, constants, ...)
 int32_t cgra_input[CGRA_N_COLS][CGRA_N_SLOTS][10] __attribute__ ((aligned (4))) = { 0 };
-int8_t cgra_intr_flag;
+static int8_t cgra_intr_flag;
 // Nothing should be write here by the FFT kernel
 // int32_t cgra_output[CGRA_N_COLS][CGRA_N_ROWS][10] __attribute__ ((aligned (4))) = { 0 };
 

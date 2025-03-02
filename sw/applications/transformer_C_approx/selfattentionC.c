@@ -36,9 +36,11 @@ void compute_SingleHeadSelfAttn(SingleHeadSelfAttn* self_attn, int16_t* input, i
     self_attn->key_transposed_layer_out = qkv + 3 * self_attn->pre_seq_len * self_attn->head_hidden_size;
 
     //perform the 3 dense layers for the query, key, and value
+    t_tmp = timer_get_cycles();
     computeDense(self_attn->query_layer, self_attn->pre_seq_len, input, self_attn->query_layer_out);
     computeDense(self_attn->key_layer, self_attn->pre_seq_len, input, self_attn->key_layer_out);
     computeDense(self_attn->value_layer, self_attn->pre_seq_len, input, self_attn->value_layer_out);
+    t_matmul_add += timer_get_cycles() - t_tmp;
 
     #ifdef DEBUG_PRINTS
         printf("\nKey layer:\n");
@@ -98,7 +100,9 @@ void compute_SingleHeadSelfAttn(SingleHeadSelfAttn* self_attn, int16_t* input, i
     #endif
 
     // transpose the key layer
+    t_tmp = timer_get_cycles();
     transpose_quant(self_attn->key_layer_out, self_attn->key_transposed_layer_out, self_attn->pre_seq_len, self_attn->head_hidden_size);
+    t_transpose += timer_get_cycles() - t_tmp;
     #ifdef PRINT_INTERMEDIATE_CYCLES
         int transpose_time = timer_stop();
         PRINTF("transpose time: %d\n", transpose_time);
@@ -106,7 +110,9 @@ void compute_SingleHeadSelfAttn(SingleHeadSelfAttn* self_attn, int16_t* input, i
         timer_start();
     #endif
     // sscale the key matrix, which helps normalize the attention scores (shift right by 1)
+    t_tmp = timer_get_cycles();
     MatMul_scale(self_attn->key_transposed_layer_out, 1, self_attn->pre_seq_len * self_attn->head_hidden_size);
+    t_mm_scale += timer_get_cycles() - t_tmp;
     #ifdef PRINT_INTERMEDIATE_CYCLES
         int scale_time = timer_stop();
         PRINTF("scale time: %d\n", scale_time);
@@ -135,8 +141,9 @@ void compute_SingleHeadSelfAttn(SingleHeadSelfAttn* self_attn, int16_t* input, i
     #endif
 
     // perform Q x K^T
-
+    t_tmp = timer_get_cycles();
     MatMul_multiply(self_attn->pre_seq_len, self_attn->query_layer_out, self_attn->key_transposed_layer_out, intermediate, self_attn->head_hidden_size, self_attn->pre_seq_len);
+    t_matmul += timer_get_cycles() - t_tmp;
     #ifdef PRINT_INTERMEDIATE_CYCLES
         int matmul_time = timer_stop();
         PRINTF("matmul time QxK^T: %d\n", matmul_time);
@@ -157,16 +164,9 @@ void compute_SingleHeadSelfAttn(SingleHeadSelfAttn* self_attn, int16_t* input, i
     #endif
     
     // scale from zero to 1 the output of the matrix multiplication
-    #ifdef PRINT_SOFTMAX_CYCLES
-        static uint32_t tt = 0;
-        static uint32_t tt_tot = 0;
-        tt = timer_get_cycles();
-    #endif
+    t_tmp = timer_get_cycles();
     computeSoftmax(intermediate, self_attn->pre_seq_len);
-    #ifdef PRINT_SOFTMAX_CYCLES
-        tt_tot += timer_get_cycles() - tt;
-        PRINTF("Softmax cycles: %u\n", tt_tot);
-    #endif
+    t_softmax += timer_get_cycles() - t_tmp;
 
     #ifdef PRINT_INTERMEDIATE_CYCLES
         int softmax_time = timer_stop();
@@ -175,7 +175,9 @@ void compute_SingleHeadSelfAttn(SingleHeadSelfAttn* self_attn, int16_t* input, i
         timer_start();
     #endif
     // softMax(Q x K^T) x V
+    t_tmp = timer_get_cycles();
     MatMul_multiply(self_attn->pre_seq_len, intermediate, self_attn->value_layer_out, output, self_attn->pre_seq_len, self_attn->head_hidden_size);
+    t_matmul += timer_get_cycles() - t_tmp;
     #ifdef PRINT_INTERMEDIATE_CYCLES
         int matmul_time2 = timer_stop();
         PRINTF("matmul time softmax(QxK^T)xV: %d\n", matmul_time2);

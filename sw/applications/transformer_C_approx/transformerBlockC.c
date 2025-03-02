@@ -94,8 +94,9 @@ void computeFixedPoint(TransformerBlock *transformerBlock, size_t seq_len, quant
     // ram buffer is already initialized with weights of first normalization
     transformerBlock->addNorm.weight_ = ram_buffer;
     transformerBlock->addNorm.bias_ = ram_buffer+400;
-
+    t_tmp = timer_get_cycles();
     normalize(&transformerBlock->addNorm, input, input); 
+    t_norm += timer_get_cycles() - t_tmp;
 
     if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)transformerBlock->addNorm2.weight_), ram_buffer, 64) != FLASH_OK)return -1; // read addnorm2 in ram_buffer[0]
 
@@ -108,7 +109,9 @@ void computeFixedPoint(TransformerBlock *transformerBlock, size_t seq_len, quant
     // ram buffer is already initialized with patch emebdding weigths and biases
     transformerBlock->patchEmbedding->weight = ram_buffer+800;
     transformerBlock->patchEmbedding->bias = ram_buffer+800+6400;
+    t_tmp = timer_get_cycles();
     computeDense(transformerBlock->patchEmbedding, seq_len, input, output);// patch embedding layer : matmul to turn the input image into something the transformer can process (tokens)
+    t_matmul_add += timer_get_cycles() - t_tmp;
     w25q128jw_wait_quad_dma_async(ram_buffer, 64);
     if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)transformerBlock->token->pos_matrix_), ram_buffer+32, 1936*2 + 32) != FLASH_OK)return -1; // read pos_matrix and cls_token_vector
 
@@ -120,7 +123,9 @@ void computeFixedPoint(TransformerBlock *transformerBlock, size_t seq_len, quant
 
     transformerBlock->addNorm2.weight_ = ram_buffer;
     transformerBlock->addNorm2.bias_ = ram_buffer+16;
+    t_tmp = timer_get_cycles();
     normalize(&transformerBlock->addNorm2, output, output);
+    t_norm += timer_get_cycles() - t_tmp;
 
     #ifdef PRINT_INTERMEDIATE_CYCLES
         normalize_time = timer_stop();
@@ -134,7 +139,9 @@ void computeFixedPoint(TransformerBlock *transformerBlock, size_t seq_len, quant
     w25q128jw_wait_quad_dma_async(ram_buffer+32, 1936*2 + 32); // wait for pos embeddings and cls tokens to be loaded
 
     //insert the cls token at the beginning of the sequence
+    t_tmp = timer_get_cycles();
     clsConcatenate(transformerBlock->token, output, input);
+    t_clsconcat += timer_get_cycles() - t_tmp;
     seq_len++;
 
     #ifdef PRINT_INTERMEDIATE_CYCLES
@@ -144,7 +151,9 @@ void computeFixedPoint(TransformerBlock *transformerBlock, size_t seq_len, quant
     #endif
 
     // add the position embedding to the input sequence
+    t_tmp = timer_get_cycles();
     posEmbedding(transformerBlock->token, input);
+    t_add += timer_get_cycles() - t_tmp;
 
     #ifdef PRINT_INTERMEDIATE_CYCLES
         int posemb_time = timer_stop();
@@ -159,7 +168,9 @@ void computeFixedPoint(TransformerBlock *transformerBlock, size_t seq_len, quant
         #ifdef PRINT_INTERMEDIATE_CYCLES
             timer_start();
         #endif
+        t_tmp = timer_get_cycles();
         normalize(&transformerBlock->transformer_layer_0_addNorm[0], input, input_normalized);
+        t_norm += timer_get_cycles() - t_tmp;
         if(l>0)w25q128jw_wait_quad_dma_async((uint32_t *)transformerBlock->feedForward1[0]->weight, 160); // wait for loading of ff2 of this layer to be finished
         if(l<3){ // load successive layer
             if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)transformerBlock->transformer_layer_0_addNorm[l+1].weight_), (uint32_t *)transformerBlock->transformer_layer_0_addNorm[0].weight_, 64) != FLASH_OK)return 1;
@@ -199,14 +210,18 @@ void computeFixedPoint(TransformerBlock *transformerBlock, size_t seq_len, quant
         #ifdef PRINT_INTERMEDIATE_CYCLES
             timer_start();
         #endif
+        t_tmp = timer_get_cycles();
         multihead_transpose(output, intermediate, seq_len, transformerBlock->head_hidden_size_, transformerBlock->num_heads_);
+        t_mh_transpose += timer_get_cycles() - t_tmp;
         #ifdef PRINT_INTERMEDIATE_CYCLES
             int transpose_time = timer_stop();
             PRINTF("transpose time[%d]: %d\n", l, transpose_time);
             timer_start();
         #endif
-    
+        
+        t_tmp = timer_get_cycles();
         computeDense(transformerBlock->condense[0], seq_len, intermediate, output);
+        t_matmul_add += timer_get_cycles() - t_tmp;
 
         if(l<3){ // load successive layer from flash
             w25q128jw_wait_quad_dma_async((uint32_t *)transformerBlock->selfatten[2]->query_layer->weight, 384*2); // wait for the previous dma transfer to be performed
@@ -222,13 +237,17 @@ void computeFixedPoint(TransformerBlock *transformerBlock, size_t seq_len, quant
             PRINTF("condense time[%d]: %d\n", l, condense_time);
             timer_start();
         #endif
+        t_tmp = timer_get_cycles();
         add(input, output, seq_len, transformerBlock->input_dim_);
+        t_add += timer_get_cycles() - t_tmp;
         #ifdef PRINT_INTERMEDIATE_CYCLES
             int add_time = timer_stop();
             PRINTF("add time[%d]: %d\n", l, add_time);
             timer_start();
         #endif
+        t_tmp = timer_get_cycles();
         normalize(&transformerBlock->transformer_layer_1_addNorm[0], input, input_normalized);
+        t_norm += timer_get_cycles() - t_tmp;
         if(l<3){ // load successive layer
             w25q128jw_wait_quad_dma_async((uint32_t *)transformerBlock->condense[0]->weight, 272*2);
             if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)transformerBlock->transformer_layer_1_addNorm[l+1].weight_), (uint32_t *)transformerBlock->transformer_layer_1_addNorm[0].weight_, 64) != FLASH_OK)return 1;
@@ -244,25 +263,18 @@ void computeFixedPoint(TransformerBlock *transformerBlock, size_t seq_len, quant
             PRINTF("normalize time[%d]: %d\n", l, normalize_time);
             timer_start();
         #endif
+        t_tmp = timer_get_cycles();
         computeDense(transformerBlock->feedForward0[0], seq_len, input_normalized, intermediate);
+        t_matmul_add += timer_get_cycles() - t_tmp;
         #ifdef PRINT_INTERMEDIATE_CYCLES
             int dense_time = timer_stop();
             PRINTF("dense time[%d]: %d\n", l, dense_time);
             timer_start();
         #endif
         
-        #ifdef PRINT_GELU_CYCLES
-            static uint32_t time = 0;
-            static uint32_t time_tot = 0;
-            time = timer_get_cycles();
-        #endif
-
+        t_tmp = timer_get_cycles();
         activation(transformerBlock->feedForward0[0], seq_len * transformerBlock->ff_size_, intermediate, intermediate);
-
-        #ifdef PRINT_GELU_CYCLES
-        time_tot += timer_get_cycles() - time;
-        PRINTF("GELU cycles: %u\n", time_tot);
-        #endif
+        t_gelu += timer_get_cycles() - t_tmp;
 
         if(l<3){ // load successive layer from flash
             w25q128jw_wait_quad_dma_async((uint32_t *)transformerBlock->transformer_layer_1_addNorm[0].weight_, 64);
@@ -273,7 +285,9 @@ void computeFixedPoint(TransformerBlock *transformerBlock, size_t seq_len, quant
             PRINTF("activation time[%d]: %d\n", l, activation_time);
             timer_start();
         #endif
+        t_tmp = timer_get_cycles();
         computeDense(transformerBlock->feedForward1[0], seq_len, intermediate, output);
+        t_matmul_add += timer_get_cycles() - t_tmp;
         if(l<3){ // load successive layer from flash
             w25q128jw_wait_quad_dma_async((uint32_t *)transformerBlock->feedForward0[0]->weight, 68*2);
             if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)transformerBlock->feedForward1[l+1]->weight),(uint32_t *)transformerBlock->feedForward1[0]->weight, 160) != FLASH_OK)return 1;
@@ -283,7 +297,9 @@ void computeFixedPoint(TransformerBlock *transformerBlock, size_t seq_len, quant
             PRINTF("dense time[%d]: %d\n", l, dense_time);
             timer_start();
         #endif
+        t_tmp = timer_get_cycles();
         add(input, output, seq_len, transformerBlock->input_dim_);
+        t_add += timer_get_cycles() - t_tmp;
         #ifdef PRINT_INTERMEDIATE_CYCLES
             add_time = timer_stop();
             PRINTF("add time[%d]: %d\n", l, add_time);
@@ -293,8 +309,9 @@ void computeFixedPoint(TransformerBlock *transformerBlock, size_t seq_len, quant
     #ifdef PRINT_INTERMEDIATE_CYCLES
         timer_start();
     #endif
-
+    t_tmp = timer_get_cycles();
     normalize(&transformerBlock->mlp_head_norm, input, input_normalized); 
+    t_norm += timer_get_cycles() - t_tmp;
 
     #ifdef PRINT_INTERMEDIATE_CYCLES
         normalize_time = timer_stop();
@@ -303,7 +320,9 @@ void computeFixedPoint(TransformerBlock *transformerBlock, size_t seq_len, quant
     #endif
 
     w25q128jw_wait_quad_dma_async(ram_buffer+32, 272*2);
+    t_tmp = timer_get_cycles();
     computeDense(transformerBlock->mlp_head_linear, 1, input_normalized, output);
+    t_matmul_add += timer_get_cycles() - t_tmp;
 
     #ifdef PRINT_INTERMEDIATE_CYCLES
         dense_time = timer_stop();   

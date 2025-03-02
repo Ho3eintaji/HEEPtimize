@@ -20,6 +20,25 @@
 
 #define FS_INITIAL 0x01
 
+// initalize global timing variables
+uint32_t t_tmp = 0;
+uint32_t t_logamp = 0;
+uint32_t t_gelu = 0;
+uint32_t t_softmax = 0;
+uint32_t t_hanning = 0;
+uint32_t t_fft = 0;
+uint32_t t_norm = 0;
+uint32_t t_matmul_add = 0;
+uint32_t t_matmul = 0;
+uint32_t t_add = 0;
+uint32_t t_clsconcat = 0;
+uint32_t t_transpose = 0;
+uint32_t t_mh_transpose = 0;
+uint32_t t_mm_scale = 0;
+uint32_t t_euc_dist = 0;
+
+void print_kernels_cycles(void);
+
 float error_check(const quant_bit_width *groundTruth, const quant_bit_width *output, size_t length)
 {
     long error = 0;
@@ -82,19 +101,21 @@ void stft_rearrange(quant_bit_width *rawInputSignal, quant_bit_width *stftVec, s
 {
     fft_complex_t *data = (fft_complex_t*) &ram_buffer[7216]; // 4096 Bytes
     int overlap = 64; // The overlap between consecutive windows for the STFT
-    uint32_t time;
-    static uint32_t time_tot = 0;
     for (int ch = 0; ch < 20; ch++) // Each channel represents a different segment of the rawInputSignal
     {
         for (int time_step = 0; time_step < 15; time_step++) // 15 time steps (or frames) for each channel. Each frame represents a time window on which the FFT will be performed
         {
+            t_tmp = timer_get_cycles();
             // starting position of the raw signal for the current channel and time step:
             quant_bit_width *rawSignalPtr = rawInputSignal + ch * 3072 + (256 - overlap) * time_step;
             initialize_stft(data, rawSignalPtr); // Initialize the data array (with hanning values)
+            t_hanning += timer_get_cycles() - t_tmp;
+            t_tmp = timer_get_cycles();
             fft_fft(data, 9); // Perform the FFT
+            t_fft += timer_get_cycles() - t_tmp;
+            t_tmp = timer_get_cycles();
             // starting position in the output stftVec where the results of the current FFT should be stored:
             quant_bit_width *stftVecPtr = stftVec + ch * 15 * 160 + (time_step / patchWidth) * patchWidth * patchHeight + (time_step % patchWidth);
-            time = timer_get_cycles();
             for (int index = 0; index < patchHeight; index++) //  first half of the frequency bins
             {
                 quant_bit_width stft_int = compute_log_amp(data[index].r, data[index].i);// logarithmic amplitude (amplitude in dB)
@@ -109,10 +130,7 @@ void stft_rearrange(quant_bit_width *rawInputSignal, quant_bit_width *stftVec, s
                 *stftVecPtr = stft_int;
                 stftVecPtr += patchWidth;
             }
-            #ifdef PRINT_LOGAMP_CYCLES
-                time_tot += timer_get_cycles() - time;
-                PRINTF("Log Amp cycles: %u\n", time_tot);
-            #endif
+            t_logamp += timer_get_cycles() - t_tmp;
         }
     }
 }
@@ -150,15 +168,40 @@ int main()
     #endif
     transformerInference(stftVec, out, input_normalized, qkv, intermediate);
     // calculate distances for classification
+    t_tmp = timer_get_cycles();
     prototype_distances(prototypes, out, distances, D_MODEL, 2);
+    t_euc_dist += timer_get_cycles() - t_tmp;
     #ifdef PRINT_TOTAL_CYCLES
        uint32_t total_cycles = timer_stop();
          PRINTF("Total cycles: %u\n", total_cycles);
     #endif
+
+    #ifdef PRINT_KERNELS_CYCLES
+        print_kernels_cycles();
+    #endif
+
     #ifdef PRINT_RESULTS
         PRINTF("Distances : \n");
         for (int i = 0; i < 2; i++)
             PRINTF("From the prototype of class %d = %d\n", i, distances[i]);
         return 0;
     #endif
+}
+
+void print_kernels_cycles(void)
+{
+    PRINTF("hanning and zeroPad: %u\n", t_hanning);
+    PRINTF("FFT: %u\n", t_fft);
+    PRINTF("Log Amp: %u\n", t_logamp);
+    PRINTF("norm: %u\n", t_norm);
+    PRINTF("matmul_add: %u\n", t_matmul_add);
+    PRINTF("matmul: %u\n", t_matmul);
+    PRINTF("add: %u\n", t_add);
+    PRINTF("clsconcat: %u\n", t_clsconcat);
+    PRINTF("transpose: %u\n", t_transpose);
+    PRINTF("mm_scale: %u\n", t_mm_scale);
+    PRINTF("mh_transpose: %u\n", t_mh_transpose);
+    PRINTF("gelu: %u\n", t_gelu);
+    PRINTF("softmax: %u\n", t_softmax);
+    PRINTF("euc_dist: %u\n", t_euc_dist);
 }
