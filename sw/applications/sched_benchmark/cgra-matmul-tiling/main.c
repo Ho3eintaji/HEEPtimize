@@ -43,9 +43,6 @@
 /**                      PROTOTYPES OF LOCAL FUNCTIONS                     **/
 /****************************************************************************/
 
-// // Intialize system
-// void init_system(void);
-
 // Handler for the CGRA interruption
 static void handler_irq_cgra(uint32_t id);
 
@@ -54,9 +51,6 @@ void cpuMatMul(data_t *A, data_t *B, data_t *C, unsigned int A_rows, unsigned in
 
 // Launch cgra matmul
 void cgraMatMulRun(uint32_t *A, uint32_t *B, uint32_t *C, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols);
-
-int copy_r_ram_to_r_cgra(void);
-
 
 /****************************************************************************/
 /**                           GLOBAL VARIABLES                             **/
@@ -72,18 +66,17 @@ static uint8_t    cgra_slot;
 // CGRA input buffer
 static int32_t cgra_input[CGRA_N_COLS][CGRA_COL_INPUT_SIZE] __attribute__ ((aligned (4)));
 
-// // CPU output buffer
-// data_t R_cpu[R_ROWS*R_COLS] __attribute__((section(".xheep_data_interleaved")));
-
-// Putting data in cache 
-int32_t A_ram [A_ROWS*A_COLS] = {0}; 
-int32_t B_ram [B_ROWS*B_COLS] = {0};
-int32_t R_ram [R_ROWS*R_COLS] = {1};
+// cache: whole data is cached
+int32_t cache [A_ROWS*A_COLS + B_ROWS*B_COLS + R_ROWS*R_COLS] = {0};
+int32_t *A_ram = cache;
+int32_t *B_ram = cache + A_ROWS*A_COLS;
+int32_t *R_ram = cache + A_ROWS*A_COLS + B_ROWS*B_COLS;
 
 // CGRA buffer
-int32_t A_cgra[A_ROWS*A_COLS] __attribute__((section(".xheep_data_interleaved"))) = {0};
-int32_t B_cgra[B_ROWS*B_COLS] __attribute__((section(".xheep_data_interleaved"))) = {0};
-int32_t R_cgra[R_ROWS*R_COLS] __attribute__((section(".xheep_data_interleaved"))) = {0};
+int32_t cgra_buffer[A_ROWS*A_COLS + B_ROWS*B_COLS + R_ROWS*R_COLS] __attribute__((section(".xheep_data_interleaved"))) = {0};
+int32_t *A_cgra = cgra_buffer;
+int32_t *B_cgra = cgra_buffer + A_ROWS*A_COLS;
+int32_t *R_cgra = cgra_buffer + A_ROWS*A_COLS + B_ROWS*B_COLS;
 
 /****************************************************************************/
 
@@ -122,21 +115,27 @@ int main(void)
     plic_assign_external_irq_handler(CGRA_INTR, (void *) &handler_irq_cgra);
     cgra_intr_flag = 0;
 
+    /* CGRA matmul bitstream loading */
+    cgra_cmem_init(cgra_imem_bitstream, cgra_kmem_bitstream);
+    cgra.base_addr = mmio_region_from_addr((uintptr_t)OECGRA_CONFIG_REGS_START_ADDRESS);
+    cgra_slot = cgra_get_slot(&cgra);
+
+    /* ==============================
+    * ====== Putting data in cache ======
+    * ============================== */
     // move data from A and B which are in flash to A_ram and B_ram which are in ram
     if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)A), A_ram, A_ROWS*A_COLS*ELEM_SIZE) != FLASH_OK)return -1;
     w25q128jw_wait_quad_dma_async(A_ram, A_ROWS*A_COLS*ELEM_SIZE);
     if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)B), B_ram, B_ROWS*B_COLS*ELEM_SIZE) != FLASH_OK)return -1;
     w25q128jw_wait_quad_dma_async(B_ram, B_ROWS*B_COLS*ELEM_SIZE);
 
-    // move data from ram buffer to CGRA memory
+    /* =======================================
+    * ====== Runing on CGRA ======
+    * ======================================== */
+   //moving data from cache to cgra_buffer
     dma_sdk_init(); //TODO: Generally it should not be required, but for some reason it is required here and stuck without it
-    dma_copy((uint32_t)B_cgra, (uint32_t)B_ram, sizeof(B_ram), 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
-    dma_copy((uint32_t)A_cgra, (uint32_t)A_ram, sizeof(A_ram), 2, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
-
-    /* CGRA matmul bitstream loading */
-    cgra_cmem_init(cgra_imem_bitstream, cgra_kmem_bitstream);
-    cgra.base_addr = mmio_region_from_addr((uintptr_t)OECGRA_CONFIG_REGS_START_ADDRESS);
-    cgra_slot = cgra_get_slot(&cgra);
+    dma_copy((uint32_t)B_cgra, (uint32_t)B_ram, B_ROWS*B_COLS, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+    dma_copy((uint32_t)A_cgra, (uint32_t)A_ram, A_ROWS*A_COLS, 2, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
 
     /* Running matmul on CGRA */
     t1 = timer_get_cycles();
@@ -144,13 +143,13 @@ int main(void)
     while(cgra_intr_flag == 0) { wait_for_interrupt(); }
     t_cgra =  timer_get_cycles() - t1;
 
-    dma_copy((uint32_t)A_ram, (uint32_t)R_cgra, sizeof(R_cgra), 0, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
-    //TODO: there is a weird bug that i can not copy to R_ram, so i copy to A_ram
+    // moving results to cache
+    dma_copy((uint32_t)R_ram, (uint32_t)R_cgra, R_ROWS*R_COLS, 0, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
 
-    PRINTF("R_ram[0]: %x\n", A_ram[0]);
-    PRINTF("R_ram[%d]: %x\n", R_ROWS*R_COLS-1, A_ram[R_ROWS*R_COLS-1]);   
+    PRINTF("R_ram[0]: %x\n", R_ram[0]);
+    PRINTF("R_ram[%d]: %x\n", R_ROWS*R_COLS-1, R_ram[R_ROWS*R_COLS-1]);
 
-return 0;
+    return 0;
 }
 
 void cpuMatMul(data_t *A, data_t *B, data_t *C, unsigned int A_rows, unsigned int A_cols, unsigned int B_cols)
