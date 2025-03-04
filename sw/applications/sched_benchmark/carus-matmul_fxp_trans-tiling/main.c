@@ -50,15 +50,23 @@
 #define DMA_CHANNEL_A 2
 #define DMA_CHANNEL_B 3
 
+// Structure to hold the tile sizes
+typedef struct {
+    uint32_t tile_row_a;
+    uint32_t tile_col_a;
+    uint32_t tile_col_b;
+} TileSizes;
+
+
 /***************************************************************4*************/
 /**                      PROTOTYPES OF LOCAL FUNCTIONS                     **/
 /****************************************************************************/
 
 // Launch carus matmul
-void carusMatmul(data_t *A, data_t *B, data_t *C, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols);
+void carusMatmulTrans(data_t *A, data_t *B, data_t *C, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols);
 
 // CGRA matmul tiled
-void carusMatMulTransTiled(int32_t *A_ram, int32_t *B_ram, int32_t *R_ram, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols, int32_t *cgra_buffer, uint32_t cgra_buffer_size);
+void carusMatmulTransTiled(data_t *A_ram, data_t *B_ram, data_t *R_ram, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols, uint32_t carus_buffer_size);
 
 dma_config_flags_t run_dma_2d_transp_trans(dma_trans_t *trans);
 
@@ -134,9 +142,9 @@ int main(void)
     /* =======================================
     * ====== Runing on CGRA ======
     * ======================================== */
-   t1 = timer_get_cycles();
-//    cgraMatMulTiled(A_ram, B_ram, R_ram, A_ROWS, A_COLS, B_COLS, cgra_buffer, CGRA_BUFFER_SIZE);
-    carusMatmul(A_ram, B_ram, R_ram, A_ROWS, A_COLS, B_COLS);
+    t1 = timer_get_cycles();
+    // carusMatmulTrans(A_ram, B_ram, R_ram, A_ROWS, A_COLS, B_COLS);
+    carusMatmulTransTiled(A_ram, B_ram, R_ram, A_ROWS, A_COLS, B_COLS, CARUS_MEM_SIZE);
     t_pe = timer_get_cycles() - t1;
 
     PRINTF("Carus MatMul completed in %u cycles.\n", t_pe);
@@ -148,7 +156,7 @@ int main(void)
     for (size_t i = 0; i < 4; i++)
     {
         //last 4 value
-        PRINTF("R[%d]: %x\n", R_ROWS*R_COLS - 4 + i, (uint16_t) R_ram[(1)*R_COLS - 4 + i]);
+        PRINTF("R[%d]: %x\n", R_ROWS*R_COLS - 4 + i, (uint16_t) R_ram[R_ROWS*R_COLS - 4 + i]);
     }
     
 
@@ -168,8 +176,9 @@ void cpuMatMul(data_t *A, data_t *B, data_t *C, unsigned int A_rows, unsigned in
 }
 
 
+
 //carus Matmul
-void carusMatmul(data_t *A, data_t *B, data_t *C, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols)
+void carusMatmulTrans(data_t *A, data_t *B, data_t *C, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols)
 {
 
     data_t *row_ptr;
@@ -182,7 +191,7 @@ void carusMatmul(data_t *A, data_t *B, data_t *C, uint32_t A_rows, uint32_t A_co
     cfg.arg1  = (uint32_t)A_cols; 
     cfg.vtype = (uint32_t)VTYPE_VSEW_32;
     if (carus_set_cfg(CARUS_INSTANCE, &cfg) != 0){
-        printf("Error configuring kernel\n");
+        PRINTF("Error configuring kernel\n");
         return 1;
     }
 
@@ -256,13 +265,13 @@ void carusMatmul(data_t *A, data_t *B, data_t *C, uint32_t A_rows, uint32_t A_co
 
     if (run_dma_2d_transp_trans(&trans_B) != 0)
     {
-        printf("Error! DMA B^T transaction failed\n");
+        PRINTF("Error! DMA B^T transaction failed\n");
         return 1;
     }
     dma_config_flags_t res_A=run_dma_2d_transp_trans(&trans_A);
     if (res_A != 0)
     {
-        printf("Error! DMA A^T transaction failed with error 0x%x\n",res_A);
+        PRINTF("Error! DMA A^T transaction failed with error 0x%x\n",res_A);
         return 1;
     }
 
@@ -271,7 +280,7 @@ void carusMatmul(data_t *A, data_t *B, data_t *C, uint32_t A_rows, uint32_t A_co
 
     // ----- Run the kernel -----
     if (carus_run_kernel(CARUS_INSTANCE) != 0){
-        printf("Error running kernel\n");
+        PRINTF("Error running kernel\n");
         return 1;
     }
     // Wait for the kernel to complete
@@ -314,113 +323,271 @@ void carusMatmul(data_t *A, data_t *B, data_t *C, uint32_t A_rows, uint32_t A_co
 
     if (run_dma_2d_transp_trans(&trans_R) != 0)
     {
-        printf("Error! DMA R transaction failed\n");
+        PRINTF("Error! DMA R transaction failed\n");
         return 1;
     }
 
     DMA_WAIT(DMA_CHANNEL_A)
 
+}
 
-    // row_ptr = (data_t *)carus_vrf(CARUS_INSTANCE, CARUS_MATMUL_R_VREG + 0);
+void carusMatmulTransTiled(data_t *A_ram, data_t *B_ram, data_t *R_ram, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols, uint32_t carus_buffer_size)
+{
+    dma_sdk_init();
+
+    const uint32_t max_row_a = 2048;
+    const uint32_t max_col_a = 16;
+    const uint32_t max_col_b = 15;
+
+    uint32_t M_tile, N_tile, K_tile;
+
+    // Determine the maximum tile sizes that fit into the accelerator's buffer and constraints
+    M_tile = max_row_a;
+    N_tile = max_col_b;
+    K_tile = max_col_a;
+
+    // Adjust tile sizes to fit within the buffer
+    uint32_t buffer_needed = M_tile * K_tile + K_tile * N_tile + M_tile * N_tile;
+    while (buffer_needed > carus_buffer_size) {
+        if (M_tile > 1) {
+            M_tile--;
+        } else if (N_tile > 1) {
+            N_tile--;
+        } else if (K_tile > 1) {
+            K_tile--;
+        } else {
+            fprintf(stderr, "Error: Unable to find valid tile sizes with given buffer size.\n");
+            return;
+        }
+        buffer_needed = M_tile * K_tile + K_tile * N_tile + M_tile * N_tile;
+    }
+
+    // Iterate over A's rows
+    for (uint32_t i = 0; i < A_rows; i += M_tile) {
+        uint32_t current_M = (i + M_tile <= A_rows) ? M_tile : A_rows - i;
+
+        // Iterate over B's columns
+        for (uint32_t j = 0; j < B_cols; j += N_tile) {
+            uint32_t current_N = (j + N_tile <= B_cols) ? N_tile : B_cols - j;
+
+            // Allocate temporary buffer for accumulating results
+            uint32_t temp_C_size = current_M * current_N;
+            data_t *temp_C = (data_t *)malloc(temp_C_size * sizeof(data_t));
+            if (!temp_C) {
+                fprintf(stderr, "Error: Failed to allocate temp_C buffer.\n");
+                return;
+            }
+            memset(temp_C, 0, temp_C_size * sizeof(int32_t));
+
+            // Process each K tile
+            for (uint32_t k = 0; k < A_cols; k += K_tile) {
+                uint32_t current_K = (k + K_tile <= A_cols) ? K_tile : A_cols - k;
+
+                // Check buffer requirements
+                uint32_t a_size = current_M * current_K;
+                uint32_t b_size = current_K * current_N;
+                uint32_t r_size = current_M * current_N;
+                if (a_size + b_size + r_size > carus_buffer_size) {
+                    fprintf(stderr, "Error: Tile exceeds accelerator buffer size.\n");
+                    free(temp_C);
+                    return;
+                }
+
+                // Set pointers in the carus buffer
+                int32_t *A_tile = carus_buffer;
+                int32_t *B_tile = A_tile + a_size;
+                int32_t *R_tile = B_tile + b_size;
+
+                // DMA copy A tile
+                dma_target_t tgt_src_A = {
+                    .ptr = (uint8_t *)(A_ram + i * A_cols + k),
+                    .inc_d1_du = 1,
+                    .inc_d2_du = A_cols,
+                    .type = DMA_DATA_TYPE_WORD,
+                    .trig = DMA_TRIG_MEMORY,
+                };
+                dma_target_t tgt_dst_A = {
+                    .ptr = (uint8_t *)A_tile,
+                    .inc_d1_du = 1,
+                    .inc_d2_du = 1,
+                    .type = DMA_DATA_TYPE_WORD,
+                    .trig = DMA_TRIG_MEMORY,
+                };
+                dma_trans_t trans_A = {
+                    .src = &tgt_src_A,
+                    .dst = &tgt_dst_A,
+                    .size_d1_du = current_M,
+                    .size_d2_du = current_K,
+                    .mode = DMA_TRANS_MODE_SINGLE,
+                    .dim = DMA_DIM_CONF_2D,
+                    .end = DMA_TRANS_END_INTR_WAIT,
+                    .channel = DMA_CHANNEL_A,
+                };
+                run_dma_transaction(&trans_A);
+                DMA_WAIT(DMA_CHANNEL_A);
+
+                // DMA copy B tile (transposed)
+                for (uint32_t row = 0; row < current_K; ++row) {
+                    dma_target_t tgt_src_B_row = {
+                        .ptr = (uint8_t *)(B_ram + (k + row) * B_cols + j),
+                        .inc_d1_du = 1,
+                        .inc_d2_du = 1,
+                        .type = DMA_DATA_TYPE_WORD,
+                        .trig = DMA_TRIG_MEMORY,
+                    };
+                    dma_target_t tgt_dst_B_row = {
+                        .ptr = (uint8_t *)(B_tile + row * current_N),
+                        .inc_d1_du = 1,
+                        .inc_d2_du = 1,
+                        .type = DMA_DATA_TYPE_WORD,
+                        .trig = DMA_TRIG_MEMORY,
+                    };
+                    dma_trans_t trans_B_row = {
+                        .src = &tgt_src_B_row,
+                        .dst = &tgt_dst_B_row,
+                        .size_d1_du = current_N,
+                        .mode = DMA_TRANS_MODE_SINGLE,
+                        .dim = DMA_DIM_CONF_1D,
+                        .end = DMA_TRANS_END_INTR_WAIT,
+                        .channel = DMA_CHANNEL_B,
+                    };
+                    run_dma_transaction(&trans_B_row);
+                    DMA_WAIT(DMA_CHANNEL_B);
+                }
+
+                // Execute matrix multiplication on accelerator
+                carusMatmulTrans(A_tile, B_tile, R_tile, current_M, current_K, current_N);
+
+                // Accumulate result into temp_C
+                for (uint32_t m = 0; m < current_M; ++m) {
+                    for (uint32_t n = 0; n < current_N; ++n) {
+                        temp_C[m * current_N + n] += R_tile[m * current_N + n];
+                    }
+                }
+            }
+
+            // DMA copy accumulated result back to R_ram
+            for (uint32_t m = 0; m < current_M; ++m) {
+                dma_target_t tgt_src_C = {
+                    .ptr = (uint8_t *)(temp_C + m * current_N),
+                    .inc_d1_du = 1,
+                    .inc_d2_du = 1,
+                    .type = DMA_DATA_TYPE_WORD,
+                    .trig = DMA_TRIG_MEMORY,
+                };
+                dma_target_t tgt_dst_C = {
+                    .ptr = (uint8_t *)(R_ram + (i + m) * B_cols + j),
+                    .inc_d1_du = 1,
+                    .inc_d2_du = B_cols,
+                    .type = DMA_DATA_TYPE_WORD,
+                    .trig = DMA_TRIG_MEMORY,
+                };
+                dma_trans_t trans_C = {
+                    .src = &tgt_src_C,
+                    .dst = &tgt_dst_C,
+                    .size_d1_du = current_N,
+                    .mode = DMA_TRANS_MODE_SINGLE,
+                    .dim = DMA_DIM_CONF_1D,
+                    .end = DMA_TRANS_END_INTR_WAIT,
+                    .channel = DMA_CHANNEL_A,
+                };
+                run_dma_transaction(&trans_C);
+                DMA_WAIT(DMA_CHANNEL_A);
+            }
+
+            free(temp_C);
+        }
+    }
 
 
 }
 
-// void cgraMatMulTiled(int32_t *A_ram, int32_t *B_ram, int32_t *R_ram,
-//     uint32_t A_rows, uint32_t A_cols, uint32_t B_cols,
-//     int32_t *cgra_buffer, uint32_t cgra_buffer_size) {
+    // // Check if the entire matrices fit in the CGRA buffer
+    // if (A_rows * A_cols + A_cols * B_cols + A_rows * B_cols <= max_elements) {
+    //     // Direct execution without tiling
+    //     dma_copy((uint32_t)cgra_buffer, (uint32_t)A_ram, A_rows * A_cols, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+    //     dma_copy((uint32_t)(cgra_buffer + A_rows * A_cols), (uint32_t)B_ram, A_cols * B_cols, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+    //     cgraMatMulRun(cgra_buffer, cgra_buffer + A_rows * A_cols, R_ram, A_rows, A_cols, B_cols);
+    //     dma_copy((uint32_t)R_ram, (uint32_t)(cgra_buffer + A_rows * A_cols + A_cols * B_cols), A_rows * B_cols, 0, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+    //     return; // Exit the function
+    // }
 
-//     unsigned int K = A_cols;
-//     unsigned int max_elements = cgra_buffer_size;
-//     dma_sdk_init();
+    // unsigned int M = 0, N = 0;
+    // unsigned int A_rows_div_4 = A_rows >> 2; // A_rows / 4
+    // unsigned int B_cols_div_4 = B_cols >> 2; // B_cols / 4
 
-//     // Check if the entire matrices fit in the CGRA buffer
-//     if (A_rows * A_cols + A_cols * B_cols + A_rows * B_cols <= max_elements) {
-//         // Direct execution without tiling
-//         dma_copy((uint32_t)cgra_buffer, (uint32_t)A_ram, A_rows * A_cols, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
-//         dma_copy((uint32_t)(cgra_buffer + A_rows * A_cols), (uint32_t)B_ram, A_cols * B_cols, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
-//         cgraMatMulRun(cgra_buffer, cgra_buffer + A_rows * A_cols, R_ram, A_rows, A_cols, B_cols);
-//         dma_copy((uint32_t)R_ram, (uint32_t)(cgra_buffer + A_rows * A_cols + A_cols * B_cols), A_rows * B_cols, 0, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
-//         return; // Exit the function
-//     }
+    // // Find maximum M and N that fit in CGRA memory and are multiples of 4
+    // for (M = A_rows_div_4 << 2; M >= 4; M -= 4) {
+    //     unsigned int a_tile = M * K;
+    //     if (a_tile >= max_elements) continue;
 
-//     unsigned int M = 0, N = 0;
-//     unsigned int A_rows_div_4 = A_rows >> 2; // A_rows / 4
-//     unsigned int B_cols_div_4 = B_cols >> 2; // B_cols / 4
+    //     unsigned int remaining = max_elements - a_tile;
+    //     unsigned int denom = K + M;
+    //     if (denom == 0) break;
 
-//     // Find maximum M and N that fit in CGRA memory and are multiples of 4
-//     for (M = A_rows_div_4 << 2; M >= 4; M -= 4) {
-//         unsigned int a_tile = M * K;
-//         if (a_tile >= max_elements) continue;
+    //     unsigned int max_N = remaining / denom;
+    //     N = (max_N >> 2) << 2; // max_N / 4 * 4
+    //     if (N >= 4) {
+    //         if (N > B_cols) {
+    //             N = B_cols_div_4 << 2;
+    //             if (N < 4) continue;
+    //         }
+    //         if ((K * N + M * N) <= remaining) break;
+    //     }
+    // }
 
-//         unsigned int remaining = max_elements - a_tile;
-//         unsigned int denom = K + M;
-//         if (denom == 0) break;
+    // if (M < 4) {
+    //     PRINTF("Error: Cannot find valid tile sizes.\n");
+    //     return;
+    // }
 
-//         unsigned int max_N = remaining / denom;
-//         N = (max_N >> 2) << 2; // max_N / 4 * 4
-//         if (N >= 4) {
-//             if (N > B_cols) {
-//                 N = B_cols_div_4 << 2;
-//                 if (N < 4) continue;
-//             }
-//             if ((K * N + M * N) <= remaining) break;
-//         }
-//     }
+    // /* Process each tile */
+    // for (unsigned int i = 0; i < A_rows; i += M) {
+    //     unsigned int current_M = (i + M <= A_rows) ? M : A_rows - i;
+    //     current_M &= ~0x3; // current_M = (current_M / 4) * 4;
+    //     current_M = current_M < 4 ? 4 : current_M;
 
-//     if (M < 4) {
-//         PRINTF("Error: Cannot find valid tile sizes.\n");
-//         return;
-//     }
+    //     for (unsigned int j = 0; j < B_cols; j += N) {
+    //         unsigned int current_N = (j + N <= B_cols) ? N : B_cols - j;
+    //         current_N &= ~0x3; // current_N = (current_N / 4) * 4;
+    //         current_N = current_N < 4 ? 4 : current_N;
 
-//     /* Process each tile */
-//     for (unsigned int i = 0; i < A_rows; i += M) {
-//         unsigned int current_M = (i + M <= A_rows) ? M : A_rows - i;
-//         current_M &= ~0x3; // current_M = (current_M / 4) * 4;
-//         current_M = current_M < 4 ? 4 : current_M;
+    //         /* Calculate buffer pointers */
+    //         size_t a_size = current_M * K;
+    //         size_t b_size = K * current_N;
+    //         size_t r_size = current_M * current_N;
 
-//         for (unsigned int j = 0; j < B_cols; j += N) {
-//             unsigned int current_N = (j + N <= B_cols) ? N : B_cols - j;
-//             current_N &= ~0x3; // current_N = (current_N / 4) * 4;
-//             current_N = current_N < 4 ? 4 : current_N;
+    //         if (a_size + b_size + r_size > CGRA_BUFFER_SIZE) {
+    //             PRINTF("Tile exceeds CGRA memory.\n");
+    //             return -1;
+    //         }
 
-//             /* Calculate buffer pointers */
-//             size_t a_size = current_M * K;
-//             size_t b_size = K * current_N;
-//             size_t r_size = current_M * current_N;
+    //     #ifdef DEBUG
+    //         PRINTF("tile size: %d x %d x %d\n", current_M, K, current_N);
+    //     #endif
 
-//             if (a_size + b_size + r_size > CGRA_BUFFER_SIZE) {
-//                 PRINTF("Tile exceeds CGRA memory.\n");
-//                 return -1;
-//             }
+    //         int32_t *A_cgra = cgra_buffer;
+    //         int32_t *B_cgra = A_cgra + a_size;
+    //         int32_t *R_cgra = B_cgra + b_size;
 
-//         #ifdef DEBUG
-//             PRINTF("tile size: %d x %d x %d\n", current_M, K, current_N);
-//         #endif
+    //         /* Copy B tile (row-wise slices) */
+    //         for (unsigned int k = 0; k < K; ++k) {
+    //             dma_copy((uint32_t)(B_cgra + k * current_N), (uint32_t)(B_ram + k * B_cols + j), current_N, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+    //         }
+    //         /* Copy A tile */
+    //         dma_copy((uint32_t)(A_cgra), (uint32_t)(A_ram + i * K), current_M * K, 2, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
 
-//             int32_t *A_cgra = cgra_buffer;
-//             int32_t *B_cgra = A_cgra + a_size;
-//             int32_t *R_cgra = B_cgra + b_size;
+    //         /* Run CGRA MatMul */
+    //         cgra_intr_flag = 0;
+    //         cgraMatMulRun(A_cgra, B_cgra, R_cgra, current_M, K, current_N);
+    //         while (!cgra_intr_flag) { wait_for_interrupt(); }
 
-//             /* Copy B tile (row-wise slices) */
-//             for (unsigned int k = 0; k < K; ++k) {
-//                 dma_copy((uint32_t)(B_cgra + k * current_N), (uint32_t)(B_ram + k * B_cols + j), current_N, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
-//             }
-//             /* Copy A tile */
-//             dma_copy((uint32_t)(A_cgra), (uint32_t)(A_ram + i * K), current_M * K, 2, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
-
-//             /* Run CGRA MatMul */
-//             cgra_intr_flag = 0;
-//             cgraMatMulRun(A_cgra, B_cgra, R_cgra, current_M, K, current_N);
-//             while (!cgra_intr_flag) { wait_for_interrupt(); }
-
-//             /* Copy result back to R_ram */
-//             for (unsigned int row = 0; row < current_M; ++row) {
-//                 dma_copy((uint32_t)(R_ram + (i + row) * B_cols + j), (uint32_t)(R_cgra + row * current_N), current_N, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
-//             }
-//         }
-//     }
-// }
+    //         /* Copy result back to R_ram */
+    //         for (unsigned int row = 0; row < current_M; ++row) {
+    //             dma_copy((uint32_t)(R_ram + (i + row) * B_cols + j), (uint32_t)(R_cgra + row * current_N), current_N, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+    //         }
+    //     }
+    // }
 
 dma_config_flags_t run_dma_2d_transp_trans(dma_trans_t *trans)
 {
