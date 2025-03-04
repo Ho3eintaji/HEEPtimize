@@ -13,7 +13,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include "cgra_bitstream.h"
 #include "heepatia.h"
 #include "csr.h"
 #include "handler.h"
@@ -35,104 +34,80 @@
 /**                        DEFINITIONS AND MACROS                          **/
 /****************************************************************************/
 
-#define CGRA_COL_INPUT_SIZE 4
-#define CHECK_RESULTS
-#define DEBUG
+#define CPU_BUFFER_SIZE (120 * 1024 / sizeof(int32_t))
+// #define DEBUG
 
 /****************************************************************************/
 /**                      PROTOTYPES OF LOCAL FUNCTIONS                     **/
 /****************************************************************************/
 
-// Intialize system
-void init_system(void);
-
-// Handler for the CGRA interruption
-static void handler_irq_cgra(uint32_t id);
-
 // Prototype for the CPU matrix multiplication function
 void cpuMatMul(data_t *A, data_t *B, data_t *C, unsigned int A_rows, unsigned int A_cols, unsigned int B_cols);
 
-// Launch cgra matmul
-void cgraMatMulRun(uint32_t *A, uint32_t *B, uint32_t *C, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols);
-
+// CPU matmul tiled
+void cpuMatMulTiled(int32_t *A_ram, int32_t *B_ram, int32_t *R_ram, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols, int32_t *cpu_buffer, uint32_t cpu_buffer_size);
 
 /****************************************************************************/
 /**                           GLOBAL VARIABLES                             **/
 /****************************************************************************/
 
-// Plic controller variables
-static volatile bool cgra_intr_flag;
+// cache: whole data is cached
+int32_t cache [A_ROWS*A_COLS + B_ROWS*B_COLS + R_ROWS*R_COLS] = {1};
+int32_t *A_ram = cache;
+int32_t *B_ram = cache + A_ROWS*A_COLS;
+int32_t *R_ram = cache + A_ROWS*A_COLS + B_ROWS*B_COLS;
 
-// CGRA variables
-static cgra_t     cgra;
-static uint8_t    cgra_slot;
-
-// CGRA input buffer
-static int32_t cgra_input[CGRA_N_COLS][CGRA_COL_INPUT_SIZE] __attribute__ ((aligned (4)));
-
-// CGRA output buffer
-int32_t R_cgra[R_ROWS*R_COLS] __attribute__((section(".xheep_data_interleaved"))); 
-
-// // CPU output buffer
-// data_t R_cpu[R_ROWS*R_COLS] __attribute__((section(".xheep_data_interleaved")));
-
-// ram buffers
-int32_t A_ram [A_ROWS*A_COLS] __attribute__((section(".xheep_data_interleaved"))) = {0};
-int32_t B_ram [B_ROWS*B_COLS] __attribute__((section(".xheep_data_interleaved"))) = {0};
+// CPU buffer
+int32_t cpu_buffer[CPU_BUFFER_SIZE] __attribute__((section(".xheep_data_interleaved"))) = {0};
 
 /****************************************************************************/
 
 int main(void)
 {
 
-    uint32_t t1, t2, t_cgra, t_cpu;
+    uint32_t t1, t2, t_cpu;
     
-    // Initialization
-    init_system();
+    /* ============================== 
+    * ====== Initialization =========
+    * ============================== */
 
+    // Initialize the DMA
+    dma_sdk_init();
+    // Pick the correct spi device based on simulation type
+    spi_host_t* spi = spi_flash;
+    // Init SPI host and SPI<->Flash bridge parameters
+    if (w25q128jw_init(spi) != FLASH_OK){
+        PRINTF("Error initializing SPI flash\n");
+        return 1;
+    } 
+
+    // init_system();
+    if (vcd_init() != 0) return 1;
+    timer_cycles_init();
+    timer_start();
+
+    /* ==============================
+    * ====== Putting data in cache ======
+    * ============================== */
     // move data from A and B which are in flash to A_ram and B_ram which are in ram
     if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)A), A_ram, A_ROWS*A_COLS*ELEM_SIZE) != FLASH_OK)return -1;
     w25q128jw_wait_quad_dma_async(A_ram, A_ROWS*A_COLS*ELEM_SIZE);
     if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)B), B_ram, B_ROWS*B_COLS*ELEM_SIZE) != FLASH_OK)return -1;
     w25q128jw_wait_quad_dma_async(B_ram, B_ROWS*B_COLS*ELEM_SIZE);
 
-    /* CGRA matmul bitstream loading */
-    cgra_cmem_init(cgra_imem_bitstream, cgra_kmem_bitstream);
-    cgra.base_addr = mmio_region_from_addr((uintptr_t)OECGRA_CONFIG_REGS_START_ADDRESS);
-    cgra_slot = cgra_get_slot(&cgra);
+    /* =======================================
+    * ====== Runing on CPU ======
+    * ======================================== */
+   t1 = timer_get_cycles();
+   cpuMatMulTiled(A_ram, B_ram, R_ram, A_ROWS, A_COLS, B_COLS, cpu_buffer, CPU_BUFFER_SIZE);
+    t_cpu = timer_get_cycles() - t1;
 
-    t1 = timer_get_cycles();
-    cgraMatMulRun(A_ram, B_ram, R_cgra, A_ROWS, A_COLS, B_COLS);
-    while(cgra_intr_flag == 0) { wait_for_interrupt(); }
-    t_cgra =  timer_get_cycles() - t1;
+    PRINTF("CPU MatMul completed in %u cycles.\n", t_cpu);
 
-    // t1 = timer_get_cycles();
-    // cpuMatMul(A_ram, B_ram, R_cpu, A_ROWS, A_COLS, B_COLS);
-    // t_cpu = timer_get_cycles() - t1;
+    PRINTF("R_ram[0]: %x\n", R_ram[0]);
+    PRINTF("R_ram[%d]: %x\n", R_ROWS*R_COLS-1, R_ram[R_ROWS*R_COLS-1]);
 
-#ifdef DEBUG
-    PRINTF("CGRA|gold R[0]: %x\n", R_cgra[0]);
-    // PRINTF("CPU|gold R[0]: %x\n", R_cpu[0]);
-    PRINTF("CGRA|gold R[%d]: %x\n", R_ROWS*R_COLS-1, R_cgra[R_ROWS*R_COLS-1]);
-    // PRINTF("CPU|gold R[%d]: %x\n", R_ROWS*R_COLS-1, R_cpu[R_ROWS*R_COLS-1]);
-#endif // DEBUG
-
-// #ifdef CHECK_RESULTS
-//     // check carus, oe-cgra, and cput results to be the same as the golden result
-//     for (unsigned int i = 0; i < R_ROWS; i++) {
-//         for (unsigned int j = 0; j < R_COLS; j++) {
-//             if (R_cpu[i*R_COLS+j] != R_cgra[i*R_COLS+j]) {
-//                 PRINTF("CPU|CGRA R[%u,%u]: %x %x\n", i, j, R_cpu[i*R_COLS+j], R_cgra[i*R_COLS+j]);
-//                 return -1;
-//             }
-//         }
-//     }
-// #endif // CHECK RESULTS
-
-    PRINTF("CGRA cycles: %u\n", t_cgra);
-    // PRINTF("CPU cycles: %u\n", t_cpu);
-
-return 0;
+    return 0;
 }
 
 void cpuMatMul(data_t *A, data_t *B, data_t *C, unsigned int A_rows, unsigned int A_cols, unsigned int B_cols)
@@ -148,78 +123,100 @@ void cpuMatMul(data_t *A, data_t *B, data_t *C, unsigned int A_rows, unsigned in
 }
 
 
-// Interrupt controller variables
-static void handler_irq_cgra(uint32_t id) {
-  cgra_intr_flag = 1;
-}
+void cpuMatMulTiled(int32_t *A_ram, int32_t *B_ram, int32_t *R_ram,
+    uint32_t A_rows, uint32_t A_cols, uint32_t B_cols,
+    int32_t *cpu_buffer, uint32_t cpu_buffer_size) {
 
-// Intialize system
-void init_system(void){
-    if (vcd_init() != 0) return 1;
-    timer_cycles_init();
-    timer_start();
-
-    // Enable fast interrupts for DMA and PLIC
-    if (enable_fast_interrupt(kDma_fic_e, true) != kFastIntrCtrlOk_e) return 1;
-
-    plic_Init();
-    if (ext_irq_init() != 0) return 1;
-
-    plic_irq_set_priority(CGRA_INTR, 1);
-    plic_irq_set_enabled(CGRA_INTR, kPlicToggleEnabled);
-    plic_assign_external_irq_handler(CGRA_INTR, (void *) &handler_irq_cgra);
-    cgra_intr_flag = 0;
-    
-    // Initialize the DMA
+    unsigned int K = A_cols;
+    unsigned int max_elements = cpu_buffer_size;
     dma_sdk_init();
-    // Pick the correct spi device based on simulation type
-    spi_host_t* spi = spi_flash;
-    // Init SPI host and SPI<->Flash bridge parameters
-    if (w25q128jw_init(spi) != FLASH_OK){
-        PRINTF("Error initializing SPI flash\n");
-        return 1;
-    } 
-} 
 
-//cgra Matmul
-void cgraMatMulRun(uint32_t *A, uint32_t *B, uint32_t *C, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols)
-{
-    // Configure CGRA registers:
-    // Col 0: &B[0][0], nItLoopColsC, &A[0][0], &C[0][3]
-    cgra_input[0][0] = (int32_t)&B[0];
-    cgra_input[0][1] = B_cols/CGRA_N_ROWS;
-    cgra_input[0][2] = (int32_t)&A[0];
-    cgra_input[0][3] = (int32_t)&C[3];
-    // Col 1: &C[1][0], &B[0][1], nItLoopsColsA, &A[1][0]
-    cgra_input[1][0] = (int32_t)&C[B_cols];
-    cgra_input[1][1] = (int32_t)&B[1];
-    cgra_input[1][2] = A_cols;
-    cgra_input[1][3] = (int32_t)&A[A_cols];
-    // Col 2: &A[2][0], &C[2][1], &B[0][2], nItLoopColsC
-    cgra_input[2][0] = (int32_t)&A[2*A_cols];
-    cgra_input[2][1] = (int32_t)&C[2*B_cols+1];
-    cgra_input[2][2] = (int32_t)&B[2];
-    cgra_input[2][3] = B_cols/CGRA_N_ROWS;
-    // Col 3: nItLoopRowsC, &A[3][0], &C[3][2], &B[0][3]
-    cgra_input[3][0] = A_rows/CGRA_N_COLS;
-    cgra_input[3][1] = (int32_t)&A[3*A_cols];
-    cgra_input[3][2] = (int32_t)&C[3*B_cols+2];
-    cgra_input[3][3] = (int32_t)&B[3];
-
-    // Set CGRA read pointers for each column
-    for(int col_idx = 0; col_idx < CGRA_N_COLS; col_idx++){
-        cgra_set_read_ptr(&cgra, cgra_slot, (int32_t)cgra_input[col_idx], col_idx);
+    // Check if the entire matrices fit in the CPU buffer
+    if (A_rows * A_cols + A_cols * B_cols + A_rows * B_cols <= max_elements) {
+        // Direct execution without tiling
+        dma_copy((uint32_t)cpu_buffer, (uint32_t)A_ram, A_rows * A_cols, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+        dma_copy((uint32_t)(cpu_buffer + A_rows * A_cols), (uint32_t)B_ram, A_cols * B_cols, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+        cpuMatMul(cpu_buffer, cpu_buffer + A_rows * A_cols, R_ram, A_rows, A_cols, B_cols);
+        dma_copy((uint32_t)R_ram, (uint32_t)(cpu_buffer + A_rows * A_cols + A_cols * B_cols), A_rows * B_cols, 0, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+    #ifdef DEBUG
+        PRINTF("Direct execution without tiling.\n");
+    #endif
+        return; // Exit the function
     }
-    
-    /* CGRA Enable fast interrupts */
-    CSR_SET_BITS(CSR_REG_MIE, ((1 << 11))); // ((1 << 19) | (1 << 11)) 19: DMA, 11: PLIC
-    // Launch CGRA kernel
-    cgra_intr_flag = 0;
-    cgra_set_kernel(&cgra, cgra_slot, TRANSFORMER);
 
+    uint32_t M = 0, N = 0;
+
+    // Find maximum M and N that fit in CPU memory
+    for (M = A_rows; M >= 1; --M) {
+        uint32_t a_tile = M * K;
+        if (a_tile >= max_elements) continue;
+
+        uint32_t remaining = max_elements - a_tile;
+        uint32_t denom = K + M;
+        if (denom == 0) break;
+
+        N = remaining / denom;
+        if (N >= 1) {
+            if (N > B_cols) {
+                N = B_cols;
+            }
+            if ((K * N + M * N) <= remaining) break;
+        }
+    }
+
+    if (M < 1) {
+        fprintf(stderr, "Error: Cannot find valid tile sizes.\n");
+        return;
+    }
+
+    /* Process each tile */
+    for (uint32_t i = 0; i < A_rows; i += M) {
+        uint32_t current_M = (i + M <= A_rows) ? M : A_rows - i;
+
+        for (uint32_t j = 0; j < B_cols; j += N) {
+            uint32_t current_N = (j + N <= B_cols) ? N : B_cols - j;
+
+            /* Calculate buffer pointers */
+            size_t a_size = current_M * K;
+            size_t b_size = K * current_N;
+            size_t r_size = current_M * current_N;
+
+            
+
+            if (a_size + b_size + r_size > cpu_buffer_size) {
+                PRINTF("Tile exceeds CPU memory.\n");
+                return -1;
+            }
+        #ifdef DEBUG
+            PRINTF("tile size: %d x %d x %d\n", current_M, K, current_N);
+        #endif
+
+            int32_t *A_cpu = cpu_buffer;
+            int32_t *B_cpu = A_cpu + a_size;
+            int32_t *R_cpu = B_cpu + b_size;
+
+            /* Copy A tile */
+            dma_copy((uint32_t)(A_cpu), (uint32_t)(A_ram + i * K), current_M * K, 2, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+
+            /* Copy B tile (row-wise slices) */
+            for (unsigned int col = 0; col < K; ++col) {
+                dma_copy((uint32_t)(B_cpu + col * current_N), (uint32_t)(B_ram + col * B_cols + j), current_N, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+            }
+
+
+            /* Run CPU MatMul */
+            cpuMatMul(A_cpu, B_cpu, R_cpu, current_M, K, current_N);
+
+            /* Copy result back to R_ram */
+            for (unsigned int row = 0; row < current_M; ++row) {
+                dma_copy((uint32_t)(R_ram + (i + row) * B_cols + j), (uint32_t)(R_cpu + row * current_N), current_N, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+            }
+        }
+    }
 }
 
 
 /****************************************************************************/
 /**                                 EOF                                    **/
 /****************************************************************************/
+
