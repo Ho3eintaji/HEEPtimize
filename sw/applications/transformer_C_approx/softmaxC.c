@@ -222,3 +222,61 @@ void consmax(int16_t* input, size_t num_rows, size_t num_cols, int16_t beta, int
         }
     }
 }
+
+
+
+// FOR YUXUAN COMPILER
+
+// #define MUL_LONG(x, y) (int64_t) (((int64_t)(x) * (int64_t)(y)))
+// #define MUL_HQ(x, y) (int32_t) (((int32_t)(x) * (int32_t)(y)))
+// #define SHIFT(x) ((x) >> NUM_FRACTION_BITS)
+
+// #define N_TAYLOR_COEFF 3
+// int32_t factorials[N_TAYLOR_COEFF-1] = {1<<NUM_FRACTION_BITS, 2<<NUM_FRACTION_BITS, 6<<NUM_FRACTION_BITS, 24<<NUM_FRACTION_BITS, 120<<NUM_FRACTION_BITS};
+
+
+// #define EPSILON 1
+
+
+// //  === Below values are used for ConSmax ===
+
+
+// #define NUM_FRACTION_BITS 12
+// #define MUL(x, y) (int32_t) (((int32_t)(x) * (int32_t)(y)) >> NUM_FRACTION_BITS)
+// #define FP_ONE (1 << NUM_FRACTION_BITS)
+
+// uint8_t Q_ptr[1] = {NUM_FRACTION_BITS};
+// int32_t gamma_inv_fxp[1] = {41};  //in Q4.12, 40.96 which is equal to 0.01 (or gamma = 100.0) in float -> 0.01 * 4096 = 41
+// int32_t beta_ptr = {6144};  //in Q4.12, 1.5 in float -> 1.5 * 4096 = 6144
+// uint32_t num_rows_ptr[1] = {121};
+// uint32_t num_cols_ptr[1] = {121};
+// int32_t reciprocal_factorials_ptr[N_TAYLOR_COEFF - 1] = {16777216, 8388608, 2796203, 699051, 139810};
+
+
+// void consmax_comp(uint32_t num_rows_ptr[1], uint32_t num_cols_ptr[1], int32_t beta_ptr[1], int32_t gamma_inv_ptr[1], uint8_t Q_ptr[1], int32_t reciprocal_factorials_ptr[N_TAYLOR_COEFF-1], int32_t * input_ptr) {
+//     // INPUT_SIZE = num_rows_ptr[0] * num_cols_ptr[0]
+//     for (int i = 0; i < num_rows_ptr[0]; i++) {
+//         for (int j = 0; j < num_cols_ptr[0]; j++) {
+//             // 1. Subtract beta from the input value
+//             int32_t shifted_input = (int32_t)input_ptr[i * num_cols_ptr[0] + j] - (int32_t)beta_ptr[0];
+
+//             // 2. Calculate the exponent (using your existing exp_fixed_point_taylor function)
+//             int32_t result = FP_ONE; // 1.0 in Q4.12
+//             int32_t x_pow_n = shifted_input;
+//             for (int i = 0; i < N_TAYLOR_COEFF-1; i++) {
+//                 result += MUL(x_pow_n, reciprocal_factorials[i]);  
+//                 x_pow_n = MUL(x_pow_n, shifted_input);
+//             }
+//             int32_t exp_result = result;
+
+//             // 3. Divide (multiply by inverse) by gamma_inv for normalization
+//             int32_t normalized = MUL(exp_result, gamma_inv_ptr[0]); // Assuming 'gamma' is precomputed inverse
+
+//             // 4. Saturate the result to the desired range (if necessary)
+//             if (normalized > 32767) normalized = 32767;
+//             if (normalized < -32768) normalized = -32768;
+
+//             input_ptr[i * num_cols_ptr[0] + j] = normalized;
+//         }
+//     }
+// }

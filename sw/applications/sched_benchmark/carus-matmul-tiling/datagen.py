@@ -129,10 +129,14 @@ def main():
     # Calculate the range based on sew and scaling
     random_range = int((2**(sew-1)) * range_scaling)
 
+    #TODO: i fix it for debug purpose
+
     # Matrix A [m x n]
-    A = np.random.randint(-random_range, random_range, size=(M, N), dtype=dtype)
+    # A = np.random.randint(-random_range, random_range, size=(M, N), dtype=dtype)
+    A = np.random.randint(0, 4, size=(M, N), dtype=dtype)
     # Matrix B [n x p], where p = col(B)
-    B = np.random.randint(-random_range, random_range, size=(N, P), dtype=dtype)
+    # B = np.random.randint(-random_range, random_range, size=(N, P), dtype=dtype)
+    B = np.random.randint(0, 4, size=(N, P), dtype=dtype)
     # Golden output [m x p]
     R = np.matmul(A, B)
 
