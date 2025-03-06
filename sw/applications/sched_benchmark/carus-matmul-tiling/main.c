@@ -7,8 +7,6 @@
 // Description: Main file for the matrix multiplication application
 
 
-//TODO: tiling is perfect. However, 
-
 #include <stdlib.h>
 #include <stdio.h>
 #include "heepatia.h"
@@ -59,9 +57,6 @@
 // Launch carus matmul
 void carusMatmul(data_t *A_tile, data_t *B_tile, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols, carus_cfg_t * cfg, dma_data_type_t dma_type, uint32_t AROWS, uint32_t ACOLS, uint32_t BCOLS);
 void carusMatmulTiled(data_t *A_ram, data_t *B_ram, data_t *R_ram, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols, carus_cfg_t *cfg, dma_data_type_t dma_type);
-
-// // CGRA matmul tiled
-// void carusMatmulTiled(data_t *A_ram, data_t *B_ram, data_t *R_ram, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols, uint32_t carus_buffer_size);
 
 // cache: whole data is cached
 data_t cache [A_ROWS*A_COLS + B_ROWS*B_COLS + R_ROWS*R_COLS + TEMP_R_CACHE_SIZE] = {0};
@@ -148,12 +143,11 @@ int main(void)
     w25q128jw_wait_quad_dma_async(B_ram, B_ROWS*B_COLS*ELEM_SIZE);
 
     /* =======================================
-    * ====== Runing on CGRA ======
+    * ====== Runing on Carus =================
     * ======================================== */
     dma_sdk_init();
 
     t1 = timer_get_cycles();
-    // carusMatmul(A_ram, B_ram, A_ROWS, A_COLS, B_COLS, &cfg, dma_type);
     carusMatmulTiled(A_ram, B_ram, R_ram, A_ROWS, A_COLS, B_COLS, &cfg, dma_type);
     t_pe = timer_get_cycles() - t1;
 
