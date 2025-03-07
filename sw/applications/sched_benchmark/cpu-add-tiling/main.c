@@ -108,15 +108,15 @@ int main(void)
 #endif
 
     /* =======================================
-    * ====== Runing on Carus =================
+    * ====== Runing on CPU =================
     * ======================================== */
-   dma_sdk_init();
+    dma_sdk_init();
 
-   t1 = timer_get_cycles();
-   cpuAddTiled(A_ram, B_ram, R_ram, A_ROWS*A_COLS);
-   t_pe = timer_get_cycles() - t1;
+    t1 = timer_get_cycles();
+    cpuAddTiled(A_ram, B_ram, R_ram, A_ROWS*A_COLS);
+    t_pe = timer_get_cycles() - t1;
 
-   PRINTF("CPU Add completed in %u cycles.\n", t_pe);
+    PRINTF("CPU Add completed in %u cycles.\n", t_pe);
 
 
 
