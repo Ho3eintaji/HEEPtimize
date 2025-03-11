@@ -7,6 +7,7 @@
 // Date: 22/06/2023
 // Description: Main file for running matmul on multi-accels platform
 
+//TODO: one issue on cgra part
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -30,49 +31,58 @@
 #include "core_v_mini_mcu.h"
 #include "data.h"
 
-/****************************************************************************/
-/**                        DEFINITIONS AND MACROS                          **/
-/****************************************************************************/
+#ifdef POWER_SIM
+#pragma message "Power simulation ENABLED: disabling verification checks"
+#endif
 
-#define CPU_BUFFER_SIZE (120 * 1024 / sizeof(int32_t))
+#define CHECK_RESULTS
 // #define DEBUG
 
-/****************************************************************************/
-/**                      PROTOTYPES OF LOCAL FUNCTIONS                     **/
-/****************************************************************************/
 
-// Prototype for the CPU matrix multiplication function
+#define CPU_BUFFER_SIZE (120 * 1024 / sizeof(int32_t))
+
+// putting an struct for records of timings
+typedef struct {
+    uint32_t t_prc;
+    uint32_t t_flash;
+    uint32_t t_dma_to;
+    uint32_t t_dma_from;
+    uint32_t n_dms;
+    uint32_t t_tot;
+    uint32_t t_tmp1;
+    uint32_t t_tmp2;
+} timings_t;
+
 void cpuMatMul(data_t *A, data_t *B, data_t *C, unsigned int A_rows, unsigned int A_cols, unsigned int B_cols);
+void cpuMatMulTiled(data_t *A_ram, data_t *B_ram, data_t *R_ram, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols, data_t *cpu_buffer, uint32_t cpu_buffer_size, dma_data_type_t dma_type, timings_t * timing);
 
-// CPU matmul tiled
-void cpuMatMulTiled(int32_t *A_ram, int32_t *B_ram, int32_t *R_ram, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols, int32_t *cpu_buffer, uint32_t cpu_buffer_size);
-
-/****************************************************************************/
-/**                           GLOBAL VARIABLES                             **/
-/****************************************************************************/
 
 // cache: whole data is cached
-int32_t cache [A_ROWS*A_COLS + B_ROWS*B_COLS + R_ROWS*R_COLS] = {1};
-int32_t *A_ram = cache;
-int32_t *B_ram = cache + A_ROWS*A_COLS;
-int32_t *R_ram = cache + A_ROWS*A_COLS + B_ROWS*B_COLS;
+data_t cache [A_ROWS*A_COLS + B_ROWS*B_COLS + R_ROWS*R_COLS ] = {0};
+data_t *A_ram = cache;
+data_t *B_ram = cache + A_ROWS*A_COLS;
+data_t *R_ram = cache + A_ROWS*A_COLS + B_ROWS*B_COLS;
+data_t cpu_buffer[CPU_BUFFER_SIZE] __attribute__((section(".xheep_data_interleaved"))) = {0};
+uint32_t t1, t2, t_pe;
 
-// CPU buffer
-int32_t cpu_buffer[CPU_BUFFER_SIZE] __attribute__((section(".xheep_data_interleaved"))) = {0};
-
-/****************************************************************************/
 
 int main(void)
 {
-
-    uint32_t t1, t2, t_cpu;
-    
     /* ============================== 
     * ====== Initialization =========
     * ============================== */
 
     // Initialize the DMA
     dma_sdk_init();
+    dma_data_type_t dma_type;
+    dma_data_type_t dma_type_double = DMA_DATA_TYPE_WORD;
+    switch (ELEM_SIZE){
+        case 1: dma_type = DMA_DATA_TYPE_BYTE; break;
+        case 2: dma_type = DMA_DATA_TYPE_HALF_WORD; break;
+        case 4: dma_type = DMA_DATA_TYPE_WORD; break;
+        default: return 1;
+    }
+
     // Pick the correct spi device based on simulation type
     spi_host_t* spi = spi_flash;
     // Init SPI host and SPI<->Flash bridge parameters
@@ -86,32 +96,58 @@ int main(void)
     timer_cycles_init();
     timer_start();
 
+    // Enable fast interrupts for DMA and PLIC
+    if (enable_fast_interrupt(kDma_fic_e, true) != kFastIntrCtrlOk_e) return 1;
+
+    plic_Init();
+    if (ext_irq_init() != 0) return 1;
+
+     // ----- System initialization -----
+    // Enable fast interrupts for DMA and PLIC
+    if (enable_fast_interrupt(kDma_fic_e, true) != kFastIntrCtrlOk_e) return 1;
+    CSR_SET_BITS(CSR_REG_MSTATUS, 0x8);
+    const uint32_t mask = (1 << 19) | (1 << 11); // 19: DMA, 11: PLIC
+    CSR_SET_BITS(CSR_REG_MIE, mask);             // MIE.meie = 1
+    // Initialize PLIC for external NM-Carus interrupt
+    if (ext_irq_init() != 0) return 1;
+
+
+    // intialize the timings recordings and allocate to zero
+    timings_t * timing_cpu = (timings_t *)malloc(sizeof(timings_t));
+    memset(timing_cpu, 0, sizeof(timings_t));
+
     /* ==============================
     * ====== Putting data in cache ======
     * ============================== */
+   timing_cpu->t_tmp1 = timer_get_cycles();
     // move data from A and B which are in flash to A_ram and B_ram which are in ram
     if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)A), A_ram, A_ROWS*A_COLS*ELEM_SIZE) != FLASH_OK)return -1;
     w25q128jw_wait_quad_dma_async(A_ram, A_ROWS*A_COLS*ELEM_SIZE);
     if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)B), B_ram, B_ROWS*B_COLS*ELEM_SIZE) != FLASH_OK)return -1;
     w25q128jw_wait_quad_dma_async(B_ram, B_ROWS*B_COLS*ELEM_SIZE);
+    timing_cpu->t_flash = timer_get_cycles() - timing_cpu->t_tmp1;
 
     /* =======================================
-    * ====== Runing on CPU ======
+    * ====== Runing on PE ====================
     * ======================================== */
-   t1 = timer_get_cycles();
-   cpuMatMulTiled(A_ram, B_ram, R_ram, A_ROWS, A_COLS, B_COLS, cpu_buffer, CPU_BUFFER_SIZE);
-    t_cpu = timer_get_cycles() - t1;
+    dma_sdk_init(); 
 
-    PRINTF("CPU MatMul completed in %u cycles.\n", t_cpu);
+    // cpu
+    t1 = timer_get_cycles();
+    cpuMatMulTiled(A_ram, B_ram, R_ram, A_ROWS, A_COLS, B_COLS, cpu_buffer, CPU_BUFFER_SIZE, dma_type, timing_cpu);
+    timing_cpu->t_tot = timer_get_cycles() - t1;
 
     PRINTF("R_ram[0]: %x\n", R_ram[0]);
     PRINTF("R_ram[%d]: %x\n", R_ROWS*R_COLS-1, R_ram[R_ROWS*R_COLS-1]);
 
+    // PRINT all the timings
+    PRINTF("CPU: flash: %d, total: %d, prc: %d, dma_to: %d, dma_from: %d, n_dms: %d\n", timing_cpu->t_flash, timing_cpu->t_tot, timing_cpu->t_prc, timing_cpu->t_dma_to, timing_cpu->t_dma_from, timing_cpu->n_dms);
+
     return 0;
 }
 
-void cpuMatMul(data_t *A, data_t *B, data_t *C, unsigned int A_rows, unsigned int A_cols, unsigned int B_cols)
-{
+
+void cpuMatMul(data_t *A, data_t *B, data_t *C, unsigned int A_rows, unsigned int A_cols, unsigned int B_cols){
     for (unsigned int i = 0; i < A_rows; i++) {
         for (unsigned int j = 0; j < B_cols; j++) {
             C[i*B_cols+j] = 0;
@@ -122,10 +158,7 @@ void cpuMatMul(data_t *A, data_t *B, data_t *C, unsigned int A_rows, unsigned in
     }
 }
 
-
-void cpuMatMulTiled(int32_t *A_ram, int32_t *B_ram, int32_t *R_ram,
-    uint32_t A_rows, uint32_t A_cols, uint32_t B_cols,
-    int32_t *cpu_buffer, uint32_t cpu_buffer_size) {
+void cpuMatMulTiled(data_t *A_ram, data_t *B_ram, data_t *R_ram, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols, data_t *cpu_buffer, uint32_t cpu_buffer_size, dma_data_type_t dma_type, timings_t * timing) {
 
     unsigned int K = A_cols;
     unsigned int max_elements = cpu_buffer_size;
@@ -134,38 +167,70 @@ void cpuMatMulTiled(int32_t *A_ram, int32_t *B_ram, int32_t *R_ram,
     // Check if the entire matrices fit in the CPU buffer
     if (A_rows * A_cols + A_cols * B_cols + A_rows * B_cols <= max_elements) {
         // Direct execution without tiling
-        dma_copy((uint32_t)cpu_buffer, (uint32_t)A_ram, A_rows * A_cols, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
-        dma_copy((uint32_t)(cpu_buffer + A_rows * A_cols), (uint32_t)B_ram, A_cols * B_cols, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
-        cpuMatMul(cpu_buffer, cpu_buffer + A_rows * A_cols, R_ram, A_rows, A_cols, B_cols);
-        dma_copy((uint32_t)R_ram, (uint32_t)(cpu_buffer + A_rows * A_cols + A_cols * B_cols), A_rows * B_cols, 0, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+        timing->t_tmp1 = timer_get_cycles();
+        dma_copy((uint32_t)cpu_buffer, (uint32_t)A_ram, A_rows * A_cols, 1, dma_type, dma_type, 0);
+        dma_copy((uint32_t)(cpu_buffer + A_rows * A_cols), (uint32_t)B_ram, A_cols * B_cols, 1, dma_type, dma_type, 0);
+        timing->t_dma_to += timer_get_cycles() - timing->t_tmp1;
+        timing->t_tmp1 = timer_get_cycles();
+        cpuMatMul(cpu_buffer, cpu_buffer + A_rows * A_cols, cpu_buffer + A_rows * A_cols + A_cols * B_cols, A_rows, A_cols, B_cols);
+        timing->t_prc += timer_get_cycles() - timing->t_tmp1;
+        timing->t_tmp1 = timer_get_cycles();
+        dma_copy((uint32_t)R_ram, (uint32_t)(cpu_buffer + A_rows * A_cols + A_cols * B_cols), A_rows * B_cols, 0, dma_type, dma_type, 0);
+        timing->t_dma_from += timer_get_cycles() - timing->t_tmp1;
+
     #ifdef DEBUG
         PRINTF("Direct execution without tiling.\n");
     #endif
         return; // Exit the function
     }
 
-    uint32_t M = 0, N = 0;
+    // --- Tile Size Calculation (Modified for Larger Tiles) ---
+    uint32_t M, N;
 
-    // Find maximum M and N that fit in CPU memory
-    for (M = A_rows; M >= 1; --M) {
-        uint32_t a_tile = M * K;
-        if (a_tile >= max_elements) continue;
+    // Instead of finding the *maximum* M and N that fit, we'll aim for larger tiles
+    // by prioritizing fewer, larger tiles, but still respecting the memory limit.
 
-        uint32_t remaining = max_elements - a_tile;
-        uint32_t denom = K + M;
-        if (denom == 0) break;
+    // 1.  Calculate a "chunk size" for rows (M).  Start with a large fraction of A_rows.
+    M = A_rows / 2;  // Start by trying to process half of A's rows at a time.
+    if (M == 0) M = 1; // Ensure M is at least 1.
 
-        N = remaining / denom;
-        if (N >= 1) {
-            if (N > B_cols) {
-                N = B_cols;
-            }
-            if ((K * N + M * N) <= remaining) break;
+    // 2.  Iteratively reduce M until a suitable N can be found.
+    while (M > 0) {
+        uint32_t a_tile_size = M * K;
+        if (a_tile_size >= max_elements) {
+            M /= 2; // Reduce M if the A tile alone is too big.
+            if (M==0) M=1;
+            continue;
         }
+
+        uint32_t remaining_space = max_elements - a_tile_size;
+
+        // 3. Calculate N based on the remaining space. Try for large N (a fraction of B_cols).
+        N = B_cols / 2; // Start by trying to process half of B's columns.
+        if (N == 0) N = 1;
+
+        // 4.  Iteratively reduce N until it fits within the remaining space.
+        while (N > 0) {
+            uint32_t b_tile_size = K * N;
+            uint32_t r_tile_size = M * N;
+
+            if (b_tile_size + r_tile_size <= remaining_space) {
+                break; // Found a valid N for the current M.
+            }
+            N /= 2; // Reduce N if B and R tiles don't fit.
+            if (N==0) N=1;
+        }
+
+        if (N > 0) {
+            break; // Found valid M and N.
+        }
+
+        M /= 2; // If no valid N was found, reduce M and try again.
+        if (M==0) M=1;
     }
 
-    if (M < 1) {
-        fprintf(stderr, "Error: Cannot find valid tile sizes.\n");
+    if (M < 1 || N < 1) {
+        PRINTF("Error: Cannot find valid tile sizes.\n");
         return;
     }
 
@@ -190,33 +255,32 @@ void cpuMatMulTiled(int32_t *A_ram, int32_t *B_ram, int32_t *R_ram,
         #ifdef DEBUG
             PRINTF("tile size: %d x %d x %d\n", current_M, K, current_N);
         #endif
+        
 
-            int32_t *A_cpu = cpu_buffer;
-            int32_t *B_cpu = A_cpu + a_size;
-            int32_t *R_cpu = B_cpu + b_size;
+            data_t *A_cpu = cpu_buffer;
+            data_t *B_cpu = A_cpu + a_size;
+            data_t *R_cpu = B_cpu + b_size;
 
+            timing->t_tmp1 = timer_get_cycles();
             /* Copy A tile */
-            dma_copy((uint32_t)(A_cpu), (uint32_t)(A_ram + i * K), current_M * K, 2, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
-
+            dma_copy((uint32_t)(A_cpu), (uint32_t)(A_ram + i * K), current_M * K, 2, dma_type, dma_type, 0);
             /* Copy B tile (row-wise slices) */
             for (unsigned int col = 0; col < K; ++col) {
-                dma_copy((uint32_t)(B_cpu + col * current_N), (uint32_t)(B_ram + col * B_cols + j), current_N, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+                dma_copy((uint32_t)(B_cpu + col * current_N), (uint32_t)(B_ram + col * B_cols + j), current_N, 1, dma_type, dma_type, 0);
             }
-
-
+            timing->t_dma_to += timer_get_cycles() - timing->t_tmp1;
             /* Run CPU MatMul */
+            timing->t_tmp1 = timer_get_cycles();
             cpuMatMul(A_cpu, B_cpu, R_cpu, current_M, K, current_N);
+            timing->t_prc += timer_get_cycles() - timing->t_tmp1;
 
             /* Copy result back to R_ram */
+            timing->t_tmp1 = timer_get_cycles();
             for (unsigned int row = 0; row < current_M; ++row) {
-                dma_copy((uint32_t)(R_ram + (i + row) * B_cols + j), (uint32_t)(R_cpu + row * current_N), current_N, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+                dma_copy((uint32_t)(R_ram + (i + row) * B_cols + j), (uint32_t)(R_cpu + row * current_N), current_N, 1, dma_type, dma_type, 0);
             }
+            timing->t_dma_from += timer_get_cycles() - timing->t_tmp1;
+            timing->n_dms++;
         }
     }
 }
-
-
-/****************************************************************************/
-/**                                 EOF                                    **/
-/****************************************************************************/
-

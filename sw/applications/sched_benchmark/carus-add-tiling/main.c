@@ -42,8 +42,21 @@
 #define CARUS_INSTANCE 0
 #define CARUS_VREG_SIZE 2048 // Size of a vector register in bytes
 
-void carusAdd(data_t *A_tile, data_t *B_tile, uint32_t in_size, carus_cfg_t *cfg, dma_data_type_t dma_type, uint8_t elem_size);
-void carusAddTiled(data_t *A_ram, data_t *B_ram, data_t *R_ram, uint32_t add_size, carus_cfg_t *cfg, dma_data_type_t dma_type, uint8_t elem_size);
+typedef struct {
+    uint32_t t_prc;
+    uint32_t t_flash;
+    uint32_t t_dma_to;
+    uint32_t t_dma_from;
+    uint32_t n_dms;
+    uint32_t t_tot;
+    uint32_t t_acc;
+    uint32_t t_tmp1;
+    uint32_t t_tmp2;
+} timings_t;
+uint32_t t1, t2;
+
+void carusAdd(data_t *A_tile, data_t *B_tile, uint32_t in_size, carus_cfg_t *cfg, dma_data_type_t dma_type, uint8_t elem_size, timings_t * timing);
+void carusAddTiled(data_t *A_ram, data_t *B_ram, data_t *R_ram, uint32_t add_size, carus_cfg_t *cfg, dma_data_type_t dma_type, uint8_t elem_size, timings_t * timing);
 
 // cache: whole data is cached
 #ifdef CHECK_RESULTS
@@ -61,7 +74,6 @@ data_t *R_ram2 = cache + A_ROWS*A_COLS + B_ROWS*B_COLS + R_ROWS*R_COLS;
 
 int main(void)
 {
-    uint32_t t1, t2, t_pe;
 
     /* ===========================================
     * ========== Initialization ==================
@@ -91,6 +103,10 @@ int main(void)
 
     // Initialize PLIC for external NM-Carus interrupt
     if (ext_irq_init() != 0) return 1;
+
+    // intialize the timings recordings and allocate to zero
+    timings_t * timing_carus = (timings_t *)malloc(sizeof(timings_t));
+    memset(timing_carus, 0, sizeof(timings_t));
 
     // ------ Initialize NM-Carus ------
     dma_data_type_t dma_type;
@@ -125,10 +141,12 @@ int main(void)
     * ====== Putting data in cache ======
     * ============================== */
     // move data from A and B which are in flash to A_ram and B_ram which are in ram
+    timing_carus->t_tmp1 = timer_get_cycles();
     if (w25q128jw_read_quad_dma_async((int32_t)heep_get_flash_address_offset((data_t *)A), A_ram, A_ROWS*A_COLS*ELEM_SIZE) != FLASH_OK)return -1;
     w25q128jw_wait_quad_dma_async(A_ram, A_ROWS*A_COLS*ELEM_SIZE);
     if (w25q128jw_read_quad_dma_async((int32_t)heep_get_flash_address_offset((data_t *)B), B_ram, B_ROWS*B_COLS*ELEM_SIZE) != FLASH_OK)return -1;
     w25q128jw_wait_quad_dma_async(B_ram, B_ROWS*B_COLS*ELEM_SIZE);
+    timing_carus->t_flash = timer_get_cycles() - timing_carus->t_tmp1;
 #ifdef CHECK_RESULTS
     if (w25q128jw_read_quad_dma_async((int32_t)heep_get_flash_address_offset((data_t *)R), R_ram2, R_ROWS*R_COLS*ELEM_SIZE) != FLASH_OK)return -1;
     w25q128jw_wait_quad_dma_async(R_ram2, R_ROWS*R_COLS*ELEM_SIZE);
@@ -140,11 +158,10 @@ int main(void)
    dma_sdk_init();
 
    t1 = timer_get_cycles();
-   carusAddTiled(A_ram, B_ram, R_ram, A_ROWS*A_COLS, &cfg, dma_type, ELEM_SIZE);
-   t_pe = timer_get_cycles() - t1;
+   carusAddTiled(A_ram, B_ram, R_ram, A_ROWS*A_COLS, &cfg, dma_type, ELEM_SIZE, timing_carus);
+   timing_carus->t_tot = timer_get_cycles() - t1;
 
-   PRINTF("Carus Add completed in %u cycles.\n", t_pe);
-
+   PRINTF("Carus-add: flash: %d, total: %d, prc: %d, dma_to: %d, dma_from: %d, acc: %d, n_dms: %d\n", timing_carus->t_flash, timing_carus->t_tot, timing_carus->t_prc, timing_carus->t_dma_to, timing_carus->t_dma_from, timing_carus->t_acc, timing_carus->n_dms);
 
 
 #ifdef CHECK_RESULTS
@@ -170,13 +187,15 @@ void cpuAdd(data_t *A, data_t *B, data_t *R, unsigned int N) {
 
 
 // Original carusMatmul function (for single tile)
-void carusAdd(data_t *A_tile, data_t *B_tile, uint32_t in_size, carus_cfg_t *cfg, dma_data_type_t dma_type, uint8_t elem_size)
+void carusAdd(data_t *A_tile, data_t *B_tile, uint32_t in_size, carus_cfg_t *cfg, dma_data_type_t dma_type, uint8_t elem_size, timings_t * timing)
 {
     data_t *row_ptr;
     // ----- Carus configuration -----
     cfg->vl    = (uint32_t)in_size;
 
     if (carus_set_cfg(CARUS_INSTANCE, cfg) != 0) return 1;
+
+    timing->t_tmp1 = timer_get_cycles();
 
     // Copy vector A
     row_ptr = (data_t *) carus_vrf(0, CARUS_ADD_A_VREG);
@@ -186,9 +205,15 @@ void carusAdd(data_t *A_tile, data_t *B_tile, uint32_t in_size, carus_cfg_t *cfg
     row_ptr = (data_t *) carus_vrf(0, CARUS_ADD_B_VREG);
     dma_copy((uint32_t) row_ptr, (uint32_t) B_tile, in_size * elem_size, 0, dma_type, dma_type, 0);
 
+    timing->t_dma_to += timer_get_cycles() - timing->t_tmp1;
+
+    timing->t_tmp1 = timer_get_cycles();
+
     // Run the kernel
     if (carus_run_kernel(0) != 0) return 1;
     if (carus_wait_done(0) != 0) return 1;
+
+    timing->t_prc += timer_get_cycles() - timing->t_tmp1;
 
     // // Read returned VL for strip-mining
     // if (carus_get_cfg(0, &cfg) != 0) return 1;
@@ -196,7 +221,7 @@ void carusAdd(data_t *A_tile, data_t *B_tile, uint32_t in_size, carus_cfg_t *cfg
 }
 
 // void carusAdd(void);
-void carusAddTiled(data_t *A_ram, data_t *B_ram, data_t *R_ram, uint32_t add_size, carus_cfg_t *cfg, dma_data_type_t dma_type, uint8_t elem_size){
+void carusAddTiled(data_t *A_ram, data_t *B_ram, data_t *R_ram, uint32_t add_size, carus_cfg_t *cfg, dma_data_type_t dma_type, uint8_t elem_size, timings_t * timing) {
     // Maximum tile sizes based on Carus limitations
     const uint32_t MAX_ADD_SIZE = VL_MAX; // number of elements
     data_t *row_ptr = (data_t *) carus_vrf(0, CARUS_ADD_R_VREG);
@@ -213,10 +238,12 @@ void carusAddTiled(data_t *A_ram, data_t *B_ram, data_t *R_ram, uint32_t add_siz
         } else {
             tile_size = MAX_ADD_SIZE;
         }
-        carusAdd(A_ram + i * MAX_ADD_SIZE, B_ram + i * MAX_ADD_SIZE, tile_size, cfg, dma_type, elem_size);
+        carusAdd(A_ram + i * MAX_ADD_SIZE, B_ram + i * MAX_ADD_SIZE, tile_size, cfg, dma_type, elem_size, timing);
 
         // Copy the result back to R_ram
+        timing->t_tmp1 = timer_get_cycles();
         dma_copy((uint32_t) (R_ram + i * MAX_ADD_SIZE), (uint32_t) row_ptr, (uint32_t)(tile_size), 0, dma_type, dma_type, 0);
+        timing->t_dma_from += timer_get_cycles() - timing->t_tmp1;
         //TODO: this is weird, I gave the size not in bytes but this is the correct way!
     }
 }

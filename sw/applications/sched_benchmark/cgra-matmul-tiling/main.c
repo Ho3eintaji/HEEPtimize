@@ -43,17 +43,25 @@
 /**                      PROTOTYPES OF LOCAL FUNCTIONS                     **/
 /****************************************************************************/
 
+typedef struct {
+    uint32_t t_prc;
+    uint32_t t_flash;
+    uint32_t t_dma_to;
+    uint32_t t_dma_from;
+    uint32_t n_dms;
+    uint32_t t_tot;
+    uint32_t t_tmp1;
+    uint32_t t_tmp2;
+} timings_t;
+
 // Handler for the CGRA interruption
 static void handler_irq_cgra(uint32_t id);
-
-// Prototype for the CPU matrix multiplication function
-void cpuMatMul(data_t *A, data_t *B, data_t *C, unsigned int A_rows, unsigned int A_cols, unsigned int B_cols);
 
 // Launch cgra matmul
 void cgraMatMulRun(uint32_t *A, uint32_t *B, uint32_t *C, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols);
 
 // CGRA matmul tiled
-void cgraMatMulTiled(int32_t *A_ram, int32_t *B_ram, int32_t *R_ram, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols, int32_t *cgra_buffer, uint32_t cgra_buffer_size);
+void cgraMatMulTiled(int32_t *A_ram, int32_t *B_ram, int32_t *R_ram, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols, int32_t *cgra_buffer, uint32_t cgra_buffer_size, timings_t * timing);
 
 /****************************************************************************/
 /**                           GLOBAL VARIABLES                             **/
@@ -121,42 +129,37 @@ int main(void)
     cgra.base_addr = mmio_region_from_addr((uintptr_t)OECGRA_CONFIG_REGS_START_ADDRESS);
     cgra_slot = cgra_get_slot(&cgra);
 
+    // intialize the timings recordings and allocate to zero
+    timings_t * timing_cgra = (timings_t *)malloc(sizeof(timings_t));
+    memset(timing_cgra, 0, sizeof(timings_t));
+
     /* ==============================
     * ====== Putting data in cache ======
     * ============================== */
     // move data from A and B which are in flash to A_ram and B_ram which are in ram
+    timing_cgra->t_tmp1 = timer_get_cycles();
     if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)A), A_ram, A_ROWS*A_COLS*ELEM_SIZE) != FLASH_OK)return -1;
     w25q128jw_wait_quad_dma_async(A_ram, A_ROWS*A_COLS*ELEM_SIZE);
     if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)B), B_ram, B_ROWS*B_COLS*ELEM_SIZE) != FLASH_OK)return -1;
     w25q128jw_wait_quad_dma_async(B_ram, B_ROWS*B_COLS*ELEM_SIZE);
+    timing_cgra->t_flash = timer_get_cycles() - timing_cgra->t_tmp1;
 
     /* =======================================
     * ====== Runing on CGRA ======
     * ======================================== */
-   t1 = timer_get_cycles();
-   cgraMatMulTiled(A_ram, B_ram, R_ram, A_ROWS, A_COLS, B_COLS, cgra_buffer, CGRA_BUFFER_SIZE);
-    t_cgra = timer_get_cycles() - t1;
+    t1 = timer_get_cycles();
+    cgraMatMulTiled(A_ram, B_ram, R_ram, A_ROWS, A_COLS, B_COLS, cgra_buffer, CGRA_BUFFER_SIZE, timing_cgra);
+    timing_cgra->t_tot = timer_get_cycles() - t1;
 
     PRINTF("CGRA MatMul completed in %u cycles.\n", t_cgra);
-
     PRINTF("R_ram[0]: %x\n", R_ram[0]);
     PRINTF("R_ram[%d]: %x\n", R_ROWS*R_COLS-1, R_ram[R_ROWS*R_COLS-1]);
 
+    PRINTF("CGRA: flash: %d, total: %d, prc: %d, dma_to: %d, dma_from: %d, n_dms: %d\n", timing_cgra->t_flash, timing_cgra->t_tot, timing_cgra->t_prc, timing_cgra->t_dma_to, timing_cgra->t_dma_from, timing_cgra->n_dms);
+
+
     return 0;
 }
-
-void cpuMatMul(data_t *A, data_t *B, data_t *C, unsigned int A_rows, unsigned int A_cols, unsigned int B_cols)
-{
-    for (unsigned int i = 0; i < A_rows; i++) {
-        for (unsigned int j = 0; j < B_cols; j++) {
-            C[i*B_cols+j] = 0;
-            for (unsigned int k = 0; k < A_cols; k++) {
-                C[i*B_cols+j] += A[i*A_cols+k] * B[k*B_cols+j];
-            }
-        }
-    }
-}
-
 // Interrupt controller variables
 static void handler_irq_cgra(uint32_t id) {
   cgra_intr_flag = 1;
@@ -202,7 +205,7 @@ void cgraMatMulRun(uint32_t *A, uint32_t *B, uint32_t *C, uint32_t A_rows, uint3
 
 void cgraMatMulTiled(int32_t *A_ram, int32_t *B_ram, int32_t *R_ram,
     uint32_t A_rows, uint32_t A_cols, uint32_t B_cols,
-    int32_t *cgra_buffer, uint32_t cgra_buffer_size) {
+    int32_t *cgra_buffer, uint32_t cgra_buffer_size, timings_t *timing) {
 
     unsigned int K = A_cols;
     unsigned int max_elements = cgra_buffer_size;
@@ -211,10 +214,17 @@ void cgraMatMulTiled(int32_t *A_ram, int32_t *B_ram, int32_t *R_ram,
     // Check if the entire matrices fit in the CGRA buffer
     if (A_rows * A_cols + A_cols * B_cols + A_rows * B_cols <= max_elements) {
         // Direct execution without tiling
+        timing->t_tmp1 = timer_get_cycles();
         dma_copy((uint32_t)cgra_buffer, (uint32_t)A_ram, A_rows * A_cols, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
         dma_copy((uint32_t)(cgra_buffer + A_rows * A_cols), (uint32_t)B_ram, A_cols * B_cols, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
-        cgraMatMulRun(cgra_buffer, cgra_buffer + A_rows * A_cols, R_ram, A_rows, A_cols, B_cols);
+        timing->t_dma_to += timer_get_cycles() - timing->t_tmp1;
+        timing->t_tmp1 = timer_get_cycles();
+        cgraMatMulRun(cgra_buffer, cgra_buffer + A_rows * A_cols, cgra_buffer + A_rows * A_cols + A_cols * B_cols, A_rows, A_cols, B_cols);
+        while (!cgra_intr_flag) { wait_for_interrupt(); }
+        timing->t_prc += timer_get_cycles() - timing->t_tmp1;
+        timing->t_tmp1 = timer_get_cycles();
         dma_copy((uint32_t)R_ram, (uint32_t)(cgra_buffer + A_rows * A_cols + A_cols * B_cols), A_rows * B_cols, 0, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+        timing->t_dma_from += timer_get_cycles() - timing->t_tmp1;
         return; // Exit the function
     }
 
@@ -276,22 +286,28 @@ void cgraMatMulTiled(int32_t *A_ram, int32_t *B_ram, int32_t *R_ram,
             int32_t *B_cgra = A_cgra + a_size;
             int32_t *R_cgra = B_cgra + b_size;
 
+            timing->t_tmp1 = timer_get_cycles();
             /* Copy B tile (row-wise slices) */
             for (unsigned int k = 0; k < K; ++k) {
                 dma_copy((uint32_t)(B_cgra + k * current_N), (uint32_t)(B_ram + k * B_cols + j), current_N, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
             }
             /* Copy A tile */
             dma_copy((uint32_t)(A_cgra), (uint32_t)(A_ram + i * K), current_M * K, 2, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+            timing->t_dma_to += timer_get_cycles() - timing->t_tmp1;
 
             /* Run CGRA MatMul */
-            cgra_intr_flag = 0;
+            timing->t_tmp1 = timer_get_cycles();
             cgraMatMulRun(A_cgra, B_cgra, R_cgra, current_M, K, current_N);
             while (!cgra_intr_flag) { wait_for_interrupt(); }
+            timing->t_prc += timer_get_cycles() - timing->t_tmp1;
 
             /* Copy result back to R_ram */
+            timing->t_tmp1 = timer_get_cycles();
             for (unsigned int row = 0; row < current_M; ++row) {
                 dma_copy((uint32_t)(R_ram + (i + row) * B_cols + j), (uint32_t)(R_cgra + row * current_N), current_N, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
             }
+            timing->t_dma_from += timer_get_cycles() - timing->t_tmp1;
+            timing->n_dms += 1;
         }
     }
 }

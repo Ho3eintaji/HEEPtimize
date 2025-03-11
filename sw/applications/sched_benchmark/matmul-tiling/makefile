@@ -3,14 +3,15 @@
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 #
 # File: makefile
-# Author: Hossein Taji
+# Author: Michele Caon
+# Date: 24/07/2023
 # Description: Makefile for multi-accels matrix multiplication app
 
 #############################
 # ----- CONFIGURATION ----- #
 #############################
 
-KERNEL_PARAMS 		?= int16 --row_a 121 --col_a 400 --decimal_bits 12 --seed 8
+KERNEL_PARAMS 		?= int32 --row_a 120 --col_a 400 --col_b 16
 
 #####################
 # ----- RULES ----- #

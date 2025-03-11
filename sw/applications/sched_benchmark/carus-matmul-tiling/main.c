@@ -36,27 +36,34 @@
 #pragma message "Power simulation ENABLED: disabling verification checks"
 #endif
 
-#define DEBUG
+// #define DEBUG
 // #define DEBUG_DMA
-// #define CARUS_MEM_SIZE (64 * 1024 / sizeof(data_t))
-#define CARUS_MEMORY_SIZE (64 * 1024) // 64KB Carus memory
 
+#define CARUS_MEMORY_SIZE (64 * 1024) // 64KB Carus memory
 #define CARUS_INSTANCE 0
 #define CARUS_VREG_SIZE 2048 // Size of a vector register in bytes
-#define DMA_CHANNEL_A 2
-#define DMA_CHANNEL_B 3
+#define CARUS_MAX_A_ROWS 16  // row_a < 17
+#define CARUS_MAX_A_COLS 15   // col_a < 16
+#define CARUS_MAX_B_COLS 2024 // Based on the tiling loop in carusMatmulTiled
+#define TEMP_R_CACHE_SIZE (CARUS_MAX_A_ROWS * CARUS_MAX_B_COLS)
 
-// Maximum tile sizes based on Carus limitations - make sure these are consistent with carusMatmulTiled
-#define MAX_A_ROWS_TILE 16  // row_a < 17
-#define MAX_A_COLS_TILE 15   // col_a < 16
-#define MAX_B_COLS_TILE 1024 // Based on the tiling loop in carusMatmulTiled
-
-#define TEMP_R_CACHE_SIZE (MAX_A_ROWS_TILE * MAX_B_COLS_TILE)
+typedef struct {
+    uint32_t t_prc;
+    uint32_t t_flash;
+    uint32_t t_dma_to;
+    uint32_t t_dma_from;
+    uint32_t n_dms;
+    uint32_t t_tot;
+    uint32_t t_acc;
+    uint32_t t_tmp1;
+    uint32_t t_tmp2;
+} timings_t;
+uint32_t t1, t2;
 
 
 // Launch carus matmul
-void carusMatmul(data_t *A_tile, data_t *B_tile, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols, carus_cfg_t * cfg, dma_data_type_t dma_type, uint32_t AROWS, uint32_t ACOLS, uint32_t BCOLS);
-void carusMatmulTiled(data_t *A_ram, data_t *B_ram, data_t *R_ram, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols, carus_cfg_t *cfg, dma_data_type_t dma_type);
+void carusMatmul(data_t *A_tile, data_t *B_tile, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols, carus_cfg_t * cfg, dma_data_type_t dma_type, uint32_t AROWS, uint32_t ACOLS, uint32_t BCOLS, timings_t * timing);
+void carusMatmulTiled(data_t *A_ram, data_t *B_ram, data_t *R_ram, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols, carus_cfg_t *cfg, dma_data_type_t dma_type, timings_t * timing);
 
 // cache: whole data is cached
 data_t cache [A_ROWS*A_COLS + B_ROWS*B_COLS + R_ROWS*R_COLS + TEMP_R_CACHE_SIZE] = {0};
@@ -133,14 +140,20 @@ int main(void)
         return 1;
     }
 
+    // intialize the timings recordings and allocate to zero
+    timings_t * timing_carus = (timings_t *)malloc(sizeof(timings_t));
+    memset(timing_carus, 0, sizeof(timings_t));
+
     /* ==============================
     * ====== Putting data in cache ======
     * ============================== */
     // move data from A and B which are in flash to A_ram and B_ram which are in ram
+    timing_carus->t_tmp1 = timer_get_cycles();
     if (w25q128jw_read_quad_dma_async((int32_t)heep_get_flash_address_offset((data_t *)A), A_ram, A_ROWS*A_COLS*ELEM_SIZE) != FLASH_OK)return -1;
     w25q128jw_wait_quad_dma_async(A_ram, A_ROWS*A_COLS*ELEM_SIZE);
     if (w25q128jw_read_quad_dma_async((int32_t)heep_get_flash_address_offset((data_t *)B), B_ram, B_ROWS*B_COLS*ELEM_SIZE) != FLASH_OK)return -1;
     w25q128jw_wait_quad_dma_async(B_ram, B_ROWS*B_COLS*ELEM_SIZE);
+    timing_carus->t_flash = timer_get_cycles() - timing_carus->t_tmp1;
 
     /* =======================================
     * ====== Runing on Carus =================
@@ -148,23 +161,21 @@ int main(void)
     dma_sdk_init();
 
     t1 = timer_get_cycles();
-    carusMatmulTiled(A_ram, B_ram, R_ram, A_ROWS, A_COLS, B_COLS, &cfg, dma_type);
-    t_pe = timer_get_cycles() - t1;
+    carusMatmulTiled(A_ram, B_ram, R_ram, A_ROWS, A_COLS, B_COLS, &cfg, dma_type, timing_carus);
+    timing_carus->t_tot = timer_get_cycles() - t1;
 
-    PRINTF("Carus MatMul completed in %u cycles.\n", t_pe);
-
-    // print ram data
     PRINTF("R_ram[0]: %x\n", R_ram[0]);
-    PRINTF("R_ram[1]: %x\n", R_ram[1]);
-    PRINTF("R_ram[%d]: %x\n", R_ROWS*R_COLS-2, R_ram[R_ROWS*R_COLS-2]);
     PRINTF("R_ram[%d]: %x\n", R_ROWS*R_COLS-1, R_ram[R_ROWS*R_COLS-1]);
+
+    PRINTF("Carus-matmul: flash: %d, total: %d, prc: %d, dma_to: %d, dma_from: %d, acc: %d, n_dms: %d\n", timing_carus->t_flash, timing_carus->t_tot, timing_carus->t_prc, timing_carus->t_dma_to, timing_carus->t_dma_from, timing_carus->t_acc, timing_carus->n_dms);
 
     return 0;
 
 }
 
-// Original carusMatmul function (for single tile)
-void carusMatmul(data_t *A_tile, data_t *B_tile, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols, carus_cfg_t * cfg, dma_data_type_t dma_type, uint32_t AROWS, uint32_t ACOLS, uint32_t BCOLS)
+
+
+void carusMatmul(data_t *A_tile, data_t *B_tile, uint32_t A_rows, uint32_t A_cols, uint32_t B_cols, carus_cfg_t * cfg, dma_data_type_t dma_type, uint32_t AROWS, uint32_t ACOLS, uint32_t BCOLS, timings_t * timing)
 {
     data_t *row_ptr;
 
@@ -175,32 +186,35 @@ void carusMatmul(data_t *A_tile, data_t *B_tile, uint32_t A_rows, uint32_t A_col
 
     if (carus_set_cfg(CARUS_INSTANCE, cfg) != 0) return 1;
 
+    timing->t_tmp1 = timer_get_cycles();
     for (unsigned int i = 0; i < A_cols; i++)
     {
         row_ptr = (data_t *)carus_vrf(0, CARUS_MATMUL_B_VREG + i);
-        dma_copy((uint32_t)row_ptr, (uint32_t)(B_tile + i * B_cols), B_cols * ELEM_SIZE, 0, dma_type, dma_type, 0);
+        dma_copy((uint32_t)row_ptr, (uint32_t)(B_tile + i * B_cols), B_cols, 0, dma_type, dma_type, 0);
     }
 
     // move row by row A
     row_ptr = (data_t *)carus_vrf(0, CARUS_MATMUL_A_VREG);
     for (unsigned int i = 0; i < A_rows; i++)
     {
-        dma_copy((uint32_t)(row_ptr+i*A_cols), (uint32_t)(A_tile + i * ACOLS), A_cols * ELEM_SIZE, 0, dma_type, dma_type, 0); // Corrected indexing: using A_cols
+        dma_copy((uint32_t)(row_ptr+i*A_cols), (uint32_t)(A_tile + i * ACOLS), A_cols, 0, dma_type, dma_type, 0); // Corrected indexing: using A_cols
     }
+    timing->t_dma_to += timer_get_cycles() - timing->t_tmp1;
 
+    timing->t_tmp1 = timer_get_cycles();
     // Run the kernel
     if (carus_run_kernel(0) != 0) return 1;
     if (carus_wait_done(0) != 0) return 1;
+    timing->t_prc += timer_get_cycles() - timing->t_tmp1;
 
 }
 
-// Modified carusMatmul function (for tiling)
-void carusMatmulTiled(data_t *A_ram, data_t *B_ram, data_t *R_ram, uint32_t AROWS, uint32_t ACOLS, uint32_t BCOLS, carus_cfg_t *cfg, dma_data_type_t dma_type) {
+void carusMatmulTiled(data_t *A_ram, data_t *B_ram, data_t *R_ram, uint32_t AROWS, uint32_t ACOLS, uint32_t BCOLS, carus_cfg_t *cfg, dma_data_type_t dma_type, timings_t * timing) {
 
     // Maximum tile sizes based on Carus limitations
-    const uint32_t MAX_A_ROWS = MAX_A_ROWS_TILE;  // row_a < 17
-    const uint32_t MAX_A_COLS = MAX_A_COLS_TILE;   // col_a < 16
-    const uint32_t MAX_B_COLS = MAX_B_COLS_TILE; // up to 1024 practically
+    const uint32_t MAX_A_ROWS = CARUS_MAX_A_ROWS;  // row_a < 17
+    const uint32_t MAX_A_COLS = CARUS_MAX_A_COLS;   // col_a < 16
+    const uint32_t MAX_B_COLS = CARUS_MAX_B_COLS; // up to 1024 practically
 
     // Split into tiles.  Prioritize making tiles as large as possible within the limits.
     for (uint32_t i = 0; i < AROWS; i += MAX_A_ROWS) {
@@ -211,14 +225,6 @@ void carusMatmulTiled(data_t *A_ram, data_t *B_ram, data_t *R_ram, uint32_t AROW
 
             for (uint32_t k = 0; k < ACOLS; k += MAX_A_COLS) {
                 uint32_t current_A_cols = (k + MAX_A_COLS <= ACOLS) ? MAX_A_COLS : ACOLS - k;
-
-                // Check size limits *before* DMA transfers
-                if (current_A_rows * current_A_cols * ELEM_SIZE + current_A_cols * current_B_cols * ELEM_SIZE  > CARUS_MEMORY_SIZE)
-                {
-                   printf("Tile too large for Carus memory.\n");
-                    return; // Or handle the error appropriately
-                }
-
 
                 // Prepare pointers for this tile.
                 data_t *tile_A = A_ram + i * ACOLS + k;
@@ -232,18 +238,19 @@ void carusMatmulTiled(data_t *A_ram, data_t *B_ram, data_t *R_ram, uint32_t AROW
                     PRINTF("Tile size: %d x %d x %d\n", current_A_rows, current_A_cols, current_B_cols);
                 #endif
 
-
                 // Call the existing carusMatmul function.
-                carusMatmul(tile_A, tile_B, current_A_rows, current_A_cols, current_B_cols, cfg, dma_type, AROWS, ACOLS, BCOLS);
+                carusMatmul(tile_A, tile_B, current_A_rows, current_A_cols, current_B_cols, cfg, dma_type, AROWS, ACOLS, BCOLS, timing);
 
-
+                timing->t_tmp1 = timer_get_cycles();
                 // Accumulate results.  DMA back to R_ram in tiles.
                 for (int row = 0; row < current_A_rows; ++row)
                 {
                    data_t *carus_result_row = (data_t *)carus_vrf(0, CARUS_MATMUL_R_VREG + row);
-                   dma_copy((uint32_t)(temp_R + row * current_B_cols), (uint32_t)carus_result_row, current_B_cols * ELEM_SIZE, 0, dma_type, dma_type, 0); // Read one row each time from carus
+                   dma_copy((uint32_t)(temp_R + row * current_B_cols), (uint32_t)carus_result_row, current_B_cols, 0, dma_type, dma_type, 0); // Read one row each time from carus
                 }
+                timing->t_dma_from += timer_get_cycles() - timing->t_tmp1;
 
+                timing->t_tmp1 = timer_get_cycles();
                 for (int m = 0; m < current_A_rows; m++)
                 {
                     for(int n = 0; n < current_B_cols; n++)
@@ -251,8 +258,12 @@ void carusMatmulTiled(data_t *A_ram, data_t *B_ram, data_t *R_ram, uint32_t AROW
                         R_ram[(i + m) * BCOLS + (j + n)] += temp_R[m * current_B_cols + n];
                     }
                 }
+                timing->t_acc += timer_get_cycles() - timing->t_tmp1;
+                
                 // No need to free(temp_R) as it's now fixed cache
+                timing->n_dms++;
             }
         }
     }
 }
+
