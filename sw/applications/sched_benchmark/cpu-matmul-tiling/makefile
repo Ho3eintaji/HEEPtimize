@@ -11,7 +11,7 @@
 # ----- CONFIGURATION ----- #
 #############################
 
-KERNEL_PARAMS 		?= int32 --row_a 120 --col_a 400 --col_b 16
+KERNEL_PARAMS 		?= int32 --row_a 121 --col_a 400 --col_b 121
 
 #####################
 # ----- RULES ----- #

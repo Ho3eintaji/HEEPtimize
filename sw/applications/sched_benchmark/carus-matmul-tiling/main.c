@@ -40,12 +40,24 @@
 // #define DEBUG_DMA
 
 #define CARUS_MEMORY_SIZE (64 * 1024) // 64KB Carus memory
+
+
 #define CARUS_INSTANCE 0
-#define CARUS_VREG_SIZE 2048 // Size of a vector register in bytes
+#define CARUS_VREG_SIZE 2048 // Size of a vector register in bytes for 64 KB
 #define CARUS_MAX_A_ROWS 16  // row_a < 17
 #define CARUS_MAX_A_COLS 15   // col_a < 16
-#define CARUS_MAX_B_COLS 2024 // Based on the tiling loop in carusMatmulTiled
+// #define CARUS_MAX_B_COLS 2024 // Based on the tiling loop in carusMatmulTiled
 #define TEMP_R_CACHE_SIZE (CARUS_MAX_A_ROWS * CARUS_MAX_B_COLS)
+
+
+
+#if CARUS_MEMORY_SIZE == 64 * 1024
+#define CARUS_MAX_B_COLS_KB 2048
+#elif CARUS_MEMORY_SIZE == 32 * 1024
+#define CARUS_MAX_B_COLS_KB 1024
+#endif
+
+#define CARUS_MAX_B_COLS CARUS_MAX_B_COLS_KB/ELEM_SIZE
 
 typedef struct {
     uint32_t t_prc;
@@ -144,30 +156,57 @@ int main(void)
     timings_t * timing_carus = (timings_t *)malloc(sizeof(timings_t));
     memset(timing_carus, 0, sizeof(timings_t));
 
-    /* ==============================
-    * ====== Putting data in cache ======
-    * ============================== */
-    // move data from A and B which are in flash to A_ram and B_ram which are in ram
-    timing_carus->t_tmp1 = timer_get_cycles();
-    if (w25q128jw_read_quad_dma_async((int32_t)heep_get_flash_address_offset((data_t *)A), A_ram, A_ROWS*A_COLS*ELEM_SIZE) != FLASH_OK)return -1;
-    w25q128jw_wait_quad_dma_async(A_ram, A_ROWS*A_COLS*ELEM_SIZE);
-    if (w25q128jw_read_quad_dma_async((int32_t)heep_get_flash_address_offset((data_t *)B), B_ram, B_ROWS*B_COLS*ELEM_SIZE) != FLASH_OK)return -1;
-    w25q128jw_wait_quad_dma_async(B_ram, B_ROWS*B_COLS*ELEM_SIZE);
-    timing_carus->t_flash = timer_get_cycles() - timing_carus->t_tmp1;
+    // /* ==============================
+    // * ====== Putting data in cache ======
+    // * ============================== */
+    // // move data from A and B which are in flash to A_ram and B_ram which are in ram
+    // timing_carus->t_tmp1 = timer_get_cycles();
+    // if (w25q128jw_read_quad_dma_async((int32_t)heep_get_flash_address_offset((data_t *)A), A_ram, A_ROWS*A_COLS*ELEM_SIZE) != FLASH_OK)return -1;
+    // w25q128jw_wait_quad_dma_async(A_ram, A_ROWS*A_COLS*ELEM_SIZE);
+    // if (w25q128jw_read_quad_dma_async((int32_t)heep_get_flash_address_offset((data_t *)B), B_ram, B_ROWS*B_COLS*ELEM_SIZE) != FLASH_OK)return -1;
+    // w25q128jw_wait_quad_dma_async(B_ram, B_ROWS*B_COLS*ELEM_SIZE);
+    // timing_carus->t_flash = timer_get_cycles() - timing_carus->t_tmp1;
 
-    /* =======================================
-    * ====== Runing on Carus =================
-    * ======================================== */
-    dma_sdk_init();
+    // /* =======================================
+    // * ====== Runing on Carus =================
+    // * ======================================== */
+    // dma_sdk_init();
 
-    t1 = timer_get_cycles();
-    carusMatmulTiled(A_ram, B_ram, R_ram, A_ROWS, A_COLS, B_COLS, &cfg, dma_type, timing_carus);
-    timing_carus->t_tot = timer_get_cycles() - t1;
+    // t1 = timer_get_cycles();
+    // carusMatmulTiled(A_ram, B_ram, R_ram, A_ROWS, A_COLS, B_COLS, &cfg, dma_type, timing_carus);
+    // timing_carus->t_tot = timer_get_cycles() - t1;
 
-    PRINTF("R_ram[0]: %x\n", R_ram[0]);
-    PRINTF("R_ram[%d]: %x\n", R_ROWS*R_COLS-1, R_ram[R_ROWS*R_COLS-1]);
+    // PRINTF("Carus-matmul: flash: %d, total: %d, prc: %d, dma_to: %d, dma_from: %d, acc: %d, n_dms: %d\n", timing_carus->t_flash, timing_carus->t_tot, timing_carus->t_prc, timing_carus->t_dma_to, timing_carus->t_dma_from, timing_carus->t_acc, timing_carus->n_dms);
 
-    PRINTF("Carus-matmul: flash: %d, total: %d, prc: %d, dma_to: %d, dma_from: %d, acc: %d, n_dms: %d\n", timing_carus->t_flash, timing_carus->t_tot, timing_carus->t_prc, timing_carus->t_dma_to, timing_carus->t_dma_from, timing_carus->t_acc, timing_carus->n_dms);
+    /* ======================================================== */
+    /*        Loop through all different experiments            */
+    /* ======================================================== */
+    uint32_t list_b_cols[] = {120,  121,    121,    121,    121,    1,      121};
+    uint32_t list_a_cols[] = {400,  16,     4,      16,     4,      16,     121};
+    uint32_t list_a_rows[] = {16,   4,      121,    16,     16,     16,     4};
+
+    for (int i = 0; i < 7; i++){
+            // reset timing
+            memset(timing_carus, 0, sizeof(timings_t));
+
+            // move data from A and B which are in flash to A_ram and B_ram which are in ram
+            timing_carus->t_tmp1 = timer_get_cycles();
+            if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)A), A_ram, list_a_rows[i]*list_a_cols[i]*ELEM_SIZE) != FLASH_OK)return -1;
+            w25q128jw_wait_quad_dma_async(A_ram, list_a_rows[i]*list_a_cols[i]*ELEM_SIZE);
+            if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)B), B_ram, list_a_cols[i]*list_b_cols[i]*ELEM_SIZE) != FLASH_OK)return -1;
+            w25q128jw_wait_quad_dma_async(B_ram, list_a_cols[i]*list_b_cols[i]*ELEM_SIZE);
+            timing_carus->t_flash = timer_get_cycles() - timing_carus->t_tmp1;
+
+            /* =======================================
+            * ====== Runing on CGRA ======
+            * ======================================== */
+            dma_sdk_init();
+            t1 = timer_get_cycles();
+            carusMatmulTiled(A_ram, B_ram, R_ram, list_a_rows[i], list_a_cols[i], list_b_cols[i], &cfg, dma_type, timing_carus);
+            timing_carus->t_tot = timer_get_cycles() - t1;
+
+            PRINTF("'Carus' size: %dx%dx%d,\tflash: %d,\ttotal: %d,\tprc: %d,\tdma_to: %d,\tdma_from: %d,\tacc: %d,\tn_dms: %d\n", list_a_rows[i], list_a_cols[i], list_b_cols[i], timing_carus->t_flash, timing_carus->t_tot, timing_carus->t_prc, timing_carus->t_dma_to, timing_carus->t_dma_from, timing_carus->t_acc, timing_carus->n_dms);
+    }
 
     return 0;
 
@@ -214,7 +253,7 @@ void carusMatmulTiled(data_t *A_ram, data_t *B_ram, data_t *R_ram, uint32_t AROW
     // Maximum tile sizes based on Carus limitations
     const uint32_t MAX_A_ROWS = CARUS_MAX_A_ROWS;  // row_a < 17
     const uint32_t MAX_A_COLS = CARUS_MAX_A_COLS;   // col_a < 16
-    const uint32_t MAX_B_COLS = CARUS_MAX_B_COLS; // up to 1024 practically
+    const uint32_t MAX_B_COLS = CARUS_MAX_B_COLS; // depends on carus size and element size
 
     // Split into tiles.  Prioritize making tiles as large as possible within the limits.
     for (uint32_t i = 0; i < AROWS; i += MAX_A_ROWS) {

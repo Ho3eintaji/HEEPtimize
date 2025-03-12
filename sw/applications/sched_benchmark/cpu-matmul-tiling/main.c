@@ -39,7 +39,7 @@
 // #define DEBUG
 
 
-#define CPU_BUFFER_SIZE (120 * 1024 / sizeof(int32_t))
+#define CPU_BUFFER_SIZE (32 * 1024 / sizeof(data_t))
 
 // putting an struct for records of timings
 typedef struct {
@@ -116,32 +116,63 @@ int main(void)
     timings_t * timing_cpu = (timings_t *)malloc(sizeof(timings_t));
     memset(timing_cpu, 0, sizeof(timings_t));
 
-    /* ==============================
-    * ====== Putting data in cache ======
-    * ============================== */
-   timing_cpu->t_tmp1 = timer_get_cycles();
-    // move data from A and B which are in flash to A_ram and B_ram which are in ram
-    if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)A), A_ram, A_ROWS*A_COLS*ELEM_SIZE) != FLASH_OK)return -1;
-    w25q128jw_wait_quad_dma_async(A_ram, A_ROWS*A_COLS*ELEM_SIZE);
-    if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)B), B_ram, B_ROWS*B_COLS*ELEM_SIZE) != FLASH_OK)return -1;
-    w25q128jw_wait_quad_dma_async(B_ram, B_ROWS*B_COLS*ELEM_SIZE);
-    timing_cpu->t_flash = timer_get_cycles() - timing_cpu->t_tmp1;
+    // /* ==============================
+    // * ====== Putting data in cache ======
+    // * ============================== */
+    //         timing_cpu->t_tmp1 = timer_get_cycles();
+    // // move data from A and B which are in flash to A_ram and B_ram which are in ram
+    // if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)A), A_ram, A_ROWS*A_COLS*ELEM_SIZE) != FLASH_OK)return -1;
+    // w25q128jw_wait_quad_dma_async(A_ram, A_ROWS*A_COLS*ELEM_SIZE);
+    // if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)B), B_ram, B_ROWS*B_COLS*ELEM_SIZE) != FLASH_OK)return -1;
+    // w25q128jw_wait_quad_dma_async(B_ram, B_ROWS*B_COLS*ELEM_SIZE);
+    //         timing_cpu->t_flash = timer_get_cycles() - timing_cpu->t_tmp1;
 
-    /* =======================================
-    * ====== Runing on PE ====================
-    * ======================================== */
-    dma_sdk_init(); 
+    //         /* =======================================
+    // * ====== Runing on PE ====================
+    //         * ======================================== */
+    // dma_sdk_init(); 
 
-    // cpu
-    t1 = timer_get_cycles();
-    cpuMatMulTiled(A_ram, B_ram, R_ram, A_ROWS, A_COLS, B_COLS, cpu_buffer, CPU_BUFFER_SIZE, dma_type, timing_cpu);
-    timing_cpu->t_tot = timer_get_cycles() - t1;
+    // // cpu
+    //         t1 = timer_get_cycles();
+    // cpuMatMulTiled(A_ram, B_ram, R_ram, A_ROWS, A_COLS, B_COLS, cpu_buffer, CPU_BUFFER_SIZE, dma_type, timing_cpu);
+    //         timing_cpu->t_tot = timer_get_cycles() - t1;
 
-    PRINTF("R_ram[0]: %x\n", R_ram[0]);
-    PRINTF("R_ram[%d]: %x\n", R_ROWS*R_COLS-1, R_ram[R_ROWS*R_COLS-1]);
+    // PRINTF("R_ram[0]: %x\n", R_ram[0]);
+    // PRINTF("R_ram[%d]: %x\n", R_ROWS*R_COLS-1, R_ram[R_ROWS*R_COLS-1]);
 
-    // PRINT all the timings
-    PRINTF("CPU: flash: %d, total: %d, prc: %d, dma_to: %d, dma_from: %d, n_dms: %d\n", timing_cpu->t_flash, timing_cpu->t_tot, timing_cpu->t_prc, timing_cpu->t_dma_to, timing_cpu->t_dma_from, timing_cpu->n_dms);
+    // // PRINT all the timings
+    // PRINTF("CPU: flash: %d, total: %d, prc: %d, dma_to: %d, dma_from: %d, n_dms: %d\n", timing_cpu->t_flash, timing_cpu->t_tot, timing_cpu->t_prc, timing_cpu->t_dma_to, timing_cpu->t_dma_from, timing_cpu->n_dms);
+
+    /* ======================================================== */
+    /*        Loop through all different experiments            */
+    /* ======================================================== */
+
+    uint32_t list_a_rows[] = {120,  121,    121,    121,    121,    1,      121};
+    uint32_t list_a_cols[] = {400,  16,     4,      16,     4,      16,     121};
+    uint32_t list_b_cols[] = {16,   4,      121,    16,     16,     16,     4};
+
+    for (int i = 0; i < 7; i++){
+        // reset timing
+        memset(timing_cpu, 0, sizeof(timings_t));
+
+        // move data from A and B which are in flash to A_ram and B_ram which are in ram
+        timing_cpu->t_tmp1 = timer_get_cycles();
+        if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)A), A_ram, list_a_rows[i]*list_a_cols[i]*ELEM_SIZE) != FLASH_OK)return -1;
+        w25q128jw_wait_quad_dma_async(A_ram, list_a_rows[i]*list_a_cols[i]*ELEM_SIZE);
+        if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)B), B_ram, list_a_cols[i]*list_b_cols[i]*ELEM_SIZE) != FLASH_OK)return -1;
+        w25q128jw_wait_quad_dma_async(B_ram, list_a_cols[i]*list_b_cols[i]*ELEM_SIZE);
+        timing_cpu->t_flash = timer_get_cycles() - timing_cpu->t_tmp1;
+
+        /* =======================================
+        * ====== Runing on CGRA ======
+        * ======================================== */
+        t1 = timer_get_cycles();
+        cpuMatMulTiled(A_ram, B_ram, R_ram, list_a_rows[i], list_a_cols[i], list_b_cols[i], cpu_buffer, CPU_BUFFER_SIZE, dma_type, timing_cpu);
+        timing_cpu->t_tot = timer_get_cycles() - t1;
+
+        // PRINTF("'CPU' size: %dx%dx%d,\telement size: %d,\tflash: %d,\ttotal: %d,\tprc: %d,\tdma_to: %d,\tdma_from: %d,\tn_dms: %d\n", list_a_rows[i], list_a_cols[i], list_b_cols[i], list_element_sizes[j], timing_cgra->t_flash, timing_cgra->t_tot, timing_cgra->t_prc, timing_cgra->t_dma_to, timing_cgra->t_dma_from, timing_cgra->n_dms);
+        PRINTF("'CPU' size: %dx%dx%d,\t\tflash: %d,\ttotal: %d,\tprc: %d,\tdma_to: %d,\tdma_from: %d,\tn_dms: %d\n", list_a_rows[i], list_a_cols[i], list_b_cols[i], timing_cpu->t_flash, timing_cpu->t_tot, timing_cpu->t_prc, timing_cpu->t_dma_to, timing_cpu->t_dma_from, timing_cpu->n_dms);
+    }
 
     return 0;
 }
