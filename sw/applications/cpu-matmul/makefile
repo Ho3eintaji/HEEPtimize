@@ -11,8 +11,7 @@
 # ----- CONFIGURATION ----- #
 #############################
 
-# KERNEL_PARAMS 		?= int32 --row_a 121 --col_a 400 --col_b 121
-KERNEL_PARAMS 		?= int32 --row_a 10 --col_a 10 --col_b 10
+KERNEL_PARAMS 		?= int32 --row_a 8 --col_a 8 --col_b 256
 
 #####################
 # ----- RULES ----- #
@@ -25,7 +24,7 @@ all: data.h
 # Generate data.h
 data.h: .force
 	@echo "## Generating data.h..."
-	PYTHONPATH=../../../nmc python3 datagen.py $(KERNEL_PARAMS)
+	PYTHONPATH=../../nmc python3 datagen.py $(KERNEL_PARAMS)
 
 # Dummy rule to force recompilation (because of parameters)
 .force:
@@ -33,4 +32,4 @@ data.h: .force
 # Clean
 .PHONY: clean
 clean:
-	$(RM) data.h
+	$(RM) data.h carus_data.h caesar_data.h caesar_commands.h caesar_instructions*

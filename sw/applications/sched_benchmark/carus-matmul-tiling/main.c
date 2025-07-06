@@ -156,57 +156,61 @@ int main(void)
     timings_t * timing_carus = (timings_t *)malloc(sizeof(timings_t));
     memset(timing_carus, 0, sizeof(timings_t));
 
-    // /* ==============================
-    // * ====== Putting data in cache ======
-    // * ============================== */
-    // // move data from A and B which are in flash to A_ram and B_ram which are in ram
-    // timing_carus->t_tmp1 = timer_get_cycles();
-    // if (w25q128jw_read_quad_dma_async((int32_t)heep_get_flash_address_offset((data_t *)A), A_ram, A_ROWS*A_COLS*ELEM_SIZE) != FLASH_OK)return -1;
-    // w25q128jw_wait_quad_dma_async(A_ram, A_ROWS*A_COLS*ELEM_SIZE);
-    // if (w25q128jw_read_quad_dma_async((int32_t)heep_get_flash_address_offset((data_t *)B), B_ram, B_ROWS*B_COLS*ELEM_SIZE) != FLASH_OK)return -1;
-    // w25q128jw_wait_quad_dma_async(B_ram, B_ROWS*B_COLS*ELEM_SIZE);
-    // timing_carus->t_flash = timer_get_cycles() - timing_carus->t_tmp1;
+    /* ==============================
+    * ====== Putting data in cache ======
+    * ============================== */
+    // move data from A and B which are in flash to A_ram and B_ram which are in ram
+    timing_carus->t_tmp1 = timer_get_cycles();
+    if (w25q128jw_read_quad_dma_async((int32_t)heep_get_flash_address_offset((data_t *)A), A_ram, A_ROWS*A_COLS*ELEM_SIZE) != FLASH_OK)return -1;
+    w25q128jw_wait_quad_dma_async(A_ram, A_ROWS*A_COLS*ELEM_SIZE);
+    if (w25q128jw_read_quad_dma_async((int32_t)heep_get_flash_address_offset((data_t *)B), B_ram, B_ROWS*B_COLS*ELEM_SIZE) != FLASH_OK)return -1;
+    w25q128jw_wait_quad_dma_async(B_ram, B_ROWS*B_COLS*ELEM_SIZE);
+    timing_carus->t_flash = timer_get_cycles() - timing_carus->t_tmp1;
 
-    // /* =======================================
-    // * ====== Runing on Carus =================
-    // * ======================================== */
-    // dma_sdk_init();
+    /* =======================================
+    * ====== Runing on Carus =================
+    * ======================================== */
+    dma_sdk_init();
 
-    // t1 = timer_get_cycles();
-    // carusMatmulTiled(A_ram, B_ram, R_ram, A_ROWS, A_COLS, B_COLS, &cfg, dma_type, timing_carus);
-    // timing_carus->t_tot = timer_get_cycles() - t1;
+    t1 = timer_get_cycles();
+    carusMatmulTiled(A_ram, B_ram, R_ram, A_ROWS, A_COLS, B_COLS, &cfg, dma_type, timing_carus);
+    timing_carus->t_tot = timer_get_cycles() - t1;
 
-    // PRINTF("Carus-matmul: flash: %d, total: %d, prc: %d, dma_to: %d, dma_from: %d, acc: %d, n_dms: %d\n", timing_carus->t_flash, timing_carus->t_tot, timing_carus->t_prc, timing_carus->t_dma_to, timing_carus->t_dma_from, timing_carus->t_acc, timing_carus->n_dms);
+    // printf
+    PRINTF("R_ram[0]: %x\n", R_ram[0]);
+    PRINTF("R_ram[%d]: %x\n", R_ROWS*R_COLS-1, R_ram[R_ROWS*R_COLS-1]);
 
-    /* ======================================================== */
-    /*        Loop through all different experiments            */
-    /* ======================================================== */
-    uint32_t list_b_cols[] = {120,  121,    121,    121,    121,    1,      121};
-    uint32_t list_a_cols[] = {400,  16,     4,      16,     4,      16,     121};
-    uint32_t list_a_rows[] = {16,   4,      121,    16,     16,     16,     4};
+    PRINTF("Carus-matmul: flash: %d, total: %d, prc: %d, dma_to: %d, dma_from: %d, acc: %d, n_dms: %d\n", timing_carus->t_flash, timing_carus->t_tot, timing_carus->t_prc, timing_carus->t_dma_to, timing_carus->t_dma_from, timing_carus->t_acc, timing_carus->n_dms);
 
-    for (int i = 0; i < 7; i++){
-            // reset timing
-            memset(timing_carus, 0, sizeof(timings_t));
+    // /* ======================================================== */
+    // /*        Loop through all different experiments            */
+    // /* ======================================================== */
+    // uint32_t list_b_cols[] = {120,  121,    121,    121,    121,    1,      121};
+    // uint32_t list_a_cols[] = {400,  16,     4,      16,     4,      16,     121};
+    // uint32_t list_a_rows[] = {16,   4,      121,    16,     16,     16,     4};
 
-            // move data from A and B which are in flash to A_ram and B_ram which are in ram
-            timing_carus->t_tmp1 = timer_get_cycles();
-            if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)A), A_ram, list_a_rows[i]*list_a_cols[i]*ELEM_SIZE) != FLASH_OK)return -1;
-            w25q128jw_wait_quad_dma_async(A_ram, list_a_rows[i]*list_a_cols[i]*ELEM_SIZE);
-            if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)B), B_ram, list_a_cols[i]*list_b_cols[i]*ELEM_SIZE) != FLASH_OK)return -1;
-            w25q128jw_wait_quad_dma_async(B_ram, list_a_cols[i]*list_b_cols[i]*ELEM_SIZE);
-            timing_carus->t_flash = timer_get_cycles() - timing_carus->t_tmp1;
+    // for (int i = 0; i < 7; i++){
+    //         // reset timing
+    //         memset(timing_carus, 0, sizeof(timings_t));
 
-            /* =======================================
-            * ====== Runing on CGRA ======
-            * ======================================== */
-            dma_sdk_init();
-            t1 = timer_get_cycles();
-            carusMatmulTiled(A_ram, B_ram, R_ram, list_a_rows[i], list_a_cols[i], list_b_cols[i], &cfg, dma_type, timing_carus);
-            timing_carus->t_tot = timer_get_cycles() - t1;
+    //         // move data from A and B which are in flash to A_ram and B_ram which are in ram
+    //         timing_carus->t_tmp1 = timer_get_cycles();
+    //         if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)A), A_ram, list_a_rows[i]*list_a_cols[i]*ELEM_SIZE) != FLASH_OK)return -1;
+    //         w25q128jw_wait_quad_dma_async(A_ram, list_a_rows[i]*list_a_cols[i]*ELEM_SIZE);
+    //         if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)B), B_ram, list_a_cols[i]*list_b_cols[i]*ELEM_SIZE) != FLASH_OK)return -1;
+    //         w25q128jw_wait_quad_dma_async(B_ram, list_a_cols[i]*list_b_cols[i]*ELEM_SIZE);
+    //         timing_carus->t_flash = timer_get_cycles() - timing_carus->t_tmp1;
 
-            PRINTF("'Carus' size: %dx%dx%d,\tflash: %d,\ttotal: %d,\tprc: %d,\tdma_to: %d,\tdma_from: %d,\tacc: %d,\tn_dms: %d\n", list_a_rows[i], list_a_cols[i], list_b_cols[i], timing_carus->t_flash, timing_carus->t_tot, timing_carus->t_prc, timing_carus->t_dma_to, timing_carus->t_dma_from, timing_carus->t_acc, timing_carus->n_dms);
-    }
+    //         /* =======================================
+    //         * ====== Runing on CGRA ======
+    //         * ======================================== */
+    //         dma_sdk_init();
+    //         t1 = timer_get_cycles();
+    //         carusMatmulTiled(A_ram, B_ram, R_ram, list_a_rows[i], list_a_cols[i], list_b_cols[i], &cfg, dma_type, timing_carus);
+    //         timing_carus->t_tot = timer_get_cycles() - t1;
+
+    //         PRINTF("'Carus' size: %dx%dx%d,\tflash: %d,\ttotal: %d,\tprc: %d,\tdma_to: %d,\tdma_from: %d,\tacc: %d,\tn_dms: %d\n", list_a_rows[i], list_a_cols[i], list_b_cols[i], timing_carus->t_flash, timing_carus->t_tot, timing_carus->t_prc, timing_carus->t_dma_to, timing_carus->t_dma_from, timing_carus->t_acc, timing_carus->n_dms);
+    // }
 
     return 0;
 
@@ -229,14 +233,16 @@ void carusMatmul(data_t *A_tile, data_t *B_tile, uint32_t A_rows, uint32_t A_col
     for (unsigned int i = 0; i < A_cols; i++)
     {
         row_ptr = (data_t *)carus_vrf(0, CARUS_MATMUL_B_VREG + i);
-        dma_copy((uint32_t)row_ptr, (uint32_t)(B_tile + i * B_cols), B_cols, 0, dma_type, dma_type, 0);
+        // dma_copy((uint32_t)row_ptr, (uint32_t)(B_tile + i * B_cols), B_cols, 0, dma_type, dma_type, 0);
+        dma_copy_async((uint32_t)row_ptr, (uint32_t)(B_tile + i * B_cols), B_cols, 0, dma_type, dma_type, 0);
     }
 
     // move row by row A
     row_ptr = (data_t *)carus_vrf(0, CARUS_MATMUL_A_VREG);
     for (unsigned int i = 0; i < A_rows; i++)
     {
-        dma_copy((uint32_t)(row_ptr+i*A_cols), (uint32_t)(A_tile + i * ACOLS), A_cols, 0, dma_type, dma_type, 0); // Corrected indexing: using A_cols
+        // dma_copy((uint32_t)(row_ptr+i*A_cols), (uint32_t)(A_tile + i * ACOLS), A_cols, 0, dma_type, dma_type, 0); // Corrected indexing: using A_cols
+        dma_copy_async((uint32_t)(row_ptr+i*A_cols), (uint32_t)(A_tile + i * ACOLS), A_cols, 0, dma_type, dma_type, 0); // Corrected indexing: using A_cols
     }
     timing->t_dma_to += timer_get_cycles() - timing->t_tmp1;
 

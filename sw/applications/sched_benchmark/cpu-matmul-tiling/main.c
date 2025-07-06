@@ -71,6 +71,7 @@ int main(void)
     /* ============================== 
     * ====== Initialization =========
     * ============================== */
+   PRINTF("Starting CPU matmul tiled\n");
 
     // Initialize the DMA
     dma_sdk_init();

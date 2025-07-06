@@ -80,7 +80,7 @@ void mmulSoftware(int32_t * output);
 // Fill input matrixes with numbers
 void fillMatrixInputs();
 // Handler for the CGRA interruption
-void handler_irq_cgra(uint32_t id);
+static void handler_irq_cgra(uint32_t id);
 // Record the cycle number at the start
 void kcom_perfRecordStart( kcom_time_diff_t *perf );
 // Record the cycle number and compute the total cycles
@@ -100,7 +100,7 @@ void printMatrix(int * matrix, int rows, int cols);
 static kcom_perf_t  kperf;
 
 // Plic controller variables
-volatile bool               cgra_intr_flag;
+static volatile bool cgra_intr_flag;
 
 // CGRA variables
 static cgra_t               cgra;
@@ -364,7 +364,7 @@ void printMatrix(int * matrix, int rows, int cols){
 }
 
 // Interrupt controller variables
-void handler_irq_cgra(uint32_t id) {
+static void handler_irq_cgra(uint32_t id) {
   cgra_intr_flag = 1;
 }
 

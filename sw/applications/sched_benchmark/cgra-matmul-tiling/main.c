@@ -133,65 +133,68 @@ int main(void)
     timings_t * timing_cgra = (timings_t *)malloc(sizeof(timings_t));
     memset(timing_cgra, 0, sizeof(timings_t));
 
-    // /* ==============================
-    // * ====== Putting data in cache ======
-    // * ============================== */
-    // // move data from A and B which are in flash to A_ram and B_ram which are in ram
-    // timing_cgra->t_tmp1 = timer_get_cycles();
-    // if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)A), A_ram, A_ROWS*A_COLS*ELEM_SIZE) != FLASH_OK)return -1;
-    // w25q128jw_wait_quad_dma_async(A_ram, A_ROWS*A_COLS*ELEM_SIZE);
-    // if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)B), B_ram, B_ROWS*B_COLS*ELEM_SIZE) != FLASH_OK)return -1;
-    // w25q128jw_wait_quad_dma_async(B_ram, B_ROWS*B_COLS*ELEM_SIZE);
-    // timing_cgra->t_flash = timer_get_cycles() - timing_cgra->t_tmp1;
+    /* ==============================
+    * ====== Putting data in cache ======
+    * ============================== */
+    // move data from A and B which are in flash to A_ram and B_ram which are in ram
+    timing_cgra->t_tmp1 = timer_get_cycles();
+    if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)A), A_ram, A_ROWS*A_COLS*ELEM_SIZE) != FLASH_OK)return -1;
+    w25q128jw_wait_quad_dma_async(A_ram, A_ROWS*A_COLS*ELEM_SIZE);
+    if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)B), B_ram, B_ROWS*B_COLS*ELEM_SIZE) != FLASH_OK)return -1;
+    w25q128jw_wait_quad_dma_async(B_ram, B_ROWS*B_COLS*ELEM_SIZE);
+    timing_cgra->t_flash = timer_get_cycles() - timing_cgra->t_tmp1;
 
-    // /* =======================================
-    // * ====== Runing on CGRA ======
-    // * ======================================== */
-    // t1 = timer_get_cycles();
-    // cgraMatMulTiled(A_ram, B_ram, R_ram, A_ROWS, A_COLS, B_COLS, cgra_buffer, CGRA_BUFFER_SIZE, timing_cgra);
-    // timing_cgra->t_tot = timer_get_cycles() - t1;
+    /* =======================================
+    * ====== Runing on CGRA ======
+    * ======================================== */
+    t1 = timer_get_cycles();
+    cgraMatMulTiled(A_ram, B_ram, R_ram, A_ROWS, A_COLS, B_COLS, cgra_buffer, CGRA_BUFFER_SIZE, timing_cgra);
+    timing_cgra->t_tot = timer_get_cycles() - t1;
+
+    PRINTF("R_ram[0]: %x\n", R_ram[0]);
+    PRINTF("R_ram[%d]: %x\n", R_ROWS*R_COLS-1, R_ram[R_ROWS*R_COLS-1]);
 
 
-    // PRINTF("size: %dx%dx%d, CGRA: flash: %d, total: %d, prc: %d, dma_to: %d, dma_from: %d, n_dms: %d\n", A_ROWS, A_COLS, B_COLS, timing_cgra->t_flash, timing_cgra->t_tot, timing_cgra->t_prc, timing_cgra->t_dma_to, timing_cgra->t_dma_from, timing_cgra->n_dms);
+    PRINTF("size: %dx%dx%d, CGRA: flash: %d, total: %d, prc: %d, dma_to: %d, dma_from: %d, n_dms: %d\n", A_ROWS, A_COLS, B_COLS, timing_cgra->t_flash, timing_cgra->t_tot, timing_cgra->t_prc, timing_cgra->t_dma_to, timing_cgra->t_dma_from, timing_cgra->n_dms);
 
 
-    /* ======================================================== */
-    /*        Loop through all different experiments            */
-    /* ======================================================== */
+    // /* ======================================================== */
+    // /*        Loop through all different experiments            */
+    // /* ======================================================== */
 
-    // uint32_t list_a_rows[] = {120,  121,    121,    121,    121,    1,      121};
+    // // uint32_t list_a_rows[] = {120,  121,    121,    121,    121,    1,      121};
+    // // uint32_t list_a_cols[] = {400,  16,     4,      16,     4,      16,     121};
+    // // uint32_t list_b_cols[] = {16,   4,      121,    16,     16,     16,     4};
+    // uint32_t list_a_rows[] = {120,  124,    124,    124,    124,    1,      124};
     // uint32_t list_a_cols[] = {400,  16,     4,      16,     4,      16,     121};
-    // uint32_t list_b_cols[] = {16,   4,      121,    16,     16,     16,     4};
-    uint32_t list_a_rows[] = {120,  124,    124,    124,    124,    1,      124};
-    uint32_t list_a_cols[] = {400,  16,     4,      16,     4,      16,     121};
-    uint32_t list_b_cols[] = {16,   4,      124,    16,     16,     16,     4};
+    // uint32_t list_b_cols[] = {16,   4,      124,    16,     16,     16,     4};
 
-    uint32_t list_element_sizes[] = {4};
+    // uint32_t list_element_sizes[] = {4};
 
-    for (int i = 0; i < 7; i++){
-        for (int j = 0; j < 1; j++){
-            // reset timing
-            memset(timing_cgra, 0, sizeof(timings_t));
+    // for (int i = 0; i < 7; i++){
+    //     for (int j = 0; j < 1; j++){
+    //         // reset timing
+    //         memset(timing_cgra, 0, sizeof(timings_t));
 
-            // move data from A and B which are in flash to A_ram and B_ram which are in ram
-            timing_cgra->t_tmp1 = timer_get_cycles();
-            if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)A), A_ram, list_a_rows[i]*list_a_cols[i]*list_element_sizes[j]) != FLASH_OK)return -1;
-            w25q128jw_wait_quad_dma_async(A_ram, list_a_rows[i]*list_a_cols[i]*list_element_sizes[j]);
-            if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)B), B_ram, list_a_cols[i]*list_b_cols[i]*list_element_sizes[j]) != FLASH_OK)return -1;
-            w25q128jw_wait_quad_dma_async(B_ram, list_a_cols[i]*list_b_cols[i]*list_element_sizes[j]);
-            timing_cgra->t_flash = timer_get_cycles() - timing_cgra->t_tmp1;
+    //         // move data from A and B which are in flash to A_ram and B_ram which are in ram
+    //         timing_cgra->t_tmp1 = timer_get_cycles();
+    //         if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)A), A_ram, list_a_rows[i]*list_a_cols[i]*list_element_sizes[j]) != FLASH_OK)return -1;
+    //         w25q128jw_wait_quad_dma_async(A_ram, list_a_rows[i]*list_a_cols[i]*list_element_sizes[j]);
+    //         if (w25q128jw_read_quad_dma_async((uint32_t)heep_get_flash_address_offset((uint32_t *)B), B_ram, list_a_cols[i]*list_b_cols[i]*list_element_sizes[j]) != FLASH_OK)return -1;
+    //         w25q128jw_wait_quad_dma_async(B_ram, list_a_cols[i]*list_b_cols[i]*list_element_sizes[j]);
+    //         timing_cgra->t_flash = timer_get_cycles() - timing_cgra->t_tmp1;
 
-            /* =======================================
-            * ====== Runing on CGRA ======
-            * ======================================== */
-            t1 = timer_get_cycles();
-            cgraMatMulTiled(A_ram, B_ram, R_ram, list_a_rows[i], list_a_cols[i], list_b_cols[i], cgra_buffer, CGRA_BUFFER_SIZE, timing_cgra);
-            timing_cgra->t_tot = timer_get_cycles() - t1;
+    //         /* =======================================
+    //         * ====== Runing on CGRA ======
+    //         * ======================================== */
+    //         t1 = timer_get_cycles();
+    //         cgraMatMulTiled(A_ram, B_ram, R_ram, list_a_rows[i], list_a_cols[i], list_b_cols[i], cgra_buffer, CGRA_BUFFER_SIZE, timing_cgra);
+    //         timing_cgra->t_tot = timer_get_cycles() - t1;
 
-            PRINTF("'CGRA' size: %dx%dx%d,\telement size: %d,\tflash: %d,\ttotal: %d,\tprc: %d,\tdma_to: %d,\tdma_from: %d,\tn_dms: %d\n", list_a_rows[i], list_a_cols[i], list_b_cols[i], list_element_sizes[j], timing_cgra->t_flash, timing_cgra->t_tot, timing_cgra->t_prc, timing_cgra->t_dma_to, timing_cgra->t_dma_from, timing_cgra->n_dms);
-        }
+    //         PRINTF("'CGRA' size: %dx%dx%d,\telement size: %d,\tflash: %d,\ttotal: %d,\tprc: %d,\tdma_to: %d,\tdma_from: %d,\tn_dms: %d\n", list_a_rows[i], list_a_cols[i], list_b_cols[i], list_element_sizes[j], timing_cgra->t_flash, timing_cgra->t_tot, timing_cgra->t_prc, timing_cgra->t_dma_to, timing_cgra->t_dma_from, timing_cgra->n_dms);
+    //     }
 
-    }
+    // }
 
 
     return 0;
@@ -251,8 +254,13 @@ void cgraMatMulTiled(int32_t *A_ram, int32_t *B_ram, int32_t *R_ram,
     if (A_rows * A_cols + A_cols * B_cols + A_rows * B_cols <= max_elements) {
         // Direct execution without tiling
         timing->t_tmp1 = timer_get_cycles();
-        dma_copy((uint32_t)cgra_buffer, (uint32_t)A_ram, A_rows * A_cols, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
-        dma_copy((uint32_t)(cgra_buffer + A_rows * A_cols), (uint32_t)B_ram, A_cols * B_cols, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+        // dma_copy((uint32_t)cgra_buffer, (uint32_t)A_ram, A_rows * A_cols, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+        // dma_copy((uint32_t)(cgra_buffer + A_rows * A_cols), (uint32_t)B_ram, A_cols * B_cols, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+        dma_copy_async((uint32_t)cgra_buffer, (uint32_t)A_ram, A_rows * A_cols, 1, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+        dma_copy_async((uint32_t)(cgra_buffer + A_rows * A_cols), (uint32_t)B_ram, A_cols * B_cols, 2, DMA_DATA_TYPE_WORD, DMA_DATA_TYPE_WORD, 0);
+        dma_wait(2);
+        dma_wait(1);
+
         timing->t_dma_to += timer_get_cycles() - timing->t_tmp1;
         timing->t_tmp1 = timer_get_cycles();
         cgraMatMulRun(cgra_buffer, cgra_buffer + A_rows * A_cols, cgra_buffer + A_rows * A_cols + A_cols * B_cols, A_rows, A_cols, B_cols);
